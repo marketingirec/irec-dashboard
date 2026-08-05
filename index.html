@@ -1,0 +1,657 @@
+<title>Dashboard Budget vs Real &mdash; IREC</title>
+<style>
+  :root{
+    --ground:#F6F8FB; --surface:#FFFFFF; --surface-2:#FBFCFE; --border:#E3E8EF;
+    --ink:#1A2230; --muted:#5B6675; --faint:#8A94A6;
+    --accent:#2563C9; --accent-soft:#E7EFFB;
+    --budget:#94A0B3;
+    --good:#12885A; --good-soft:#E3F4EC;
+    --bad:#D1435B; --bad-soft:#FCE8EC;
+    --warn:#B8791C;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 8px 24px -12px rgba(20,30,50,.14);
+    --radius:12px;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#0E141F; --surface:#151E2C; --surface-2:#111927; --border:#26303F;
+      --ink:#E9EDF3; --muted:#9AA6B6; --faint:#6C7889;
+      --accent:#5C9BF0; --accent-soft:#18293F;
+      --budget:#6C7889;
+      --good:#3AC489; --good-soft:#12281F;
+      --bad:#F0748A; --bad-soft:#2C1620;
+      --warn:#E0A94B;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#F6F8FB; --surface:#FFFFFF; --surface-2:#FBFCFE; --border:#E3E8EF;
+    --ink:#1A2230; --muted:#5B6675; --faint:#8A94A6;
+    --accent:#2563C9; --accent-soft:#E7EFFB; --budget:#94A0B3;
+    --good:#12885A; --good-soft:#E3F4EC; --bad:#D1435B; --bad-soft:#FCE8EC; --warn:#B8791C;
+    --shadow:0 1px 2px rgba(20,30,50,.05),0 8px 24px -12px rgba(20,30,50,.14);
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E141F; --surface:#151E2C; --surface-2:#111927; --border:#26303F;
+    --ink:#E9EDF3; --muted:#9AA6B6; --faint:#6C7889;
+    --accent:#5C9BF0; --accent-soft:#18293F; --budget:#6C7889;
+    --good:#3AC489; --good-soft:#12281F; --bad:#F0748A; --bad-soft:#2C1620; --warn:#E0A94B;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased;font-size:14px}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* Header */
+  header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;
+    padding-bottom:18px;border-bottom:1px solid var(--border);margin-bottom:22px}
+  .brand h1{margin:0;font-size:22px;letter-spacing:-.02em;font-weight:680}
+  .brand p{margin:5px 0 0;color:var(--muted);font-size:13px;max-width:56ch}
+  .head-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .badge{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);
+    border-radius:999px;padding:5px 12px;font-size:12px;color:var(--muted);box-shadow:var(--shadow)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--good)}
+  .dot.warn{background:var(--warn)}
+
+  /* Segmented control */
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px}
+  .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:560;
+    padding:6px 14px;border-radius:7px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+  .iconbtn{border:1px solid var(--border);background:var(--surface);color:var(--muted);width:34px;height:34px;
+    border-radius:9px;cursor:pointer;font-size:15px;display:grid;place-items:center}
+  .iconbtn:hover{color:var(--ink)}
+
+  /* Tiles */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:22px}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow)}
+  .tile .lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600}
+  .tile .val{font-size:26px;font-weight:680;letter-spacing:-.02em;margin-top:6px}
+  .tile .sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+  /* Tabs */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap}
+  .tabs button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;font-weight:560;
+    padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+  .panel{display:none}
+  .panel.active{display:block}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .card-h{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+  .card-h h2{margin:0;font-size:15px;font-weight:640;letter-spacing:-.01em}
+  .card-h .hint{font-size:12px;color:var(--muted)}
+  .card-b{padding:4px 0}
+
+  /* Tables */
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{padding:9px 12px;text-align:right;white-space:nowrap}
+  th.voce,td.voce{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;font-weight:560;min-width:210px}
+  thead th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;
+    border-bottom:1px solid var(--border);background:var(--surface-2);position:sticky;top:0}
+  thead th.voce{background:var(--surface-2);z-index:3}
+  tbody tr:hover td{background:var(--surface-2)}
+  tbody tr:hover td.voce{background:var(--surface-2)}
+  td.now{box-shadow:inset 0 0 0 1px var(--accent-soft)}
+  .cell{display:inline-block;min-width:46px;padding:2px 7px;border-radius:6px;font-variant-numeric:tabular-nums}
+  .cell.g{background:var(--good-soft);color:var(--good);font-weight:600}
+  .cell.b{background:var(--bad-soft);color:var(--bad);font-weight:600}
+  .muted{color:var(--faint)}
+  .mtag{font-size:11px;font-weight:500}
+  .colhdr-now{color:var(--accent)}
+
+  tr.sep td{border-top:1px solid var(--border)}
+  .grp{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:700;padding-top:14px}
+
+  /* Pivot editable inputs */
+  input.bud{width:78px;text-align:right;font:inherit;font-size:13px;font-variant-numeric:tabular-nums;
+    border:1px solid var(--border);background:var(--surface-2);color:var(--ink);border-radius:7px;padding:5px 8px}
+  input.bud:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+  input.bud::placeholder{color:var(--faint)}
+
+  select,input.txt{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--surface);color:var(--ink);
+    border-radius:9px;padding:7px 10px}
+  label.fld{display:inline-flex;flex-direction:column;gap:4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600}
+
+  /* Chart */
+  .chart-wrap{padding:14px 16px 6px}
+  svg.chart{width:100%;height:auto;display:block;overflow:visible}
+  .legend{display:flex;gap:18px;align-items:center;padding:2px 16px 14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .legend .k{display:inline-flex;align-items:center;gap:7px}
+  .swatch{width:14px;height:3px;border-radius:2px;display:inline-block}
+  .tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--ground);font-size:12px;
+    padding:7px 10px;border-radius:8px;box-shadow:var(--shadow);opacity:0;transition:opacity .1s;z-index:50;white-space:nowrap}
+  .tip b{color:var(--ground)}
+
+  .notice{display:flex;gap:12px;padding:16px;border:1px dashed var(--border);border-radius:var(--radius);
+    background:var(--surface-2);color:var(--muted);font-size:13px;line-height:1.6;align-items:flex-start}
+  .notice .mk{color:var(--warn);font-size:16px;line-height:1.3}
+  .notice b{color:var(--ink)}
+
+  footer{margin-top:26px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:12px;line-height:1.7}
+  footer b{color:var(--ink)}
+  .prov{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:8px}
+  code{font-family:var(--mono);font-size:11.5px;background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px}
+  a{color:var(--accent)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  @media(max-width:560px){.brand h1{font-size:19px}.tile .val{font-size:22px}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Dashboard Budget vs Real &mdash; IREC</h1>
+      <p>Confronto mensile fra obiettivi (Budget) e risultati (Real). I valori <b>Real</b> sono estratti da Salesforce secondo la tassonomia KPI IREC; il <b>Budget</b> &egrave; pre-caricato dal forecast NORMAL (IREC&nbsp;Reforecast&nbsp;H2) e resta modificabile.</p>
+    </div>
+    <div class="head-tools">
+      <span class="badge"><span class="dot"></span>Real &middot; Salesforce</span>
+      <span class="badge"><span class="dot" style="background:var(--budget)"></span>Budget &middot; Forecast NORMAL</span>
+      <span class="badge" id="snapBadge"><span class="dot warn"></span>Snapshot &mdash;</span>
+      <button class="iconbtn" id="themeBtn" title="Cambia tema" aria-label="Cambia tema">&#9681;</button>
+    </div>
+  </header>
+
+  <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="seg" role="group" aria-label="Funnel">
+      <button id="fGeneral" aria-pressed="true">Funnel General</button>
+      <button id="fReopen" aria-pressed="false">Funnel Reopen</button>
+    </div>
+    <div id="dateFilter" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+      <label class="fld">Data inizio<input type="date" id="dStart" class="txt"></label>
+      <label class="fld">Data fine<input type="date" id="dEnd" class="txt"></label>
+      <button class="iconbtn" id="dReset" title="Ripristina periodo completo" aria-label="Ripristina periodo" style="width:auto;padding:0 12px;font-size:12px">&#8635; Tutto</button>
+    </div>
+  </div>
+
+  <div id="periodCap" style="font-size:12px;color:var(--muted);margin:0 2px 12px"></div>
+  <section class="tiles" id="tiles"></section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="mom">Andamento mese su mese</button>
+    <button role="tab" aria-selected="false" data-tab="pivot">Pivot Budget vs Real</button>
+    <button role="tab" aria-selected="false" data-tab="adv">ADV &amp; Economics</button>
+  </nav>
+
+  <!-- ============ FOGLIO 1 : MoM ============ -->
+  <section class="panel active" id="panel-mom">
+    <div id="momReopenNotice"></div>
+    <div id="momContent">
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-h">
+          <h2>Andamento del funnel &middot; gennaio &rarr; dicembre</h2>
+          <span class="hint">Colore cella = Real vs Budget &middot; <span style="color:var(--good)">verde &ge; target</span> &middot; <span style="color:var(--bad)">rosso &lt; target</span></span>
+        </div>
+        <div class="card-b scroll"><table id="momTable"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-h">
+          <h2>Trend &mdash; <span id="trendVoce"></span></h2>
+          <label class="fld" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;color:var(--muted)">
+            Voce
+            <select id="voceSel"></select>
+          </label>
+        </div>
+        <div class="chart-wrap"><div id="chart"></div></div>
+        <div class="legend">
+          <span class="k"><span class="swatch" style="background:var(--accent)"></span>Real</span>
+          <span class="k"><span class="swatch" style="background:var(--budget);height:0;border-top:2px dashed var(--budget)"></span>Budget</span>
+          <span class="k muted" id="trendNote"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOGLIO 2 : PIVOT ============ -->
+  <section class="panel" id="panel-pivot">
+    <div id="pivReopenNotice"></div>
+    <div id="pivContent">
+      <div class="card">
+        <div class="card-h">
+          <h2>Budget vs Real &mdash; dettaglio mese</h2>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <label class="fld" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;color:var(--muted)">
+              Mese <select id="pivMonth"></select>
+            </label>
+            <button class="iconbtn" id="resetBtn" title="Ripristina i valori dal forecast" aria-label="Ripristina forecast" style="width:auto;padding:0 12px;gap:6px;font-size:12px">&#8635; Forecast</button>
+            <button class="iconbtn" id="expBtn" title="Esporta budget (JSON)" aria-label="Esporta budget" style="width:auto;padding:0 12px;gap:6px;font-size:12px">&#10515; Budget</button>
+            <button class="iconbtn" id="impBtn" title="Importa budget (JSON)" aria-label="Importa budget" style="width:auto;padding:0 12px;gap:6px;font-size:12px">&#10514; Importa</button>
+            <input type="file" id="impFile" accept="application/json" hidden>
+          </div>
+        </div>
+        <div class="card-b scroll"><table id="pivTable"></table></div>
+      </div>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">
+        La colonna <b>Budget</b> &egrave; pre-caricata dal forecast NORMAL (IREC&nbsp;Reforecast&nbsp;H2); modificala e Delta / percentuali si aggiornano subito. <b>&#8635;&nbsp;Forecast</b> ripristina i valori originali, <b>&#10515;&nbsp;Budget</b> li esporta. Il Reforecast H2 copre solo lug&ndash;dic: il primo semestre (gen&ndash;giu) non ha budget.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ ADV & ECONOMICS ============ -->
+  <section class="panel" id="panel-adv">
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-h">
+        <h2>Spesa pubblicitaria &amp; economics</h2>
+        <span class="hint"><span style="color:var(--budget)">Budget</span> dal forecast &middot; <span style="color:var(--accent)">Real</span> spesa da inserire a mano (connettore ADV da agganciare)</span>
+      </div>
+      <div class="card-b scroll"><table id="advTable"></table></div>
+    </div>
+    <div class="tiles" id="advTiles"></div>
+  </section>
+
+  <footer>
+    <div><b>Provenienza dei dati.</b> Real estratti live da Salesforce (org <code>marketing@irec.it</code>) via connettore MCP in sola lettura, con le query SOQL della <i>Tassonomia Filtri KPI Qlik-SF</i>. Snapshot al momento dell'estrazione &mdash; per aggiornare si rieseguono le query e si ripubblica.</div>
+    <div class="prov">
+      <div><b>Real &mdash; pronto.</b> Funnel General: Lead ancorati a <code>Data_Compilazione_Questionario__c</code>, Opportunity a <code>CloseDate</code>, RecordType <code>IREC</code>.</div>
+      <div><b>Budget &mdash; agganciato.</b> Pre-caricato dal forecast <b>NORMAL</b> (file IREC Reforecast 2026, foglio <i>IREC&nbsp;Reforecast&nbsp;H2</i>), mappato 1:1 sulle voci. Editabile e ripristinabile. Copre solo H2 (lug&ndash;dic); il primo semestre non ha budget da reforecast.</div>
+      <div><b>Funnel Reopen &mdash; da definire.</b> Richiede la <code>LeadHistory</code>, ma <code>OldValue</code>/<code>NewValue</code> non sono filtrabili in SOQL aggregato: serve una logica dedicata concordata col team.</div>
+      <div><b>ADV &mdash; budget dal forecast.</b> Spesa ADV a budget (Meta+Google) e Venduto FE dal forecast NORMAL; la spesa <b>real</b> resta manuale finch&eacute; non si aggancia Meta/Google (Supermetrics o export Sheet).</div>
+    </div>
+  </footer>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- DATI REAL (snapshot Salesforce) ---------- */
+var SNAPSHOT = "2026-08-04";
+var CUR_MONTH = 8;              // agosto in corso (parziale)
+var MESI = ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
+var MESI_LUNGHI = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+
+// null = mese futuro (nessun dato) &middot; numero = valore reale (0 = nessun record)
+function pad(a){while(a.length<12)a.push(null);return a;}
+var REAL = {
+  general: [
+    {voce:"Totali entrati",           grp:"Marketing", kpi:"KPI 1",  fmt:"int", data:pad([855,640,808,499,428,588,735,67])},
+    {voce:"In target da Policy",      grp:"Marketing", kpi:"KPI 14", fmt:"int", data:pad([559,386,530,262,257,340,486,51])},
+    {voce:"In target criteri sec. TMK",grp:"Marketing",kpi:"KPI 30", fmt:"int", data:pad([465,302,455,208,198,265,440,50])},
+    {voce:"Contattabili TMK",         grp:"Telemarketing", kpi:"KPI 32", fmt:"int", data:pad([122,74,108,73,63,51,164,29])},
+    {voce:"MQL",                      grp:"Marketing", kpi:"KPI 36", fmt:"int", data:pad([92,87,70,72,63,218,109,4])},
+    {voce:"SQL &mdash; appuntamenti",       grp:"Rete",      kpi:"KPI 38", fmt:"int", data:pad([91,84,69,72,62,55,56,0])},
+    {voce:"Trattative",               grp:"Rete",      kpi:"KPI 45", fmt:"int", data:pad([47,39,39,33,27,20,17,0])},
+    {voce:"Chiusi vinti (+pending)",  grp:"Rete",      kpi:"KPI 47", fmt:"int", data:pad([21,25,28,19,13,22,29,2])}
+  ]
+};
+// economics (funnel General)
+var FATTURATO = pad([21169.8,22944.6,25661.2,18233.28,11892.2,12525,6232,0]);
+var CONTRATTI = pad([21,25,28,19,13,22,29,2]);
+var LEAD_TOT  = REAL.general[0].data;
+
+/* ---------- DATI GIORNALIERI (per filtro periodo, funnel General) ----------
+   Array di DAYN valori consecutivi da DAY0. Alimentano le tile filtrabili per data.
+   Estratti da Salesforce con GROUP BY per giorno (aggiornati allo snapshot corrente). */
+var DAY0="2026-01-01";var DAYN=217;
+var DTOT=[30,50,37,49,33,35,27,18,26,17,35,17,30,27,14,28,29,28,13,31,17,26,18,27,33,33,24,29,28,21,25,29,16,18,29,17,14,20,16,27,21,16,26,21,19,18,29,28,24,25,40,21,39,28,26,19,26,15,13,21,22,33,26,19,16,29,26,27,45,40,23,24,43,49,24,180,25,14,8,8,12,12,16,9,11,16,8,5,7,10,8,16,12,11,16,11,10,14,27,8,13,8,11,15,13,14,119,7,14,10,16,15,22,15,6,12,12,17,10,17,18,15,18,14,11,12,16,19,16,13,11,18,7,11,7,14,9,8,4,8,21,13,7,12,16,17,26,17,18,11,21,17,17,25,16,5,14,16,15,11,10,18,14,16,18,13,14,14,14,17,14,29,43,34,28,2,2,1,1,127,23,28,20,23,21,26,23,19,15,23,22,17,20,19,21,28,19,39,20,34,26,31,24,16,26,24,23,37,28,17,21,25,16,27,19,13,7];
+var DMQL=[0,0,0,0,0,0,8,10,4,0,0,3,4,12,4,5,0,0,6,7,4,5,1,0,0,4,6,2,3,4,0,0,1,5,3,4,3,0,0,4,2,5,5,3,0,0,3,9,3,3,10,0,0,5,7,3,7,2,0,0,3,3,4,3,4,0,1,3,3,2,1,3,0,0,2,3,3,2,8,0,0,4,2,2,1,3,0,0,8,2,5,0,0,0,0,0,7,0,2,2,0,0,2,3,7,7,4,0,0,2,5,8,4,1,0,0,4,4,2,3,0,0,0,1,2,3,6,3,0,0,4,5,3,1,3,0,0,3,2,5,0,1,0,0,2,3,5,8,3,0,0,0,0,4,9,12,0,0,8,24,22,24,19,0,0,16,21,24,2,1,0,0,5,3,4,7,3,0,0,2,8,1,8,1,0,0,3,2,3,7,8,0,0,3,3,3,14,3,0,0,5,7,2,6,5,0,0,4,4,1,9,6,0,0,4,0,1];
+var DWON=[0,0,0,0,0,0,0,0,0,0,0,2,0,1,1,1,0,0,2,3,0,3,1,0,0,1,4,0,0,2,0,0,0,2,1,0,0,0,0,0,0,2,3,2,0,0,1,1,3,1,4,0,0,0,2,0,2,1,0,0,0,0,0,0,2,0,1,0,1,1,0,2,0,0,1,1,1,2,3,0,0,2,2,1,1,3,0,0,3,1,1,0,0,0,0,0,2,0,0,2,0,0,1,0,1,4,2,0,0,0,1,1,0,1,0,0,1,1,0,1,0,0,0,0,0,0,3,0,0,0,1,2,1,0,0,0,0,0,1,3,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0,0,0,1,1,3,0,0,0,3,1,0,0,0,0,0,2,0,3,1,1,0,0,1,4,1,1,0,0,0,0,1,0,1,1,0,0,0,2,0,2,0,0,0,3,3,1,2,2,0,0,3,0,1,5,0,0,0,2,0,1];
+var DFAT=[0,0,0,0,0,0,0,0,0,0,0,1254,0,1404,804,2592,0,0,1884,2995.2,0,2928,1193.4,0,0,1795.2,2712,0,0,1608,0,0,0,1038,1164,0,0,0,0,0,0,1323.2,2689.2,1574.2,0,0,1164,924,3871.2,643.2,4209.6,0,0,0,1368,0,2526,450,0,0,0,0,0,0,1540,0,1164,0,1404,1404,0,1254,0,0,696,300,3240,2047.2,2508,0,0,750,1380,804,804,3144,0,0,2058,1164,1404,0,0,0,0,0,1464,0,0,1992,0,0,804,0,804,4135.2,1735.2,0,0,0,1404,1172,0,306.88,0,0,804,804,0,1404,0,0,0,0,0,0,2057,0,0,0,1788,1423.2,300,0,0,0,0,0,1164,2088,0,0,0,0,0,1884,0,1188,0,0,0,0,0,0,1164,0,0,0,0,684,720,1715,0,0,0,2104,0,0,0,0,0,0,576,0,3000,450,0,0,0,0,2112,0,0,0,0,0,0,0,0,0,0,0,0,0,1320,0,392,0,0,0,1976,1080,1164,0,0,0,0,0,0,0,300,0,0,0,0,0,643.2];
+function isoAddDays(iso,n){var p=iso.split("-");var dt=new Date(Date.UTC(+p[0],+p[1]-1,+p[2]));dt.setUTCDate(dt.getUTCDate()+n);return dt.toISOString().slice(0,10);}
+function isoDiff(a,b){var pa=a.split("-"),pb=b.split("-");return Math.round((Date.UTC(+pb[0],+pb[1]-1,+pb[2])-Date.UTC(+pa[0],+pa[1]-1,+pa[2]))/86400000);}
+var LAST_DAY=isoAddDays(DAY0,DAYN-1);   // 2026-08-05
+function dayIdx(iso){return Math.max(0,Math.min(DAYN-1,isoDiff(DAY0,iso)));}
+function sumRange(arr,s,e){var t=0;for(var i=s;i<=e;i++)t+=arr[i];return t;}
+
+/* ---------- BUDGET FORECAST (scenario NORMAL, IREC - Reforecast H2) ----------
+   Fonte: file "IREC Reforecast 2026", foglio IREC - Reforecast H2, caso NORMAL.
+   Mappatura 1:1 con le voci del funnel. Il Reforecast H2 copre solo luglio-dicembre:
+   i primi 6 mesi (gen-giu) sono lasciati a null. Valori editabili. */
+var FORECAST_GEN = [
+  [null,null,null,null,null,null,623,388,624,823,777,493], // Totali entrati (Tot)
+  [null,null,null,null,null,null,415,259,416,549,518,329], // In target da Policy
+  [null,null,null,null,null,null,305,190,306,403,381,242], // In target criteri sec. TMK (In target da TMK)
+  [null,null,null,null,null,null,147,92,147,194,183,116],   // Contattabili TMK (Contatti a buon fine da TMK)
+  [null,null,null,null,null,null,109,68,109,144,136,86],    // MQL
+  [null,null,null,null,null,null,64,40,65,85,80,51],        // SQL
+  [null,null,null,null,null,null,59,37,59,78,74,47],        // Trattative
+  [null,null,null,null,null,null,29,18,29,39,37,23]         // Chiusi vinti (Vinte Fe + No Fe)
+];
+var BUDGET_SRC = "Forecast NORMAL &middot; IREC Reforecast H2";
+// ADV a budget (Reforecast H2, solo lug-dic): spesa ADV totale (Meta+Google) e Venduto FE (fatturato a budget)
+var SPESA_BUD   = [null,null,null,null,null,null,16190,10100,16220,21395,20195,12820];
+var VENDUTO_BUD = [null,null,null,null,null,null,21000,11000,21000,23000,22000,14000];
+// % di funnel a budget (forecast NORMAL): quota di ogni voce sul totale lead. Ordine = voci General.
+var PCT_BUD = [100,66.66,48.99,23.57,17.49,10.36,9.51,4.72];
+
+/* ---------- STATO ---------- */
+var funnel = "general";
+var voceIdx = 0;
+var pivMonth = CUR_MONTH-1;
+var rangeStart = DAY0;       // filtro periodo (funnel General): default tutto l'anno disponibile
+var rangeEnd = LAST_DAY;
+
+/* budget: { general: { "<voce>": [12 valori] }, adv: [12], reopen:{...} } */
+var BUDGET = load();
+function forecastGrid(){var o={};REAL.general.forEach(function(r,i){o[r.voce]=FORECAST_GEN[i].slice();});return o;}
+function load(){
+  var def={general:forecastGrid(),adv:new Array(12).fill(null),advBud:SPESA_BUD.slice()};
+  try{var s=localStorage.getItem("irec_budget_v3");if(s){var p=JSON.parse(s);
+    if(p.general)Object.keys(def.general).forEach(function(k){if(p.general[k])def.general[k]=p.general[k];});
+    if(p.adv)def.adv=p.adv;
+    if(p.advBud)def.advBud=p.advBud;}}catch(e){}
+  return def;
+}
+function persist(){try{localStorage.setItem("irec_budget_v3",JSON.stringify(BUDGET));}catch(e){}}
+function resetForecast(){BUDGET.general=forecastGrid();BUDGET.advBud=SPESA_BUD.slice();persist();renderAll();}
+
+/* ---------- FORMAT ---------- */
+function nf(v){return v==null?"&mdash;":v.toLocaleString("it-IT");}
+function eur(v){return v==null?"&mdash;":"&euro; "+Math.round(v).toLocaleString("it-IT");}
+function pct(v){return v==null?"&mdash;":(v>0?"+":"")+v.toLocaleString("it-IT",{maximumFractionDigits:1})+"%";}
+function num1(v){return v==null?"&mdash;":v.toLocaleString("it-IT",{maximumFractionDigits:1});}
+function ytd(arr){var s=0,any=false;for(var i=0;i<12;i++){if(arr[i]!=null){s+=arr[i];any=true;}}return any?s:null;}
+
+/* ================= TILES (YTD General) ================= */
+function itDate(iso){var p=iso.split("-");return p[2]+"/"+p[1]+"/"+p[0];}
+function renderTiles(){
+  var el=document.getElementById("tiles");
+  var cap=document.getElementById("periodCap");
+  var df=document.getElementById("dateFilter");
+  if(funnel==="reopen"){el.innerHTML="";el.style.display="none";if(cap)cap.style.display="none";if(df)df.style.visibility="hidden";return;}
+  el.style.display="";if(df)df.style.visibility="visible";
+  var s=dayIdx(rangeStart), e=dayIdx(rangeEnd);
+  if(e<s){var tmp=s;s=e;e=tmp;}
+  var lead=sumRange(DTOT,s,e), mql=sumRange(DMQL,s,e), vinti=sumRange(DWON,s,e), fat=sumRange(DFAT,s,e), contr=vinti;
+  var crMql = lead? mql/lead*100:null;
+  var crWin = mql? vinti/mql*100:null;
+  var aov = contr? fat/contr:null;
+  var full=(rangeStart<=DAY0 && rangeEnd>=LAST_DAY);
+  var sfx = full? "periodo completo" : itDate(rangeStart)+" &rarr; "+itDate(rangeEnd);
+  var t=[
+    {lab:"Lead entrati", val:nf(lead), sub:"Totale linea IREC"},
+    {lab:"MQL", val:nf(mql), sub:crMql!=null?num1(crMql)+"% dei lead":""},
+    {lab:"Chiusi vinti", val:nf(vinti), sub:crWin!=null?num1(crWin)+"% degli MQL":""},
+    {lab:"Fatturato", val:eur(fat), sub:"Vinto + pending"},
+    {lab:"Valore medio contratto", val:eur(aov), sub:"AOV = fatturato / contratti"}
+  ];
+  el.innerHTML=t.map(function(x){return '<div class="tile"><div class="lab">'+x.lab+'</div><div class="val tnum">'+x.val+'</div><div class="sub">'+x.sub+'</div></div>';}).join("");
+  if(cap){cap.style.display="";cap.innerHTML='Funnel General &middot; periodo: <b>'+sfx+'</b>';}
+}
+
+/* ================= FOGLIO 1 : MoM ================= */
+function reopenNoticeHTML(){
+  return '<div class="notice" style="margin-bottom:18px"><span class="mk">&#9650;</span><div>'
+    +'<b>Funnel Reopen &mdash; in attesa di un aggancio pulito.</b> La riapertura &egrave; un evento puntuale '
+    +'(<code>Status</code> da &ldquo;Chiuso&nbsp;-&nbsp;Scartato&rdquo; a &ldquo;Attivo&nbsp;-&nbsp;Working&rdquo;) registrato solo in <code>LeadHistory</code>, '
+    +'dove per&ograve; <code>OldValue</code>/<code>NewValue</code> non sono filtrabili n&eacute; aggregabili e la lettura &egrave; limitata a 2.000 righe per query. '
+    +'I campi <code>Scartato_Counter__c</code>/<code>Scartato_Data__c</code> risultano non valorizzati e <code>Status_Log__c</code> non traccia la transizione. '
+    +'<b>Soluzione consigliata:</b> un campo dedicato sul Lead (es. <code>Data_Riapertura__c</code> o flag <code>Riaperto__c</code>) valorizzato dal flow al momento della riapertura: '
+    +'da l&igrave; tutte le 8 voci Reopen diventano query semplici e la dashboard si aggiorna da sola. '
+    +'Il funnel <b>General</b> &egrave; intanto completo, con Budget e Real.</div></div>';
+}
+function renderMoM(){
+  var reNote=document.getElementById("momReopenNotice");
+  var content=document.getElementById("momContent");
+  if(funnel==="reopen"){reNote.innerHTML=reopenNoticeHTML();content.style.display="none";return;}
+  reNote.innerHTML="";content.style.display="";
+  var rows=REAL[funnel];
+  var head='<thead><tr><th class="voce">Voce funnel</th>';
+  for(var m=0;m<12;m++){head+='<th class="'+(m===CUR_MONTH-1?'colhdr-now':'')+'">'+MESI[m]+'</th>';}
+  head+='</tr></thead>';
+  var body='<tbody>';
+  rows.forEach(function(r){
+    body+='<tr><td class="voce">'+r.voce+' <span class="muted" style="font-size:11px">&middot; '+r.kpi+'</span></td>';
+    for(var m=0;m<12;m++){
+      var v=r.data[m], b=BUDGET[funnel][r.voce][m];
+      var cls="", txt=v==null?'<span class="muted">&mdash;</span>':nf(v);
+      if(v!=null && b!=null && b!==""){cls = (v>=b)?"cell g":"cell b"; txt='<span class="'+cls+'">'+nf(v)+'</span>';}
+      body+='<td class="'+(m===CUR_MONTH-1?'now':'')+'">'+txt+'</td>';
+    }
+    body+='</tr>';
+  });
+  body+='</tbody>';
+  document.getElementById("momTable").innerHTML=head+body;
+  renderChart();
+}
+
+/* ================= CHART ================= */
+function renderChart(){
+  var rows=REAL[funnel]; var r=rows[voceIdx];
+  document.getElementById("trendVoce").textContent=r.voce;
+  var real=r.data, bud=BUDGET[funnel][r.voce];
+  var W=820,H=260,padL=44,padR=16,padT=18,padB=28;
+  var iw=W-padL-padR, ih=H-padT-padB;
+  var max=0,hasB=false;
+  for(var i=0;i<12;i++){if(real[i]!=null)max=Math.max(max,real[i]);if(bud[i]!=null&&bud[i]!==""){max=Math.max(max,+bud[i]);hasB=true;}}
+  if(max<=0)max=1;
+  var niceMax=Math.ceil(max/ (max>500?100:max>50?10:5)) * (max>500?100:max>50?10:5);
+  var x=function(m){return padL + iw*(m/11);};
+  var y=function(v){return padT + ih*(1 - v/niceMax);};
+  var svg='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Trend Budget vs Real">';
+  // grid + y labels
+  var ticks=4;
+  for(var t=0;t<=ticks;t++){
+    var gv=niceMax*t/ticks, gy=y(gv);
+    svg+='<line x1="'+padL+'" y1="'+gy+'" x2="'+(W-padR)+'" y2="'+gy+'" stroke="var(--border)" stroke-width="1"/>';
+    svg+='<text x="'+(padL-8)+'" y="'+(gy+4)+'" text-anchor="end" font-size="11" fill="var(--faint)">'+Math.round(gv).toLocaleString("it-IT")+'</text>';
+  }
+  // x labels
+  for(var m=0;m<12;m++){
+    svg+='<text x="'+x(m)+'" y="'+(H-8)+'" text-anchor="middle" font-size="11" fill="'+(m===CUR_MONTH-1?'var(--accent)':'var(--faint)')+'">'+MESI[m]+'</text>';
+  }
+  function pathFor(arr,onlyPast){
+    var d="",started=false;
+    for(var m=0;m<12;m++){var v=arr[m];if(v==null||v===""){started=false;continue;}
+      if(onlyPast&&m>CUR_MONTH-1)continue;
+      d+=(started?" L":"M")+x(m).toFixed(1)+" "+y(+v).toFixed(1);started=true;}
+    return d;
+  }
+  if(hasB){svg+='<path d="'+pathFor(bud,false)+'" fill="none" stroke="var(--budget)" stroke-width="2" stroke-dasharray="5 4" stroke-linecap="round"/>';}
+  svg+='<path d="'+pathFor(real,true)+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  // points (real, past)
+  for(var m=0;m<12;m++){if(real[m]==null||m>CUR_MONTH-1)continue;
+    var last=(m===CUR_MONTH-1);
+    svg+='<circle class="pt" data-m="'+m+'" cx="'+x(m).toFixed(1)+'" cy="'+y(real[m]).toFixed(1)+'" r="'+(last?4.5:3.2)+'" fill="var(--surface)" stroke="var(--accent)" stroke-width="'+(last?3:2)+'"/>';
+    // invisible hit target
+    svg+='<circle class="hit" data-m="'+m+'" cx="'+x(m).toFixed(1)+'" cy="'+y(real[m]).toFixed(1)+'" r="14" fill="transparent"/>';
+  }
+  svg+='</svg>';
+  document.getElementById("chart").innerHTML=svg;
+  document.getElementById("trendNote").textContent = hasB? "" : "Inserisci il Budget nel Pivot per vedere la linea obiettivo.";
+  // hover
+  var tip=document.getElementById("tip");
+  document.querySelectorAll("#chart .hit").forEach(function(c){
+    c.addEventListener("mousemove",function(ev){
+      var m=+c.getAttribute("data-m");var v=real[m];var b=bud[m];
+      var html="<b>"+MESI_LUNGHI[m]+"</b><br>Real: <b>"+nf(v)+"</b>";
+      if(b!=null&&b!=="")html+="<br>Budget: "+nf(+b)+" &middot; &Delta; "+pct((v-b)/b*100);
+      tip.innerHTML=html;tip.style.opacity=1;
+      tip.style.left=(ev.clientX+14)+"px";tip.style.top=(ev.clientY-10)+"px";
+    });
+    c.addEventListener("mouseleave",function(){tip.style.opacity=0;});
+  });
+}
+
+/* ================= FOGLIO 2 : PIVOT ================= */
+function renderPivot(){
+  var reNote=document.getElementById("pivReopenNotice");
+  var content=document.getElementById("pivContent");
+  if(funnel==="reopen"){reNote.innerHTML=reopenNoticeHTML();content.style.display="none";return;}
+  reNote.innerHTML="";content.style.display="";
+  var rows=REAL[funnel]; var m=pivMonth;
+  var totReal = rows[0].data[m];   // Totali entrati del mese (base per la % Real)
+  var head='<thead><tr><th class="voce">Voce funnel</th><th>Budget</th><th>% Budget</th><th>Real</th><th>% Real</th><th>Delta N</th><th>Delta %</th></tr></thead>';
+  var body='<tbody>';
+  rows.forEach(function(r,i){
+    var v=r.data[m]; var b=BUDGET[funnel][r.voce][m];
+    var bv=(b==null||b==="")?null:+b;
+    var pB = PCT_BUD[i];
+    var pR = (v!=null&&totReal)? v/totReal*100 : null;
+    var dN = (v!=null&&bv!=null)? v-bv : null;
+    var dP = (v!=null&&bv!=null&&bv!==0)? (v-bv)/bv*100 : null;
+    var dCls = dN==null?"":(dN>=0?"cell g":"cell b");
+    function fp(x){return x==null?'<span class="muted">&mdash;</span>':x.toLocaleString("it-IT",{maximumFractionDigits:2})+'%';}
+    body+='<tr>'
+      +'<td class="voce">'+r.voce+'</td>'
+      +'<td><input class="bud tnum" type="number" inputmode="numeric" placeholder="&mdash;" data-voce="'+r.voce.replace(/"/g,'')+'" value="'+(bv==null?"":bv)+'"></td>'
+      +'<td class="tnum muted">'+fp(pB)+'</td>'
+      +'<td class="tnum">'+(v==null?'<span class="muted">&mdash;</span>':nf(v))+'</td>'
+      +'<td class="tnum" style="color:var(--accent)">'+fp(pR)+'</td>'
+      +'<td class="tnum">'+(dN==null?'<span class="muted">&mdash;</span>':'<span class="'+dCls+'">'+(dN>0?"+":"")+nf(dN)+'</span>')+'</td>'
+      +'<td class="tnum">'+(dP==null?'<span class="muted">&mdash;</span>':'<span class="'+dCls+'">'+pct(dP)+'</span>')+'</td>'
+      +'</tr>';
+  });
+  body+='</tbody>';
+  document.getElementById("pivTable").innerHTML=head+body;
+  document.querySelectorAll("#pivTable input.bud").forEach(function(inp){
+    inp.addEventListener("input",function(){
+      var voce=inp.getAttribute("data-voce");
+      var val=inp.value===""?null:(+inp.value);
+      BUDGET[funnel][voce][pivMonth]=(val==null||isNaN(val))?null:val;
+      persist();
+      // ricalcola delta nel pivot e risincronizza tabella MoM + linea Budget del grafico
+      renderPivot();
+      renderMoM();
+      var focusInp=document.querySelector('#pivTable input.bud[data-voce="'+voce.replace(/"/g,'')+'"]');
+      if(focusInp){focusInp.focus();focusInp.setSelectionRange(focusInp.value.length,focusInp.value.length);}
+    });
+  });
+}
+
+/* ================= ADV & ECONOMICS ================= */
+function bTag(txt){return '<span class="mtag" style="color:var(--budget)">'+txt+'</span>';}
+function rTag(txt){return '<span class="mtag" style="color:var(--accent)">'+txt+'</span>';}
+function renderADV(){
+  var LEAD_BUD=FORECAST_GEN[0];
+  var head='<thead><tr><th class="voce">Metrica</th>';
+  for(var m=0;m<12;m++)head+='<th class="'+(m===CUR_MONTH-1?'colhdr-now':'')+'">'+MESI[m]+'</th>';
+  head+='</tr></thead>';
+  var rSpB ='<tr><td class="voce">Spesa ADV '+bTag('&middot; budget')+'</td>';
+  var rSpR ='<tr class="sep"><td class="voce">Spesa ADV '+rTag('&middot; real (manuale)')+'</td>';
+  var rFatB='<tr class="sep"><td class="voce">Fatturato '+bTag('&middot; budget')+'</td>';
+  var rFatR='<tr><td class="voce">Fatturato '+rTag('&middot; real SF')+'</td>';
+  var rCPLb='<tr class="sep"><td class="voce">CPL '+bTag('&middot; budget')+'</td>';
+  var rCPLr='<tr><td class="voce">CPL '+rTag('&middot; real')+'</td>';
+  var rROAb='<tr class="sep"><td class="voce">ROAS '+bTag('&middot; budget')+'</td>';
+  var rROAr='<tr><td class="voce">ROAS '+rTag('&middot; real')+'</td>';
+  for(var m=0;m<12;m++){
+    var nowc=(m===CUR_MONTH-1);
+    var spB=BUDGET.advBud[m], spR=BUDGET.adv[m];
+    var leadB=LEAD_BUD[m], leadR=LEAD_TOT[m], fatB=VENDUTO_BUD[m], fatR=FATTURATO[m];
+    rSpB +='<td'+(nowc?' class="now"':'')+'><input class="bud tnum advb" type="number" inputmode="numeric" placeholder="&mdash;" data-m="'+m+'" value="'+(spB==null?"":spB)+'"></td>';
+    rSpR +='<td'+(nowc?' class="now"':'')+'><input class="bud tnum advr" type="number" inputmode="numeric" placeholder="&mdash;" data-m="'+m+'" value="'+(spR==null?"":spR)+'"></td>';
+    rFatB+='<td class="tnum'+(nowc?' now':'')+'">'+(fatB==null?'<span class="muted">&mdash;</span>':eur(fatB))+'</td>';
+    rFatR+='<td class="tnum'+(nowc?' now':'')+'">'+(fatR==null?'<span class="muted">&mdash;</span>':eur(fatR))+'</td>';
+    var cplB=(spB!=null&&leadB)?spB/leadB:null, cplR=(spR!=null&&leadR)?spR/leadR:null;
+    var roaB=(spB&&fatB!=null)?fatB/spB:null, roaR=(spR&&fatR!=null)?fatR/spR:null;
+    rCPLb+='<td class="tnum'+(nowc?' now':'')+'">'+(cplB==null?'<span class="muted">&mdash;</span>':eur(cplB))+'</td>';
+    rCPLr+='<td class="tnum'+(nowc?' now':'')+'">'+(cplR==null?'<span class="muted">&mdash;</span>':eur(cplR))+'</td>';
+    rROAb+='<td class="tnum'+(nowc?' now':'')+'">'+(roaB==null?'<span class="muted">&mdash;</span>':num1(roaB)+'&times;')+'</td>';
+    rROAr+='<td class="tnum'+(nowc?' now':'')+'">'+(roaR==null?'<span class="muted">&mdash;</span>':num1(roaR)+'&times;')+'</td>';
+  }
+  var rows=[rSpB,rSpR,rFatB,rFatR,rCPLb,rCPLr,rROAb,rROAr].map(function(r){return r+'</tr>';}).join("");
+  document.getElementById("advTable").innerHTML=head+'<tbody>'+rows+'</tbody>';
+  function wire(cls,key){
+    document.querySelectorAll("#advTable input."+cls).forEach(function(inp){
+      inp.addEventListener("input",function(){
+        var m=+inp.getAttribute("data-m");var val=inp.value===""?null:+inp.value;
+        BUDGET[key][m]=(val==null||isNaN(val))?null:val;persist();renderADV();
+        var f=document.querySelector('#advTable input.'+cls+'[data-m="'+m+'"]');if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}
+      });
+    });
+  }
+  wire("advb","advBud");wire("advr","adv");
+  // tiles YTD economics (budget vs real)
+  var spBY=ytd(BUDGET.advBud), spRY=ytd(BUDGET.adv), fatBY=ytd(VENDUTO_BUD), fatRY=ytd(FATTURATO), leadBY=ytd(FORECAST_GEN[0]), conY=ytd(CONTRATTI);
+  var tiles=[
+    {lab:"Spesa ADV budget &middot; YTD", val:eur(spBY), sub:spRY!=null?("real: "+eur(spRY)):"real da inserire"},
+    {lab:"Fatturato &middot; YTD", val:eur(fatRY), sub:"budget: "+eur(fatBY)},
+    {lab:"ROAS budget &middot; YTD", val:(spBY&&fatBY!=null)?num1(fatBY/spBY)+"&times;":"&mdash;", sub:(spRY&&fatRY!=null)?("real: "+num1(fatRY/spRY)+"&times;"):"fatt. budget / spesa budget"},
+    {lab:"CPL budget &middot; YTD", val:(spBY&&leadBY)?eur(spBY/leadBY):"&mdash;", sub:"spesa budget / lead budget"},
+    {lab:"AOV real &middot; YTD", val:(conY&&fatRY!=null)?eur(fatRY/conY):"&mdash;", sub:"fatturato / contratti"}
+  ];
+  document.getElementById("advTiles").innerHTML=tiles.map(function(x){return '<div class="tile"><div class="lab">'+x.lab+'</div><div class="val tnum">'+x.val+'</div><div class="sub">'+x.sub+'</div></div>';}).join("");
+}
+
+/* ================= CONTROLLI ================= */
+function renderAll(){renderTiles();renderMoM();renderPivot();renderADV();}
+
+function initControls(){
+  document.getElementById("snapBadge").innerHTML='<span class="dot warn"></span>Snapshot '+SNAPSHOT.split("-").reverse().join("/");
+  // voce selector
+  var vs=document.getElementById("voceSel");
+  vs.innerHTML=REAL.general.map(function(r,i){return '<option value="'+i+'">'+r.voce+'</option>';}).join("");
+  vs.addEventListener("change",function(){voceIdx=+vs.value;renderChart();});
+  // month selector
+  var ms=document.getElementById("pivMonth");
+  ms.innerHTML=MESI_LUNGHI.map(function(nm,i){return '<option value="'+i+'"'+(i===pivMonth?" selected":"")+'>'+nm+(i===CUR_MONTH-1?" (in corso)":i>CUR_MONTH-1?" (solo budget)":"")+'</option>';}).join("");
+  ms.addEventListener("change",function(){pivMonth=+ms.value;renderPivot();});
+  // filtro periodo (date pickers)
+  var dS=document.getElementById("dStart"), dE=document.getElementById("dEnd");
+  dS.min=DAY0; dS.max=LAST_DAY; dS.value=rangeStart;
+  dE.min=DAY0; dE.max=LAST_DAY; dE.value=rangeEnd;
+  dS.addEventListener("change",function(){rangeStart=dS.value||DAY0;renderTiles();});
+  dE.addEventListener("change",function(){rangeEnd=dE.value||LAST_DAY;renderTiles();});
+  document.getElementById("dReset").addEventListener("click",function(){
+    rangeStart=DAY0;rangeEnd=LAST_DAY;dS.value=DAY0;dE.value=LAST_DAY;renderTiles();
+  });
+  // funnel toggle
+  document.getElementById("fGeneral").addEventListener("click",function(){setFunnel("general");});
+  document.getElementById("fReopen").addEventListener("click",function(){setFunnel("reopen");});
+  // tabs
+  document.querySelectorAll('.tabs button').forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll('.tabs button').forEach(function(x){x.setAttribute("aria-selected","false");});
+      b.setAttribute("aria-selected","true");
+      document.querySelectorAll('.panel').forEach(function(p){p.classList.remove("active");});
+      document.getElementById("panel-"+b.getAttribute("data-tab")).classList.add("active");
+    });
+  });
+  // theme
+  document.getElementById("themeBtn").addEventListener("click",function(){
+    var cur=document.documentElement.getAttribute("data-theme");
+    var isDark = cur? cur==="dark" : matchMedia("(prefers-color-scheme:dark)").matches;
+    document.documentElement.setAttribute("data-theme", isDark?"light":"dark");
+    renderChart();
+  });
+  // export / import / reset
+  document.getElementById("expBtn").addEventListener("click",exportBudget);
+  document.getElementById("impBtn").addEventListener("click",function(){document.getElementById("impFile").click();});
+  document.getElementById("impFile").addEventListener("change",importBudget);
+  document.getElementById("resetBtn").addEventListener("click",function(){
+    if(confirm("Ripristinare il Budget ai valori del forecast NORMAL? Le modifiche manuali andranno perse.")){resetForecast();}
+  });
+}
+function setFunnel(f){
+  funnel=f;
+  document.getElementById("fGeneral").setAttribute("aria-pressed",f==="general");
+  document.getElementById("fReopen").setAttribute("aria-pressed",f==="reopen");
+  renderAll();
+}
+
+/* ------- export/import budget ------- */
+function exportBudget(){
+  var payload=JSON.stringify({meta:{snapshot:SNAPSHOT,exported:SNAPSHOT},budget:BUDGET},null,2);
+  var fn="budget-irec-2026.json";
+  if(window.claude&&window.claude.downloads&&window.claude.downloads.save){
+    window.claude.downloads.save({filename:fn,data:payload}).catch(function(){fallbackDL(payload,fn);});
+  }else{fallbackDL(payload,fn);}
+}
+function fallbackDL(data,fn){
+  try{var blob=new Blob([data],{type:"application/json"});var u=URL.createObjectURL(blob);
+    var a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();
+    a.remove();URL.revokeObjectURL(u);}catch(e){alert("Copia manuale del budget:\n\n"+data.slice(0,4000));}
+}
+function importBudget(ev){
+  var f=ev.target.files&&ev.target.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){try{var p=JSON.parse(rd.result);var src=p.budget||p;
+    if(src.general)Object.keys(BUDGET.general).forEach(function(k){if(src.general[k])BUDGET.general[k]=src.general[k];});
+    if(src.adv)BUDGET.adv=src.adv;persist();renderAll();
+  }catch(e){alert("File non valido: "+e.message);}};
+  rd.readAsText(f);ev.target.value="";
+}
+
+/* ------- go ------- */
+initControls();
+renderAll();
+})();
+</script>
