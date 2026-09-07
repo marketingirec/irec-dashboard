@@ -1,0 +1,6 @@
+{
+  "name": "irec-dashboard",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" }
+}

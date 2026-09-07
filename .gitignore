@@ -1,0 +1,10 @@
+server.key
+sfkeys/
+.vercel
+node_modules/
+.meta-token
+.meta-token-rf
+.google-ads-creds.json
+.sf-client-id
+test-jwt.mjs
+.env.vercel
