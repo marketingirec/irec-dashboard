@@ -2814,8 +2814,31 @@ var refreshing=false;
 function hasMcp(){return !!(window.claude&&window.claude.mcp!==undefined);}
 async function doRefresh(){ if(refreshing)return; return hasMcp()?doRefreshUnified("both"):doRefreshAPI(); }
 async function doRefreshIREConly(){ if(refreshing)return; return hasMcp()?doRefreshUnified("irec"):doRefreshAPI(); }
-async function doRefreshRFonly(){ if(refreshing)return; if(!hasMcp()){ var a=document.getElementById("refreshStatusRF"); if(a)a.innerHTML="Aggiornamento RF live disponibile solo con i connettori Shopify + Salesforce (apri su claude.ai)."; var t=document.getElementById("rfStatus"); if(t)t.innerHTML="Aggiornamento RF live disponibile solo dentro claude.ai."; return; } return doRefreshUnified("rf"); }
-async function doRefreshRFyear(){ if(refreshing)return; if(!hasMcp()){ var t=document.getElementById("rfStatus"); if(t)t.innerHTML="Ricalcolo anno disponibile solo dentro claude.ai (connettori Shopify + Salesforce)."; return; } rfFullYear=true; return doRefreshUnified("rf"); }
+async function doRefreshRFonly(){ if(refreshing)return; if(!hasMcp()){ return doRefreshRFAPI(); } return doRefreshUnified("rf"); }
+async function doRefreshRFyear(){ if(refreshing)return; if(!hasMcp()){ return doRefreshRFAPI(); } rfFullYear=true; return doRefreshUnified("rf"); }
+/* Percorso B RF: legge dal backend /api/rf (Vercel) quando non siamo su claude.ai */
+async function doRefreshRFAPI(){
+  if(refreshing)return; refreshing=true;
+  var btn=document.getElementById("refreshBtnRF"), icon=document.getElementById("refreshIconRF");
+  if(icon)icon.className="spin"; if(btn)btn.disabled=true;
+  function st(m){var a=document.getElementById("refreshStatusRF");if(a)a.innerHTML=m;var t=document.getElementById("rfStatus");if(t)t.innerHTML=m;}
+  try{
+    st("RF &middot; caricamento da backend (Salesforce + ADV)...");
+    var r=await fetch("api/rf",{headers:{Accept:"application/json"}}); var d=await r.json();
+    if(!r.ok||d.error)throw new Error(d.error||("HTTP "+r.status));
+    if(d.sf){var s=d.sf; for(var i=0;i<12;i++){ if(s.offline)RF_OFFLINE[i]=s.offline[i]||0; if(s.partner)RF_PARTNER[i]=s.partner[i]||0; if(s.ordOffline)RF_ORD_OFFLINE[i]=s.ordOffline[i]||0; if(s.ordPartner)RF_ORD_PARTNER[i]=s.ordPartner[i]||0; if(s.offlineP)RF_OFFLINE_PEND[i]=s.offlineP[i]||0; if(s.partnerP)RF_PARTNER_PEND[i]=s.partnerP[i]||0; } }
+    var shOk=(d.shopify && !d.shopify.error);
+    if(shOk){var sh=d.shopify; for(var j=0;j<12;j++){ if(sh.online)RF_ONLINE[j]=sh.online[j]||0; if(sh.pending)RF_ONLINE_PEND[j]=sh.pending[j]||0; if(sh.gest)RF_ONLINE_GEST[j]=sh.gest[j]||0; if(sh.ordOnline)RF_ORD_ONLINE[j]=sh.ordOnline[j]||0; } if(sh.operatori){for(var mk in sh.operatori){var oi=(+mk)-1; if(oi>=0&&oi<12)RF_OPERATORI[oi]=sh.operatori[mk];}} }
+    var allOrders=[]; if(d.sf&&d.sf.orders)allOrders=allOrders.concat(d.sf.orders); if(shOk&&d.shopify.orders)allOrders=allOrders.concat(d.shopify.orders);
+    if(allOrders.length){var byM={}; allOrders.forEach(function(o){var mi=(o.m||0)-1; if(mi<0||mi>11)return; if(!byM[mi])byM[mi]=[]; byM[mi].push({n:o.n,nome:o.nome,email:o.email,dpag:o.dpag,net:o.net,st:o.st,sr:o.sr});});
+      var touched= shOk?[0,1,2,3,4,5,6,7,8,9,10,11]:Object.keys(byM).map(Number);
+      touched.forEach(function(mm){ if(byM[mm])RF_ORDERS[mm]=byM[mm]; else if(shOk){ RF_ORDERS[mm]=(RF_ORDERS[mm]||[]).filter(function(x){return x.sr!=="Salesforce"&&x.sr!=="Shopify";}); } }); }
+    if(d.adspend){var g=d.adspend.google||[],m2=d.adspend.meta||[]; for(var k=0;k<12;k++){if(m2[k]!=null)RF_ADV_META[k]=m2[k]; if(g[k]!=null)RF_ADV_GOOGLE[k]=g[k];}}
+    renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); rfPersist();
+    st("RF aggiornato &middot; Salesforce + ADV"+(shOk?" + Shopify":" &middot; &#9888; Shopify non ancora agganciato (online sui dati statici)"));
+  }catch(e){ st("Errore aggiornamento RF: "+(e&&e.message||e)); }
+  finally{ refreshing=false; if(icon)icon.className=""; if(btn)btn.disabled=false; }
+}
 // Percorso B: legge dal backend /api/dashboard (Vercel) quando non siamo su claude.ai
 async function doRefreshAPI(){
   var btn=document.getElementById("refreshBtn"), icon=document.getElementById("refreshIcon");
