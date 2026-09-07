@@ -8,3 +8,6 @@ node_modules/
 .sf-client-id
 test-jwt.mjs
 .env.vercel
+chiave-una-riga.txt
+consumer-key.txt
+adv-vars.txt
