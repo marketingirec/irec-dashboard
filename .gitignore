@@ -11,3 +11,8 @@ test-jwt.mjs
 chiave-una-riga.txt
 consumer-key.txt
 adv-vars.txt
+.shopify-token
+.shopify-domain
+rf-adv-vars.txt
+.shopify-oauth
+shopify-vars.txt
