@@ -643,7 +643,7 @@
           <tr><td class="voce">Fatturato Online</td><td>Shopify</td><td><code>net_sales</code> con <code>order_payment_status = 'paid'</code> (solo incassato). <b>Esclusi</b>: <i>pending</i> (in attesa), <i>voided</i> (annullati), <i>refunded</i> (rimborsati/stornati) e <i>authorized</i> (autorizzati non incassati). Netto sconti/resi.</td></tr>
           <tr><td class="voce">Offline</td><td>Salesforce</td><td>RecordType Rintraccio Facile, <code>StageName='Chiuso - Vinto'</code>, importi <b>non</b> multipli di 1.000&euro;.</td></tr>
           <tr><td class="voce">Partner</td><td>Salesforce</td><td>RecordType Rintraccio Facile, <code>StageName='Chiuso - Vinto'</code>, importi <b>tondi</b> (multipli di 1.000&euro;: 1.000, 2.000, 3.000, 5.000, 10.000&hellip;).</td></tr>
-          <tr><td class="voce">Totale Fatturato</td><td>Contabilit&agrave;</td><td>Online + Offline + Partner. <b>Fonte di verit&agrave; = registrazioni contabili</b> (<code>account.move</code>): il fatturato &egrave; riconosciuto alla <b>data di pagamento completato</b> (non alla data ordine/chiusura), con l'<b>imponibile</b> contabile. Dove disponibile il dato contabile del mese, prevale sul calcolo live Shopify/SF (che resta un'approssimazione su <code>net_sales</code>/<code>CloseDate</code>). Agosto 2026 = &euro; 6.411,30.</td></tr>
+          <tr><td class="voce">Totale Fatturato</td><td>Shopify + Salesforce</td><td>Online + Offline + Partner. <b>Stima live</b>: Online da Shopify (<code>net_sales</code> pagato), Offline/Partner da Salesforce riconosciuti alla <b>data di pagamento</b> (<code>Data_Chiusa_Vinta__c</code>), non alla data ordine/chiusura. Netto IVA. (L'override contabile via <code>account.move</code> usato in precedenza &egrave; stato rimosso il 2026-09-02: non c'&egrave; pi&ugrave; una fonte "contabilit&agrave;" separata che prevale sulla stima live.)</td></tr>
           <tr><td class="voce">N ordini Online</td><td>Shopify</td><td>Ordini con <b>incasso reale</b> (<code>net_sales &gt; 0</code>), pagamento completato: <b>esclusi</b> gli ordini a &euro;&nbsp;0 (uso credito wallet, evasioni/comp) e i codici <code>Sconto Credito Wallet</code>. Conteggio per <code>order_name</code>.</td></tr>
           <tr><td class="voce">N ordini Offline</td><td>Salesforce</td><td>Conteggio Opportunity RF <code>Chiuso - Vinto</code> con importi <b>non</b> tondi (i Partner sono contati a parte).</td></tr>
           <tr><td class="voce">N ordini Partner</td><td>Salesforce</td><td>Conteggio Opportunity RF <code>Chiuso - Vinto</code> con importi <b>tondi</b> (multipli di 1.000&euro;).</td></tr>
@@ -655,7 +655,7 @@
           <tr><td class="voce">Venduto Operatori</td><td>&mdash;</td><td>Online gestito + <b>tutto</b> l&rsquo;Offline + <b>tutto</b> il Partner (offline e partner sono sempre gestiti dai venditori).</td></tr>
           <tr style="font-style:italic"><td class="voce">Sconto Credito Wallet</td><td>Shopify</td><td>Ordini con codice <code>Sconto Credito Wallet</code>: uso del credito wallet dei clienti, <b>esclusi</b> dal fatturato e dal conteggio ordini.</td></tr>
           <tr><td class="voce">Dettaglio ordini (tab)</td><td>Shopify + Salesforce</td><td>Ledger per singolo ordine del mese: <b>N ordine</b> (Shopify <code>#&hellip;</code> o nome Opportunity SF), <b>Fatturato netto</b>, <b>Stato pagamento</b> (Pagato = Shopify pagato / SF Chiuso-Vinto; In attesa = Shopify pending / SF Chiuso-Pending), <b>Fonte</b>. Esclude gli ordini a &euro;&nbsp;0 (wallet). Il Totale Pagato coincide col Totale Fatturato del PV.</td></tr>
-          <tr><td class="voce">Budget</td><td>Reforecast RF</td><td>Google Sheet, tab <i>RF - ReFORECAST</i>, scenario NORMAL, per mese (H2): Fatturato, ADV, ordini, AOV, spontaneo/gestito 60/40, operatori.</td></tr>
+          <tr><td class="voce">Budget</td><td>Forecast / Reforecast RF</td><td><b>Gen&ndash;Giu</b>: Forecast originale (target Online/Offline/Partner per mese, fisso). <b>Lug&ndash;Dic</b>: Reforecast RF, Google Sheet tab <i>RF - ReFORECAST</i>, scenario NORMAL: Fatturato, ADV, ordini, AOV, spontaneo/gestito 60/40, operatori.</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -673,12 +673,20 @@ SINCE [data inizio] UNTIL [data fine]</pre>
     <div class="card">
       <div class="card-h"><h2>Offline + Partner &mdash; Salesforce (SOQL)</h2><span class="hint">RecordType Rintraccio Facile</span></div>
       <div class="card-b" style="padding:8px 18px 16px">
-        <pre style="margin:0;overflow-x:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink)">SELECT Amount, StageName
+        <pre style="margin:0;overflow-x:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink)">-- Fatturato (pagato): riconosciuto alla DATA DI PAGAMENTO, non a CloseDate
+SELECT Name, Amount, Data_Chiusa_Vinta__c
+FROM Opportunity
+WHERE Data_Chiusa_Vinta__c &gt;= [confine giorno, ora locale Europe/Rome] AND Data_Chiusa_Vinta__c &lt;= [idem]
+  AND StageName = 'Chiuso - Vinto'
+  AND RecordTypeId = '012Mf000000oReaIAE'
+
+-- In attesa di pagamento: per CloseDate (non ancora una data di pagamento)
+SELECT Name, Amount
 FROM Opportunity
 WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
-  AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')
+  AND StageName = 'Chiuso - Pending'
   AND RecordTypeId = '012Mf000000oReaIAE'</pre>
-        <p class="taxintro" style="margin-top:10px">RecordType <b>Rintraccio Facile</b> (<code>012Mf000000oReaIAE</code>). Ogni opp viene classificata su due assi: per <b>stage</b> &mdash; <code>Chiuso - Vinto</code> entra nel <b>Fatturato</b>, <code>Chiuso - Pending</code> va nelle righe <b>in attesa di pagamento</b> (escluse dal Fatturato) &mdash; e per <b>importo</b>: tondo (multiplo di 1.000&euro;) &rarr; <b>Partner</b>, altrimenti <b>Offline</b>. Tutto al netto IVA.</p>
+        <p class="taxintro" style="margin-top:10px">RecordType <b>Rintraccio Facile</b> (<code>012Mf000000oReaIAE</code>). Il <b>Fatturato</b> (<code>Chiuso - Vinto</code>) usa <code>Data_Chiusa_Vinta__c</code> (data di pagamento), non <code>CloseDate</code>; i confini del mese sono calcolati in <b>ora locale Europe/Rome</b> (gestisce CET/CEST) e convertiti in UTC, per non spostare gli ordini vicino alla mezzanotte nel mese sbagliato. Le righe <b>in attesa di pagamento</b> (<code>Chiuso - Pending</code>, escluse dal Fatturato) restano su <code>CloseDate</code>. Per <b>importo</b>: tondo (multiplo di 1.000&euro;) &rarr; <b>Partner</b>, altrimenti <b>Offline</b>. Tutto al netto IVA.</p>
       </div>
     </div>
   </div>

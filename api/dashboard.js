@@ -71,6 +71,14 @@ function buildMonthly(recs, key, curM){ const pr={}; recs.forEach(r=>{ pr[+r.m]=
 function buildDaily(recs, key, days){ const mp={}; recs.forEach(r=>{ mp[(r.d||'').slice(0,10)]= r[key]==null?0:+r[key]; }); return days.map(d=>mp[d]||0); }
 function buildSrc(recsByVoce){ const map={}; const ens=(s)=>{ if(!map[s]) map[s]=[0,0,0,0,0,0,0,0,0]; return map[s]; }; for(let i=0;i<8;i++){ (recsByVoce[i]||[]).forEach(r=>{ const row=ens((r.s==null||r.s==='')?'sorgente non trovata':r.s); row[i]= r[VW[i].won?'c':'t']==null?0:+r[VW[i].won?'c':'t']; if(VW[i].won) row[8]= r.a==null?0:+r.a; }); } return Object.keys(map).map(s=>({ src:s, v:map[s] })); }
 
+// Operatori Sales (funnel MQL..Chiuso-Vinto per Owner.Name) e TMK (pool Contattabili per Owner.Name x Status) —
+// stessa logica client di index.html (opGrp/buildOpRows, tmkGrpAll/buildTmkRows), per la vista senza MCP (?view=operators / ?view=tmk).
+const OP_VW = [4,5,6,7];
+const opGrp = (vi,m)=>{ const won=(vi===7); const sel = won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t'; return `SELECT Owner.Name o,${sel} FROM Opportunity WHERE ${VW[vi].w}${VW[vi].extra} AND CALENDAR_MONTH(CloseDate)=${m} GROUP BY Owner.Name`; };
+function buildOpRows(recsByCol){ const map={}; const ens=(o)=>{ if(!map[o]) map[o]=[0,0,0,0,0]; return map[o]; }; OP_VW.forEach((vi,col)=>{ const won=(vi===7); (recsByCol[col]||[]).forEach(r=>{ const row=ens((r.o==null||r.o==='')?'operatore non trovato':r.o); row[col]= r[won?'c':'t']==null?0:+r[won?'c':'t']; if(won) row[4]= r.a==null?0:+r.a; }); }); return Object.keys(map).map(o=>({ op:o, v:map[o] })); }
+const tmkGrpAll = (m)=>`SELECT Owner.Name o, Status s, COUNT(Id) t FROM Lead WHERE ${VW[3].w}${VW[3].extra} AND CALENDAR_MONTH(Data_Compilazione_Questionario__c)=${m} GROUP BY Owner.Name, Status`;
+function buildTmkRows(recs){ const map={}; const ens=(o)=>{ if(!map[o]) map[o]=[0,0,0,0]; return map[o]; }; (recs||[]).forEach(r=>{ const op=(r.o==null||r.o==='')?'operatore non trovato':r.o; const row=ens(op), t=(r.t==null?0:+r.t), s=r.s; row[0]+=t; if(s==='Nuovo') row[1]+=t; else if(s==='Attivo - Working') row[2]+=t; else if(s==='Convertito') row[3]+=t; }); return Object.keys(map).map(o=>({ op:o, v:map[o] })); }
+
 export default async function handler(req, res){
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
@@ -91,6 +99,23 @@ export default async function handler(req, res){
       const recsByVoce = [];
       for(let i=0;i<8;i++){ recsByVoce[i] = await soql(ctx, srcGrp(i,m)); }
       res.status(200).json({ month:m, year:YEAR, rows:buildSrc(recsByVoce) });
+      return;
+    }
+
+    // vista "operators" per un mese specifico (?view=operators&month=6): funnel MQL..Chiuso-Vinto per Owner.Name
+    if((req.query.view||'')==='operators'){
+      const m = Math.max(1, Math.min(12, Number(req.query.month)||curM));
+      const recsByCol=[];
+      for(let c=0;c<OP_VW.length;c++){ recsByCol[c]=await soql(ctx, opGrp(OP_VW[c],m)); }
+      res.status(200).json({ month:m, year:YEAR, rows:buildOpRows(recsByCol) });
+      return;
+    }
+
+    // vista "tmk" per un mese specifico (?view=tmk&month=6): pool Contattabili per Owner.Name x Status
+    if((req.query.view||'')==='tmk'){
+      const m = Math.max(1, Math.min(12, Number(req.query.month)||curM));
+      const recs = await soql(ctx, tmkGrpAll(m));
+      res.status(200).json({ month:m, year:YEAR, rows:buildTmkRows(recs) });
       return;
     }
 
