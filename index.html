@@ -801,9 +801,9 @@ var BUDGET_SRC = "Forecast NORMAL &middot; IREC Reforecast H2";
 // ADV a budget (Reforecast H2, solo lug-dic): spesa ADV totale (Meta+Google) e Venduto FE (fatturato a budget)
 var SPESA_BUD   = [null,null,null,null,null,null,16190,10100,16220,21395,20195,12820];
 // Spesa Meta REAL di IREC (account 608295893328900), netta della frode rimborsata di giugno (Sales Adset 1/2/3 = 77.548,80). Estratta da Meta Marketing API. Google non ancora agganciato.
-var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,1593.81,null,null,null];
+var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,3898.38,null,null,null];
 // Google Ads IREC (account Irec-Allcore 716-426-7762), live via API. Spesa ADV real IREC = Meta + Google.
-var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,240.33,null,null,null];
+var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,479.44,null,null,null];
 // Lead e Venduto per CANALE (da Sorgenti/Salesforce): Meta = LeadAds Facebook + Meta ADS; Google = Google Ads. Per CPL/ROAS per canale.
 var ADV_META_LEADS  = [830,582,628,380,398,563,706,634,0,0,0,0];
 var ADV_GOOGLE_LEADS= [23,19,11,11,25,19,24,7,0,0,0,0];
@@ -978,10 +978,10 @@ var RF_PARTNER     =[0,2000,2000,0,4000,0,1000,2000,0,0,0,0];   // Partner: SF R
 var RF_ONLINE_PEND =[14325.7,1688.4,562.5,575.41,395.18,441.67,1000,750.80,0,0,0,0];   // Online in attesa: Shopify net_sales pending
 var RF_OFFLINE_PEND=[32,612.10,72,307.30,32,603,0,40,0,0,0,0];   // Offline in attesa: SF RF Chiuso-Pending, non tondi
 var RF_PARTNER_PEND=[2000,0,0,0,0,0,0,0,0,0,0,0];   // Partner in attesa: SF RF Chiuso-Pending, tondi (x1000)
-// Budget mensile dal Reforecast RF (scenario NORMAL, mesi Lug..Dic) -- Gen..Giu senza budget = null
-var RF_BUD_ONLINE =[null,null,null,null,null,null,27219, 17288, 31300, 35459, 39828, 22468];
-var RF_BUD_OFFLINE=[null,null,null,null,null,null, 1897,  1200,  2158,  2296,  2841,  1530];
-var RF_BUD_PARTNER=[null,null,null,null,null,null, 2500,  1500,  2500,  3000,  3000,  1500];
+// Budget mensile: Gen..Giu dal Forecast originale, Lug..Dic dal Reforecast RF (scenario NORMAL)
+var RF_BUD_ONLINE =[27923.29, 33906.85, 34704.66, 35901.37, 41087.12, 35901.37, 27219, 17288, 31300, 35459, 39828, 22468];
+var RF_BUD_OFFLINE=[3926.71,  4768.15,  5299.19,  5048.63,  5777.88,  5048.63,  1897,  1200,  2158,  2296,  2841,  1530];
+var RF_BUD_PARTNER=[2240,     2720,     2784,     2880,     3296,     2880,     2500,  1500,  2500,  3000,  3000,  1500];
 // Numero ordini Real (Online = Shopify pagato con incasso>0, esclusi wallet e ordini a 0; Offline/Partner = SF Chiuso-Vinto count, tondi = Partner)
 var RF_ORD_ONLINE =[176,121,137,110,140,134,120, 40, 23,0,0,0];
 var RF_ORD_OFFLINE=[12,14,11,9,7,11,14,12,4,0,0,0];   // conteggio Chiuso-Vinto non tondi per data di pagamento
@@ -1179,10 +1179,10 @@ async function chanLoadRealH2(){var btn=document.getElementById("chanLoadBtn");
 // ADV Real. Meta = importato dall'account RF act_3120594051452791 (sola lettura, al centesimo);
 // aggiornato dallo script locale update-meta.py (token in .meta-token-rf, mai nell'artefatto). Google/Altri manuali.
 // Indici 0..11 = Gen..Dic. RF_META_REAL segna i mesi importati (non-null = sola lettura). Meta RF parte da Feb; Google da Gen.
-var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,286.91,null,null,null];   // Meta RF live (account act_3120594051452791)
-var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,713.52,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
-var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,286.91,0,0,0];
-var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,713.52,0,0,0];
+var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,750.75,null,null,null];   // Meta RF live (account act_3120594051452791)
+var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,1579.06,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
+var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,750.75,0,0,0];
+var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,1579.06,0,0,0];
 var RF_ADV_ALTRI =[0,0,0,0,0,0,0,0,0,0,0,0];
 var RF_ADV_EXTRA =[0,0,0,0,0,0,0,0,0,0,0,0];
 var RF_ADV_EVENTI=[0,0,0,0,0,0,0,0,0,0,0,0];
@@ -2012,6 +2012,10 @@ function renderRF(){
 /* ---------- REFRESH RF (Shopify + Salesforce dal vivo) ---------- */
 function rfStatus(m){var el=document.getElementById("rfStatus"); if(el)el.textContent=m||"";}
 function monthRange(mm){var ms=(mm<10?"0":"")+mm; var last=new Date(2026,mm,0).getDate(); return {s:"2026-"+ms+"-01", e:"2026-"+ms+"-"+((last<10?"0":"")+last)};}
+// Confine giorno in ora locale (Europe/Rome, gestisce CET/CEST) convertito in istante UTC per i literal SOQL DateTime.
+// Necessario per campi come Data_Chiusa_Vinta__c: un limite fisso "T00:00:00Z"/"T23:59:59Z" sposta gli ordini vicini
+// alla mezzanotte italiana nel mese sbagliato (differenza di 1-2h tra ora locale e UTC).
+function localDayBoundsUTC(dateStr,endOfDay){var p=dateStr.split("-"),y=+p[0],m=+p[1]-1,d=+p[2];var dt=endOfDay?new Date(y,m,d,23,59,59,999):new Date(y,m,d,0,0,0,0);return dt.toISOString();}
 var _shopCache=null;   // una volta trovato, il connettore Shopify resta memorizzato per la sessione
 async function findShopify(){
   if(_shopCache)return _shopCache;
@@ -3043,7 +3047,7 @@ async function doRefreshUnified(scope){
       }
       if(sf){
         // FATTURATO offline/partner = Chiuso-Vinto riconosciuto alla DATA DI PAGAMENTO (Data_Chiusa_Vinta__c), NON a CloseDate.
-        var vrec=await q("SELECT Name, Amount, ContactName__c, ContactEmail__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND StageName='Chiuso - Vinto' AND Data_Chiusa_Vinta__c>="+rng.s+"T00:00:00Z AND Data_Chiusa_Vinta__c<="+rng.e+"T23:59:59Z");
+        var vrec=await q("SELECT Name, Amount, ContactName__c, ContactEmail__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND StageName='Chiuso - Vinto' AND Data_Chiusa_Vinta__c>="+localDayBoundsUTC(rng.s,false)+" AND Data_Chiusa_Vinta__c<="+localDayBoundsUTC(rng.e,true));
         // IN ATTESA = Chiuso-Pending (non ancora pagato), per CloseDate del mese
         var prec=await q("SELECT Name, Amount, ContactName__c, ContactEmail__c FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND StageName='Chiuso - Pending' AND CloseDate>="+rng.s+" AND CloseDate<="+rng.e);
         if(vrec!=null){ ordDetSf=true; var off=0,part=0,ordOff=0,ordPart=0; vrec.forEach(function(r){var am=(r.Amount==null?0:+r.Amount),round=(am>0&&am%1000===0); if(round){part+=am;ordPart++;}else{off+=am;ordOff++;} sfOrd.push({n:(r.Name||"(opportunity RF)"),net:am,st:"Pagato",sr:"Salesforce",nome:(r.ContactName__c||""),email:(r.ContactEmail__c||""),dpag:String(r.Data_Chiusa_Vinta__c||"").slice(0,10)});});
