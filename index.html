@@ -238,7 +238,7 @@
       <button class="iconbtn" id="themeBtn" title="Cambia tema" aria-label="Cambia tema">&#9681;</button>
       <button id="refreshBtn" title="Aggiorna solo IREC (Salesforce): funnel, sorgenti, TMK, sales" aria-label="Aggiorna dati IREC" style="border:0;background:var(--accent);color:#fff;font:inherit;font-size:13px;font-weight:660;padding:9px 16px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;box-shadow:var(--shadow)"><span id="refreshIcon">&#8635;</span> Aggiorna IREC</button>
       <button id="refreshBtnRF" title="Aggiorna solo RF (Shopify + Salesforce): rilegge sempre gli ultimi 3 mesi per intercettare storni/rimborsi; la contabilita' prevale dove disponibile" aria-label="Aggiorna dati RF" style="border:0;background:var(--good);color:#fff;font:inherit;font-size:13px;font-weight:660;padding:9px 16px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;box-shadow:var(--shadow)"><span id="refreshIconRF">&#8635;</span> Aggiorna RF</button>
-      <button id="refreshBtnRFyear" title="Ricalcola TUTTI i mesi dell'anno (Gen..mese corrente) per data di pagamento: online via Shopify GraphQL (data incasso, netto rimborsi) + Salesforce per CloseDate. Piu' lento (una passata per mese)." aria-label="Ricalcola anno RF" style="border:1px solid var(--good);background:transparent;color:var(--good);font:inherit;font-size:13px;font-weight:640;padding:8px 13px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span>&#8635;</span> Ricalcola anno</button>
+      <button id="refreshBtnRFyear" title="Ricalcola TUTTI i mesi dell'anno (Gen..mese corrente) per data di pagamento: online via Shopify GraphQL (data incasso, netto rimborsi) + Salesforce per Data_Chiusa_Vinta__c. Piu' lento (una passata per mese)." aria-label="Ricalcola anno RF" style="border:1px solid var(--good);background:transparent;color:var(--good);font:inherit;font-size:13px;font-weight:640;padding:8px 13px;border-radius:10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px"><span>&#8635;</span> Ricalcola anno</button>
     </div>
   </header>
 
@@ -566,7 +566,7 @@
         <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF <b style="color:var(--good)">(live)</b></h2><span class="hint">stime <b>live</b> Shopify/SF &middot; MER su <b>spesa ADV reale</b> (da ADV &amp; Economics)</span></div>
         <div class="card-b scroll"><table id="rfAndTable"></table></div>
       </div>
-      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Voci del fatturato RF (Online/Offline/Partner, N ordini, AOV, Spontaneo/Gestito, <b>ADV totale speso</b>, MER) per tutti i mesi, valori <b>Real</b> (stime live Shopify/SF). Il <b>MER</b> = Totale Fatturato / <b>spesa ADV reale</b> (Meta+Google+Altri, la stessa di <i>ADV &amp; Economics</i>, non pi&ugrave; il budget). Offline/Partner (Salesforce) sono riconosciuti alla <b>data di pagamento = <code>CloseDate</code></b> (allineato al finance; dal 2026-09-10 non pi&ugrave; <code>Data_Chiusa_Vinta__c</code>, che era compilato a mano in blocco). La sezione <span style="color:var(--accent);font-weight:600">In attesa di pagamento</span> (blu) &egrave; collassabile e resta esclusa dal fatturato.</p>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Voci del fatturato RF (Online/Offline/Partner, N ordini, AOV, Spontaneo/Gestito, <b>ADV totale speso</b>, MER) per tutti i mesi, valori <b>Real</b> (stime live Shopify/SF). Il <b>MER</b> = Totale Fatturato / <b>spesa ADV reale</b> (Meta+Google+Altri, la stessa di <i>ADV &amp; Economics</i>, non pi&ugrave; il budget). La sezione <span style="color:var(--accent);font-weight:600">In attesa di pagamento</span> (blu) &egrave; collassabile e resta esclusa dal fatturato.</p>
 
       <div class="card" style="margin-top:22px">
         <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF <b style="color:var(--accent)">(booklet)</b></h2><span class="hint">dati manuali <b>ufficiali</b> dal booklet (Google Sheet &ldquo;KPI Full Funnel RF&rdquo;) &middot; valori <b>Actual</b></span></div>
@@ -646,7 +646,7 @@
           <tr><td class="voce">Fatturato Online</td><td>Shopify</td><td><code>net_sales</code> con <code>order_payment_status = 'paid'</code> (solo incassato). <b>Esclusi</b>: <i>pending</i> (in attesa), <i>voided</i> (annullati), <i>refunded</i> (rimborsati/stornati) e <i>authorized</i> (autorizzati non incassati). Netto sconti/resi.</td></tr>
           <tr><td class="voce">Offline</td><td>Salesforce</td><td>RecordType Rintraccio Facile, <code>StageName='Chiuso - Vinto'</code>, importi <b>non</b> multipli di 1.000&euro;.</td></tr>
           <tr><td class="voce">Partner</td><td>Salesforce</td><td>RecordType Rintraccio Facile, <code>StageName='Chiuso - Vinto'</code>, importi <b>tondi</b> (multipli di 1.000&euro;: 1.000, 2.000, 3.000, 5.000, 10.000&hellip;).</td></tr>
-          <tr><td class="voce">Totale Fatturato</td><td>Shopify + Salesforce</td><td>Online + Offline + Partner. <b>Stima live</b>: Online da Shopify (<code>net_sales</code> pagato, per data incasso), Offline/Partner da Salesforce riconosciuti alla <b>data di pagamento = <code>CloseDate</code></b> (allineato al finance/contabilit&agrave;). Netto IVA. (Fino al 2026-09-10 si usava <code>Data_Chiusa_Vinta__c</code>, ma quel campo &egrave; compilato <b>in blocco a mano</b> e spostava i pagamenti nel mese sbagliato &mdash; verificato con la contabilit&agrave; &mdash; quindi si &egrave; passati a <code>CloseDate</code>. L'override contabile via <code>account.move</code> era stato rimosso il 2026-09-02.)</td></tr>
+          <tr><td class="voce">Totale Fatturato</td><td>Shopify + Salesforce</td><td>Online + Offline + Partner. <b>Stima live</b>: Online da Shopify (<code>net_sales</code> pagato), Offline/Partner da Salesforce riconosciuti alla <b>data di pagamento</b> (<code>Data_Chiusa_Vinta__c</code>), non alla data ordine/chiusura. Netto IVA. (L'override contabile via <code>account.move</code> usato in precedenza &egrave; stato rimosso il 2026-09-02: non c'&egrave; pi&ugrave; una fonte "contabilit&agrave;" separata che prevale sulla stima live.)</td></tr>
           <tr><td class="voce">N ordini Online</td><td>Shopify</td><td>Ordini con <b>incasso reale</b> (<code>net_sales &gt; 0</code>), pagamento completato: <b>esclusi</b> gli ordini a &euro;&nbsp;0 (uso credito wallet, evasioni/comp) e i codici <code>Sconto Credito Wallet</code>. Conteggio per <code>order_name</code>.</td></tr>
           <tr><td class="voce">N ordini Offline</td><td>Salesforce</td><td>Conteggio Opportunity RF <code>Chiuso - Vinto</code> con importi <b>non</b> tondi (i Partner sono contati a parte).</td></tr>
           <tr><td class="voce">N ordini Partner</td><td>Salesforce</td><td>Conteggio Opportunity RF <code>Chiuso - Vinto</code> con importi <b>tondi</b> (multipli di 1.000&euro;).</td></tr>
@@ -676,20 +676,20 @@ SINCE [data inizio] UNTIL [data fine]</pre>
     <div class="card">
       <div class="card-h"><h2>Offline + Partner &mdash; Salesforce (SOQL)</h2><span class="hint">RecordType Rintraccio Facile</span></div>
       <div class="card-b" style="padding:8px 18px 16px">
-        <pre style="margin:0;overflow-x:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink)">-- Fatturato (pagato): riconosciuto alla data di pagamento = CloseDate (allineato al finance)
-SELECT Name, Amount, CloseDate
+        <pre style="margin:0;overflow-x:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink)">-- Fatturato (pagato): riconosciuto alla DATA DI PAGAMENTO, non a CloseDate
+SELECT Name, Amount, Data_Chiusa_Vinta__c
 FROM Opportunity
-WHERE CALENDAR_YEAR(CloseDate) = [anno] AND CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
+WHERE Data_Chiusa_Vinta__c &gt;= [confine giorno, ora locale Europe/Rome] AND Data_Chiusa_Vinta__c &lt;= [idem]
   AND StageName = 'Chiuso - Vinto'
   AND RecordTypeId = '012Mf000000oReaIAE'
 
--- In attesa di pagamento: stesso campo CloseDate
+-- In attesa di pagamento: per CloseDate (non ancora una data di pagamento)
 SELECT Name, Amount
 FROM Opportunity
 WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
   AND StageName = 'Chiuso - Pending'
   AND RecordTypeId = '012Mf000000oReaIAE'</pre>
-        <p class="taxintro" style="margin-top:10px">RecordType <b>Rintraccio Facile</b> (<code>012Mf000000oReaIAE</code>). Il <b>Fatturato</b> (<code>Chiuso - Vinto</code>) &egrave; riconosciuto alla <b>data di pagamento = <code>CloseDate</code></b>, allineata al finance/contabilit&agrave;. In precedenza si usava <code>Data_Chiusa_Vinta__c</code>, ma quel campo &egrave; compilato <b>in blocco a mano</b> e spostava i pagamenti nel mese sbagliato (verificato con la contabilit&agrave;), quindi dal 2026-09-10 si usa <code>CloseDate</code>. <code>CloseDate</code> &egrave; un campo <b>solo-data</b> (nessun orario), quindi non ci sono ambiguit&agrave; di fuso vicino alla mezzanotte. Le righe <b>in attesa di pagamento</b> (<code>Chiuso - Pending</code>, escluse dal Fatturato) usano lo stesso <code>CloseDate</code>. Per <b>importo</b>: tondo (multiplo di 1.000&euro;) &rarr; <b>Partner</b>, altrimenti <b>Offline</b>. Tutto al netto IVA.</p>
+        <p class="taxintro" style="margin-top:10px">RecordType <b>Rintraccio Facile</b> (<code>012Mf000000oReaIAE</code>). Il <b>Fatturato</b> (<code>Chiuso - Vinto</code>) usa <code>Data_Chiusa_Vinta__c</code> (data di pagamento), non <code>CloseDate</code>; i confini del mese sono calcolati in <b>ora locale Europe/Rome</b> (gestisce CET/CEST) e convertiti in UTC, per non spostare gli ordini vicino alla mezzanotte nel mese sbagliato. Le righe <b>in attesa di pagamento</b> (<code>Chiuso - Pending</code>, escluse dal Fatturato) restano su <code>CloseDate</code>. Per <b>importo</b>: tondo (multiplo di 1.000&euro;) &rarr; <b>Partner</b>, altrimenti <b>Offline</b>. Tutto al netto IVA.</p>
       </div>
     </div>
   </div>
@@ -985,8 +985,8 @@ var RF_RTID="012Mf000000oReaIAE";  // RecordType Rintraccio Facile (Opportunity)
 // FATTURATO = confermato: Shopify pagato + SF Chiuso-Vinto. IN ATTESA = Shopify pending + SF Chiuso-Pending (escluso dal totale).
 // Tutti i mesi = STIMA live (Shopify net_sales pagato + SF Chiuso-Vinto). File contabilita' IGNORATO (richiesta utente 2026-09-01). Set..Dic non ancora rilevati.
 var RF_ONLINE      =[50415.09,24214.14,26821.63,23296.24,27754.66,25933.44,23887.76,5402.48,3467.20,0,0,0];  // Online: Shopify pagato net>0 (stima). Set = MTD
-var RF_OFFLINE     =[5686.3,5505.8,2072.9,1230.95,884,1537.55,2830.5,2389.1,1346.79,0,0,0];   // Offline: SF Chiuso-Vinto non tondi, riconosciuto per CloseDate (allineato al finance)
-var RF_PARTNER     =[0,2000,2000,0,4000,0,1000,2000,0,0,0,0];   // Partner: SF RF Chiuso-Vinto tondi (x1000), per CloseDate
+var RF_OFFLINE     =[3973.6,6113.8,3177.6,1243.95,822,1239.55,2358.5,1604.3,1831.8,0,0,0];   // Offline: SF Chiuso-Vinto non tondi, riconosciuto alla DATA DI PAGAMENTO (Data_Chiusa_Vinta__c)
+var RF_PARTNER     =[0,2000,2000,0,4000,0,1000,2000,0,0,0,0];   // Partner: SF RF Chiuso-Vinto tondi (x1000), data di pagamento
 var RF_ONLINE_PEND =[14325.7,1688.4,562.5,575.41,395.18,441.67,1000,750.80,0,0,0,0];   // Online in attesa: Shopify net_sales pending
 var RF_OFFLINE_PEND=[32,612.10,72,307.30,32,603,0,40,0,0,0,0];   // Offline in attesa: SF RF Chiuso-Pending, non tondi
 var RF_PARTNER_PEND=[2000,0,0,0,0,0,0,0,0,0,0,0];   // Partner in attesa: SF RF Chiuso-Pending, tondi (x1000)
@@ -996,7 +996,7 @@ var RF_BUD_OFFLINE=[3926.71,  4768.15,  5299.19,  5048.63,  5777.88,  5048.63,  
 var RF_BUD_PARTNER=[2240,     2720,     2784,     2880,     3296,     2880,     2500,  1500,  2500,  3000,  3000,  1500];
 // Numero ordini Real (Online = Shopify pagato con incasso>0, esclusi wallet e ordini a 0; Offline/Partner = SF Chiuso-Vinto count, tondi = Partner)
 var RF_ORD_ONLINE =[176,121,137,110,140,134,120, 40, 23,0,0,0];
-var RF_ORD_OFFLINE=[14,15,8,10,7,12,18,9,3,0,0,0];   // conteggio Chiuso-Vinto non tondi per CloseDate
+var RF_ORD_OFFLINE=[12,14,11,9,7,11,14,12,4,0,0,0];   // conteggio Chiuso-Vinto non tondi per data di pagamento
 var RF_ORD_PARTNER=[0,1,1,0,2,0,1,2,0,0,0,0];
 // Dettaglio ordini per mese (idx 0..11 = Gen..Dic). n=numero/nome, net=netto IVA, st=stato pagamento, sr=fonte.
 // Rigenerato dal tasto Aggiorna. Vuoti finche' non si preme Aggiorna sul mese (il dettaglio per-ordine si popola live).
@@ -2023,8 +2023,11 @@ function renderRF(){
 }
 /* ---------- REFRESH RF (Shopify + Salesforce dal vivo) ---------- */
 function rfStatus(m){var el=document.getElementById("rfStatus"); if(el)el.textContent=m||"";}
-// CloseDate e' un campo solo-data (SOQL Date): confronto diretto con literal "YYYY-MM-DD", nessuna conversione di fuso.
 function monthRange(mm){var ms=(mm<10?"0":"")+mm; var last=new Date(2026,mm,0).getDate(); return {s:"2026-"+ms+"-01", e:"2026-"+ms+"-"+((last<10?"0":"")+last)};}
+// Confine giorno in ora locale (Europe/Rome, gestisce CET/CEST) convertito in istante UTC per i literal SOQL DateTime.
+// Necessario per campi come Data_Chiusa_Vinta__c: un limite fisso "T00:00:00Z"/"T23:59:59Z" sposta gli ordini vicini
+// alla mezzanotte italiana nel mese sbagliato (differenza di 1-2h tra ora locale e UTC).
+function localDayBoundsUTC(dateStr,endOfDay){var p=dateStr.split("-"),y=+p[0],m=+p[1]-1,d=+p[2];var dt=endOfDay?new Date(y,m,d,23,59,59,999):new Date(y,m,d,0,0,0,0);return dt.toISOString();}
 var _shopCache=null;   // una volta trovato, il connettore Shopify resta memorizzato per la sessione
 async function findShopify(){
   if(_shopCache)return _shopCache;
@@ -3046,7 +3049,7 @@ async function doRefreshUnified(scope){
        Richiesta utente: per RF rileggi SEMPRE gli ultimi 3 mesi (mese corrente + 2 precedenti) cosi'
        da intercettare storni/rimborsi/annullamenti sia su Shopify (order_payment_status='paid' scarta
        automaticamente rimborsati/annullati) sia su Salesforce (Chiuso-Vinto/Pending ricontrollato).
-       Fatturato netto = riconosciuto alla data di pagamento: SF Chiuso-Vinto per CloseDate (allineato al finance);
+       Fatturato netto = riconosciuto alla DATA DI PAGAMENTO: SF Chiuso-Vinto per Data_Chiusa_Vinta__c;
        Shopify per data della transazione SALE/CAPTURE SUCCESS (via API ordini GraphQL). Nessun override contabilita'. */
     // ONLINE Shopify per DATA DI PAGAMENTO: legge gli ordini creati [mese-1..mese] via GraphQL e li attribuisce
     // al mese della transazione SALE/CAPTURE SUCCESS (data incasso). Intercetta gli ordini a cavallo del mese
@@ -3097,12 +3100,11 @@ async function doRefreshUnified(scope){
         var rU=await shq("FROM sales SHOW net_sales GROUP BY utm_source, utm_medium, utm_campaign WITH ANY_CLICK_ATTRIBUTION SINCE "+rng.s+" UNTIL "+rng.e+" ORDER BY net_sales__any_click DESC LIMIT 40"); var uRows=shopifyRows(rU); if(uRows){RF_UTM[mm]=uRows.map(function(r){var s=(r[0]==null||r[0]==="")?"(diretto / non tracciato)":r[0]; return {s:s,m:r[1]||"",c:r[2]||"",a:numify(r[3])};});}
       }
       if(sf){
-        // FATTURATO offline/partner = Chiuso-Vinto riconosciuto per CloseDate (data pagamento allineata al finance).
-        // Data_Chiusa_Vinta__c NON usato: e' compilato in blocco a mano e sposta i pagamenti nel mese sbagliato.
-        var vrec=await q("SELECT Name, Amount, ContactName__c, ContactEmail__c, CloseDate FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND StageName='Chiuso - Vinto' AND CloseDate>="+rng.s+" AND CloseDate<="+rng.e);
+        // FATTURATO offline/partner = Chiuso-Vinto riconosciuto alla DATA DI PAGAMENTO (Data_Chiusa_Vinta__c), NON a CloseDate.
+        var vrec=await q("SELECT Name, Amount, ContactName__c, ContactEmail__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND StageName='Chiuso - Vinto' AND Data_Chiusa_Vinta__c>="+localDayBoundsUTC(rng.s,false)+" AND Data_Chiusa_Vinta__c<="+localDayBoundsUTC(rng.e,true));
         // IN ATTESA = Chiuso-Pending (non ancora pagato), per CloseDate del mese
         var prec=await q("SELECT Name, Amount, ContactName__c, ContactEmail__c FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND StageName='Chiuso - Pending' AND CloseDate>="+rng.s+" AND CloseDate<="+rng.e);
-        if(vrec!=null){ ordDetSf=true; var off=0,part=0,ordOff=0,ordPart=0; vrec.forEach(function(r){var am=(r.Amount==null?0:+r.Amount),round=(am>0&&am%1000===0); if(round){part+=am;ordPart++;}else{off+=am;ordOff++;} sfOrd.push({n:(r.Name||"(opportunity RF)"),net:am,st:"Pagato",sr:"Salesforce",nome:(r.ContactName__c||""),email:(r.ContactEmail__c||""),dpag:String(r.CloseDate||"").slice(0,10)});});
+        if(vrec!=null){ ordDetSf=true; var off=0,part=0,ordOff=0,ordPart=0; vrec.forEach(function(r){var am=(r.Amount==null?0:+r.Amount),round=(am>0&&am%1000===0); if(round){part+=am;ordPart++;}else{off+=am;ordOff++;} sfOrd.push({n:(r.Name||"(opportunity RF)"),net:am,st:"Pagato",sr:"Salesforce",nome:(r.ContactName__c||""),email:(r.ContactEmail__c||""),dpag:String(r.Data_Chiusa_Vinta__c||"").slice(0,10)});});
           RF_OFFLINE[ri]=off;RF_PARTNER[ri]=part;RF_ORD_OFFLINE[ri]=ordOff;RF_ORD_PARTNER[ri]=ordPart; }
         if(prec!=null){ ordDetSf=true; var offP=0,partP=0; prec.forEach(function(r){var am=(r.Amount==null?0:+r.Amount),round=(am>0&&am%1000===0); if(round)partP+=am;else offP+=am; sfOrd.push({n:(r.Name||"(opportunity RF)"),net:am,st:"In attesa",sr:"Salesforce",nome:(r.ContactName__c||""),email:(r.ContactEmail__c||""),dpag:""});});
           RF_OFFLINE_PEND[ri]=offP;RF_PARTNER_PEND[ri]=partP; }
@@ -3115,7 +3117,7 @@ async function doRefreshUnified(scope){
     if(doR){
       var _cm=(curM>0?curM:12), _set={}, rfTargets;
       if(rfFullYear){
-        // RICALCOLO ANNO: tutti i mesi Gen..mese corrente per data di pagamento (online GraphQL + SF CloseDate)
+        // RICALCOLO ANNO: tutti i mesi Gen..mese corrente per data di pagamento (online GraphQL + SF Data_Chiusa_Vinta__c)
         rfTargets=[]; for(var _y=1;_y<=_cm;_y++)rfTargets.push(_y);
       } else {
         // target = ultimi 3 mesi (mese corrente + 2 precedenti) UNIONE il mese attualmente selezionato,

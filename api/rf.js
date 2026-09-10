@@ -48,9 +48,8 @@ export default async function handler(req, res) {
   try {
     const ctx = await getToken();
     const Y = YEAR;
-    // Chiuso-Vinto riconosciuto per CloseDate = data di pagamento allineata al finance.
-    // (Data_Chiusa_Vinta__c NON usato: e' compilato a mano/in blocco e sposta i pagamenti nel mese sbagliato.)
-    const vinti = await soql(ctx, `SELECT Name, Amount, ContactName__c, ContactEmail__c, CloseDate FROM Opportunity WHERE RecordTypeId='${RF_RTID}' AND StageName='Chiuso - Vinto' AND CALENDAR_YEAR(CloseDate)=${Y}`);
+    // Chiuso-Vinto riconosciuto alla DATA DI PAGAMENTO (Data_Chiusa_Vinta__c)
+    const vinti = await soql(ctx, `SELECT Name, Amount, ContactName__c, ContactEmail__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='${RF_RTID}' AND StageName='Chiuso - Vinto' AND Data_Chiusa_Vinta__c>=${Y}-01-01T00:00:00Z AND Data_Chiusa_Vinta__c<=${Y}-12-31T23:59:59Z`);
     // Chiuso-Pending (in attesa) per CloseDate del mese
     const pend = await soql(ctx, `SELECT Name, Amount, ContactName__c, ContactEmail__c, CloseDate FROM Opportunity WHERE RecordTypeId='${RF_RTID}' AND StageName='Chiuso - Pending' AND CALENDAR_YEAR(CloseDate)=${Y}`);
 
@@ -58,10 +57,10 @@ export default async function handler(req, res) {
     const offlineP = new Array(12).fill(0), partnerP = new Array(12).fill(0);
     const orders = [];
     vinti.forEach((r) => {
-      const am = r.Amount == null ? 0 : +r.Amount, m = monthOf(r.CloseDate);
+      const am = r.Amount == null ? 0 : +r.Amount, m = monthOf(r.Data_Chiusa_Vinta__c);
       if (m < 1 || m > 12) return;
       if (isRound(am)) { partner[m - 1] += am; ordPartner[m - 1]++; } else { offline[m - 1] += am; ordOffline[m - 1]++; }
-      orders.push({ m, n: r.Name || '(opportunity RF)', nome: r.ContactName__c || '', email: r.ContactEmail__c || '', dpag: String(r.CloseDate || '').slice(0, 10), net: am, st: 'Pagato', sr: 'Salesforce' });
+      orders.push({ m, n: r.Name || '(opportunity RF)', nome: r.ContactName__c || '', email: r.ContactEmail__c || '', dpag: String(r.Data_Chiusa_Vinta__c || '').slice(0, 10), net: am, st: 'Pagato', sr: 'Salesforce' });
     });
     pend.forEach((r) => {
       const am = r.Amount == null ? 0 : +r.Amount, m = monthOf(r.CloseDate);
