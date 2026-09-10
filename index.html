@@ -529,6 +529,7 @@
     <nav class="rftabs" role="tablist">
       <div class="tabgroup"><span class="tabgrp">General</span>
         <button role="tab" aria-selected="false" data-rftab="andamento">Andamento mese su mese</button>
+        <button role="tab" aria-selected="false" data-rftab="booklet">Andamento (Booklet)</button>
         <button role="tab" aria-selected="true" data-rftab="pv">PV Fatturato RF budget vs real</button>
       </div>
       <div class="tabgroup"><span class="tabgrp">Marketing</span>
@@ -567,6 +568,14 @@
         <div class="card-b scroll"><table id="rfAndTable"></table></div>
       </div>
       <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Voci del fatturato RF (Online/Offline/Partner, N ordini, AOV, Spontaneo/Gestito, MER) per tutti i mesi, valori <b>Real</b>. Il <b>MER</b> qui &egrave; Totale Fatturato real / <b>ADV budget</b> (la spesa real mensile non &egrave; ancora agganciata). La sezione <span style="color:var(--accent);font-weight:600">In attesa di pagamento</span> (blu) &egrave; collassabile e resta esclusa dal fatturato.</p>
+    </section>
+
+    <section class="rfpanel" id="rfpanel-booklet">
+      <div class="card">
+        <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF <b style="color:var(--accent)">(Booklet)</b></h2><span class="hint">dati manuali <b>ufficiali</b> dal booklet (Google Sheet &ldquo;KPI Full Funnel RF&rdquo;) &middot; valori <b>Actual</b></span></div>
+        <div class="card-b scroll"><table id="rfBookTable"></table></div>
+      </div>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Stessa struttura dell&rsquo;Andamento, ma con i valori <b>Actual del booklet</b> inseriti a mano (sezione Ecomm/Ecomm+SALES del foglio KPI Full Funnel RF). Disponibili <b>Gennaio&ndash;Agosto</b>; Settembre&ndash;Dicembre da compilare nel booklet. A differenza della tab &ldquo;Andamento mese su mese&rdquo; (stime live Shopify/SF), qui i numeri sono quelli ufficiali che aggiorni tu nel foglio.</p>
     </section>
 
     <section class="rfpanel" id="rfpanel-sorgenti">
@@ -2141,6 +2150,7 @@ function rfShowTab(tab){
 function renderRFActive(){
   renderRF(); // tiles + tabella PV
   if(rfTab==="andamento")renderRFAndamento();
+  else if(rfTab==="booklet")renderRFBooklet();
   else if(rfTab==="sorgenti")renderRFSorgenti();
   else if(rfTab==="adv")renderRFAdv();
   else if(rfTab==="operatori")renderRFOperatori();
@@ -2263,6 +2273,42 @@ function renderRFAndamento(){
   el.innerHTML=head+body;
   var pr=el.querySelector(".rfpend-row"); if(pr){var tg=function(){rfPendExp=!rfPendExp;renderRFAndamento();}; pr.addEventListener("click",tg); pr.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();tg();}});}
 }
+/* ===== ANDAMENTO BOOKLET RF: dati manuali ufficiali dal Google Sheet "KPI Full Funnel RF" =====
+   Valori ACTUAL mese su mese (Gen..Ago disponibili; Set..Dic da compilare). Fonte: booklet, sezione Ecomm/Ecomm+SALES. */
+var RF_BOOKLET={
+  online:   [23931.8,22378.21,25410.52,25218.31,27538.67,25776.6,23968.2,5390.46,null,null,null,null],
+  offline:  [5488.3,4599.1,3843.0,1600.83,782.0,1308.55,3137.5,825.3,null,null,null,null],
+  partner:  [2000,2000,2000,0,4000,0,1000,2000,null,null,null,null],
+  totale:   [31420.1,28977.31,31253.52,26819.14,32320.67,27085.15,28105.7,8215.76,null,null,null,null],
+  ordOnline:[127,113,134,121,139,134,121,40,null,null,null,null],
+  ordOffline:[13,13,11,11,6,12,19,7,null,null,null,null],
+  ordTot:   [141,127,146,132,145,146,140,47,null,null,null,null],
+  aov:      [181.29,212.42,200.37,203.18,195.31,185.51,193.61,132.25,null,null,null,null],
+  spontaneo:[2979.55,10723.21,11424.64,17906.77,19669.13,17562.05,15297.15,4466.02,null,null,null,null],
+  gestito:  [20952.25,11655.0,13985.88,7311.54,7869.54,8214.55,8671.05,924.44,null,null,null,null],
+  merTot:   [424.18,376.55,339.55,332.38,478.03,401.91,367.58,161.34,null,null,null,null]
+};
+function renderRFBooklet(){
+  var el=document.getElementById("rfBookTable"); if(!el)return; var B=RF_BOOKLET;
+  var head='<thead><tr><th class="voce">Voce</th>';
+  for(var m=0;m<12;m++){head+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+'</th>';}
+  head+='</tr></thead>';
+  function row(lab,arr,o){o=o||{}; var s='<tr'+(o.sep?' class="sep"':'')+'><td class="voce"'+(o.style?' style="'+o.style+'"':'')+'>'+lab+'</td>';
+    for(var m=0;m<12;m++){var v=arr[m]; var disp=(v==null)?'<span class="muted">&mdash;</span>':(o.pct?(v.toLocaleString("it-IT",{maximumFractionDigits:0})+"%"):(o.num?nf(v):eur(v))); s+='<td class="'+(m===CUR_MONTH-1?"now":"")+'">'+disp+'</td>';} return s+'</tr>';}
+  var body='<tbody>';
+  body+=row("Fatturato Online",B.online);
+  body+=row("Offline",B.offline);
+  body+=row("Partner",B.partner);
+  body+=row("Totale Fatturato",B.totale,{sep:true,style:"font-weight:680"});
+  body+=row("N ordini Online",B.ordOnline,{num:true});
+  body+=row("N ordini Offline",B.ordOffline,{num:true});
+  body+=row("N ordini Totale",B.ordTot,{num:true,style:"font-weight:660"});
+  body+=row("AOV",B.aov);
+  body+=row("Spontaneo (non gestito)",B.spontaneo,{sep:true,style:"color:var(--muted)"});
+  body+=row("Gestito Venditori",B.gestito,{style:"font-weight:640"});
+  body+=row("MER",B.merTot,{pct:true});
+  body+='</tbody>'; el.innerHTML=head+body;
+}
 function renderRFSorgenti(){
   var el=document.getElementById("rfSrcTable"); if(!el)return;
   var mm=rfMonthSel+1;
@@ -2326,7 +2372,7 @@ function renderRFAdv(){
 }
 /* ---------- refresh a fasi: overlay barra di caricamento per gruppo di tab ---------- */
 var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",recensioni:"customer"};
-var RF_TAB_GROUP={andamento:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",recensioni:"customer"};
+var RF_TAB_GROUP={andamento:"general",booklet:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",recensioni:"customer"};
 var groupReady={general:true,marketing:true,tmk:true,sales:true};
 var currentView="irec-dash";
 function tabOverlay(panelEl,on){
