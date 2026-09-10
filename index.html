@@ -529,7 +529,6 @@
     <nav class="rftabs" role="tablist">
       <div class="tabgroup"><span class="tabgrp">General</span>
         <button role="tab" aria-selected="false" data-rftab="andamento">Andamento mese su mese</button>
-        <button role="tab" aria-selected="false" data-rftab="booklet">Andamento (Booklet)</button>
         <button role="tab" aria-selected="true" data-rftab="pv">PV Fatturato RF budget vs real</button>
       </div>
       <div class="tabgroup"><span class="tabgrp">Marketing</span>
@@ -564,18 +563,16 @@
 
     <section class="rfpanel" id="rfpanel-andamento">
       <div class="card">
-        <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF</h2><span class="hint">stesse voci del PV &middot; mesi con import <b style="color:var(--good)">contabilit&agrave;</b> = ufficiali; gli altri sono <b style="color:var(--warn)">stime</b> Shopify/SF</span></div>
+        <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF <b style="color:var(--good)">(live)</b></h2><span class="hint">stime <b>live</b> Shopify/SF &middot; MER su <b>spesa ADV reale</b> (da ADV &amp; Economics)</span></div>
         <div class="card-b scroll"><table id="rfAndTable"></table></div>
       </div>
-      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Voci del fatturato RF (Online/Offline/Partner, N ordini, AOV, Spontaneo/Gestito, MER) per tutti i mesi, valori <b>Real</b>. Il <b>MER</b> qui &egrave; Totale Fatturato real / <b>ADV budget</b> (la spesa real mensile non &egrave; ancora agganciata). La sezione <span style="color:var(--accent);font-weight:600">In attesa di pagamento</span> (blu) &egrave; collassabile e resta esclusa dal fatturato.</p>
-    </section>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Voci del fatturato RF (Online/Offline/Partner, N ordini, AOV, Spontaneo/Gestito, <b>ADV totale speso</b>, MER) per tutti i mesi, valori <b>Real</b> (stime live Shopify/SF). Il <b>MER</b> = Totale Fatturato / <b>spesa ADV reale</b> (Meta+Google+Altri, la stessa di <i>ADV &amp; Economics</i>, non pi&ugrave; il budget). La sezione <span style="color:var(--accent);font-weight:600">In attesa di pagamento</span> (blu) &egrave; collassabile e resta esclusa dal fatturato.</p>
 
-    <section class="rfpanel" id="rfpanel-booklet">
-      <div class="card">
-        <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF <b style="color:var(--accent)">(Booklet)</b></h2><span class="hint">dati manuali <b>ufficiali</b> dal booklet (Google Sheet &ldquo;KPI Full Funnel RF&rdquo;) &middot; valori <b>Actual</b></span></div>
+      <div class="card" style="margin-top:22px">
+        <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF <b style="color:var(--accent)">(booklet)</b></h2><span class="hint">dati manuali <b>ufficiali</b> dal booklet (Google Sheet &ldquo;KPI Full Funnel RF&rdquo;) &middot; valori <b>Actual</b></span></div>
         <div class="card-b scroll"><table id="rfBookTable"></table></div>
       </div>
-      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Stessa struttura dell&rsquo;Andamento, ma con i valori <b>Actual del booklet</b> inseriti a mano (sezione Ecomm/Ecomm+SALES del foglio KPI Full Funnel RF). Disponibili <b>Gennaio&ndash;Agosto</b>; Settembre&ndash;Dicembre da compilare nel booklet. A differenza della tab &ldquo;Andamento mese su mese&rdquo; (stime live Shopify/SF), qui i numeri sono quelli ufficiali che aggiorni tu nel foglio.</p>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Stessa struttura, con i valori <b>Actual del booklet</b> inseriti a mano (sezione Ecomm/Ecomm+SALES del foglio KPI Full Funnel RF). Disponibili <b>Gennaio&ndash;Agosto</b>; Settembre&ndash;Dicembre da compilare nel booklet. Qui i numeri sono quelli <b>ufficiali</b> che aggiorni tu nel foglio (la tabella sopra &egrave; la stima live).</p>
     </section>
 
     <section class="rfpanel" id="rfpanel-sorgenti">
@@ -2149,8 +2146,7 @@ function rfShowTab(tab){
 }
 function renderRFActive(){
   renderRF(); // tiles + tabella PV
-  if(rfTab==="andamento")renderRFAndamento();
-  else if(rfTab==="booklet")renderRFBooklet();
+  if(rfTab==="andamento"){renderRFAndamento();renderRFBooklet();}
   else if(rfTab==="sorgenti")renderRFSorgenti();
   else if(rfTab==="adv")renderRFAdv();
   else if(rfTab==="operatori")renderRFOperatori();
@@ -2236,7 +2232,10 @@ function renderRFAndamento(){
     onlineP:RF_ONLINE_PEND, offlineP:RF_OFFLINE_PEND, partnerP:RF_PARTNER_PEND,
     ordOnline:RF_ORD_ONLINE,
     ordOffline:RF_ORD_OFFLINE.map(function(v,i){return (v||0)+(RF_ORD_PARTNER[i]||0);}),
-    gestOnline:RF_ONLINE_GEST, advBud:RF_AND12.advBud
+    gestOnline:RF_ONLINE_GEST, advBud:RF_AND12.advBud,
+    // spesa ADV REALE (come ADV & Economics): base MER = Meta+Google+Altri; totale speso include Extra+Eventi
+    advReal:MESI.map(function(_x,i){return (RF_ADV_META[i]||0)+(RF_ADV_GOOGLE[i]||0)+(RF_ADV_ALTRI[i]||0);}),
+    advTot: MESI.map(function(_x,i){return (RF_ADV_META[i]||0)+(RF_ADV_GOOGLE[i]||0)+(RF_ADV_ALTRI[i]||0)+(RF_ADV_EXTRA[i]||0)+(RF_ADV_EVENTI[i]||0);})
   };
   var head='<thead><tr><th class="voce">Voce</th>';
   for(var m=0;m<12;m++){head+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+'</th>';}
@@ -2258,7 +2257,8 @@ function renderRFAndamento(){
   body+=row("AOV",function(m){var o=(A.ordOnline[m]||0)+(A.ordOffline[m]||0); return o?fatT(m)/o:null;});
   body+=row("Spontaneo (non gestito)",function(m){return (A.online[m]||0)-(A.gestOnline[m]||0);},{sep:true,style:"color:var(--muted)"});
   body+=row("Gestito Venditori",function(m){return (A.gestOnline[m]||0)+(A.offline[m]||0)+(A.partner[m]||0);},{style:"font-weight:640"});
-  body+=row("MER (Fatt. / ADV budget)",function(m){var a=A.advBud[m]; return a?fatT(m)/a*100:null;},{pct:true});
+  body+=row("ADV totale speso",function(m){var a=A.advTot[m]; return a?a:null;},{sep:true,style:"color:var(--muted)"});
+  body+=row("MER (Fatt. / ADV speso)",function(m){var a=A.advReal[m]; return a?fatT(m)/a*100:null;},{pct:true});
   // sezione In attesa (blu, collassabile)
   body+='<tr class="rfpend-row sep" style="cursor:pointer" role="button" tabindex="0"><td class="voce" style="color:var(--accent);font-weight:680"><span style="font-size:10px;margin-right:5px">'+(rfPendExp?"&#9660;":"&#9654;")+'</span>In attesa di pagamento</td>';
   for(var mm=0;mm<12;mm++){var pv=(A.onlineP[mm]||0)+(A.offlineP[mm]||0)+(A.partnerP[mm]||0); body+='<td class="'+(mm===CUR_MONTH-1?"now":"")+'" style="color:var(--accent)">'+(pv?eur(pv):'<span class="muted">&mdash;</span>')+'</td>';}
@@ -2372,7 +2372,7 @@ function renderRFAdv(){
 }
 /* ---------- refresh a fasi: overlay barra di caricamento per gruppo di tab ---------- */
 var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",recensioni:"customer"};
-var RF_TAB_GROUP={andamento:"general",booklet:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",recensioni:"customer"};
+var RF_TAB_GROUP={andamento:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",recensioni:"customer"};
 var groupReady={general:true,marketing:true,tmk:true,sales:true};
 var currentView="irec-dash";
 function tabOverlay(panelEl,on){
