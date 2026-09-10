@@ -2286,6 +2286,7 @@ var RF_BOOKLET={
   aov:      [181.29,212.42,200.37,203.18,195.31,185.51,193.61,132.25,null,null,null,null],
   spontaneo:[2979.55,10723.21,11424.64,17906.77,19669.13,17562.05,15297.15,4466.02,null,null,null,null],
   gestito:  [20952.25,11655.0,13985.88,7311.54,7869.54,8214.55,8671.05,924.44,null,null,null,null],
+  adv:      [7407.30,7695.44,9204.45,8068.91,6761.16,6739.14,7646.19,5092.05,null,null,null,null], // Investimento ads Actual (booklet)
   merTot:   [424.18,376.55,339.55,332.38,478.03,401.91,367.58,161.34,null,null,null,null]
 };
 function renderRFBooklet(){
@@ -2306,6 +2307,7 @@ function renderRFBooklet(){
   body+=row("AOV",B.aov);
   body+=row("Spontaneo (non gestito)",B.spontaneo,{sep:true,style:"color:var(--muted)"});
   body+=row("Gestito Venditori",B.gestito,{style:"font-weight:640"});
+  body+=row("ADV totale speso",B.adv,{sep:true,style:"color:var(--muted)"});
   body+=row("MER",B.merTot,{pct:true});
   body+='</tbody>'; el.innerHTML=head+body;
 }
