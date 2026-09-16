@@ -1741,23 +1741,27 @@ function campGrp(i){
   var g=(VW[i].o==="Lead")?_CM:_CMC, from=(VW[i].o==="Lead")?"Lead":"Opportunity";
   return "SELECT "+g+" m,COUNT(Id) t FROM "+from+" WHERE "+VW[i].w+VW[i].extra+campWhere()+" GROUP BY "+g;
 }
+var campErr="";
 async function ensureCampOpts(){
   if(campOpts!=null){ fillCampFilters(); ensureCampData(); return; }
   if(campOptLoading){renderCampaign();return;}
-  campOptLoading=true; renderCampaign();
+  campOptLoading=true; campErr=""; renderCampaign();
   try{
     if(hasMcp()){
-      var sf=await findTool(); campOpts={};
+      var sf=await findTool(); var acc={};
       for(var k=0;k<CAMP_FIELDS.length;k++){ var f=CAMP_FIELDS[k];
         var recs=await sfCall(sf.tool,"SELECT "+f.field+" v,COUNT(Id) t FROM Lead WHERE "+_LB+" AND "+f.field+"!=null GROUP BY "+f.field+" ORDER BY COUNT(Id) DESC LIMIT 300");
-        campOpts[f.key]=(recs||[]).map(function(r){return {v:(r.v||""),t:+(r.t||0)};}).filter(function(x){return x.v!=="";});
+        acc[f.key]=(recs||[]).map(function(r){return {v:(r.v||""),t:+(r.t||0)};}).filter(function(x){return x.v!=="";});
       }
+      campOpts=acc;
     } else {
       var r=await fetch("api/dashboard?view=campopts",{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;});
-      campOpts=(r.ok&&d&&d.opts)?d.opts:{lead:[],src:[],med:[],camp:[]};
+      if(r.ok&&d&&d.opts)campOpts=d.opts; else throw new Error("backend");
     }
-  }catch(e){ campOpts=campOpts||{lead:[],src:[],med:[],camp:[]}; }
-  campOptLoading=false; fillCampFilters(); ensureCampData();
+  }catch(e){ campOpts=null; campErr="Salesforce non disponibile al momento (riprova tra poco o premi Aggiorna IREC)."; }
+  campOptLoading=false;
+  if(campOpts==null){ renderCampaign(); return; }
+  fillCampFilters(); ensureCampData();
 }
 async function ensureCampData(){
   var key=campKey();
@@ -1766,9 +1770,9 @@ async function ensureCampData(){
   campLoading=true; renderCampaign();
   try{
     var cm=(typeof CUR_MONTH!=="undefined"&&CUR_MONTH>0)?CUR_MONTH:12;
-    if(hasMcp()){ var sf=await findTool(); var arr=[]; for(var i=0;i<8;i++){ arr[i]=buildMonthly(await sfCall(sf.tool,campGrp(i)),"t",cm); } campCache[key]=arr; }
-    else{ var r=await fetch("api/dashboard?view=campaign&filters="+encodeURIComponent(JSON.stringify(campFilters)),{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;}); campCache[key]=(r.ok&&d&&d.data)?d.data:null; }
-  }catch(e){ /* lascia null: mostra errore/ritenta */ }
+    if(hasMcp()){ var sf=await findTool(); var arr=[]; for(var i=0;i<8;i++){ arr[i]=buildMonthly(await sfCall(sf.tool,campGrp(i)),"t",cm); } campCache[key]=arr; campErr=""; }
+    else{ var r=await fetch("api/dashboard?view=campaign&filters="+encodeURIComponent(JSON.stringify(campFilters)),{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;}); if(r.ok&&d&&d.data){campCache[key]=d.data;campErr="";} else throw new Error("backend"); }
+  }catch(e){ campErr="Salesforce non disponibile al momento (riprova tra poco o premi Aggiorna IREC)."; }
   campLoading=false; renderCampaign();
 }
 function fillCampFilters(){
@@ -1795,8 +1799,8 @@ function renderCampaign(){
   for(var m=0;m<12;m++){head+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+"</th>";}
   head+="</tr></thead>";
   var body="<tbody>";
-  if(campOpts==null||campOptLoading){ body+='<tr><td class="voce muted" colspan="13">Caricamento elenchi filtri da Salesforce&hellip;</td></tr>'; }
-  else if(data==null){ body+='<tr><td class="voce muted" colspan="13">'+(campLoading?"Caricamento funnel da Salesforce&hellip;":"Nessun dato. Premi Aggiorna IREC o cambia i filtri.")+"</td></tr>"; }
+  if(campOpts==null||campOptLoading){ body+='<tr><td class="voce muted" colspan="13">'+(campErr?esc(campErr):"Caricamento elenchi filtri da Salesforce&hellip;")+"</td></tr>"; }
+  else if(data==null){ body+='<tr><td class="voce muted" colspan="13">'+(campLoading?"Caricamento funnel da Salesforce&hellip;":(campErr?esc(campErr):"Nessun dato. Premi Aggiorna IREC o cambia i filtri."))+"</td></tr>"; }
   else { for(var i=0;i<8;i++){ body+='<tr><td class="voce">'+REAL.general[i].voce+"</td>"; for(var mm=0;mm<12;mm++){var v=data[i][mm]; body+='<td class="'+(mm===CUR_MONTH-1?"now":"")+'">'+(v==null?'<span class="muted">&mdash;</span>':nf(v))+"</td>";} body+="</tr>"; } }
   body+="</tbody>";
   el.innerHTML=head+body;
@@ -2907,7 +2911,7 @@ async function sfCall(tool,q){
       var p=res&&res.payload;
       if(p&&p.records)return p.records;
       if(Array.isArray(p))return p;
-      if(res&&res.content){for(var i=0;i<res.content.length;i++){var b=res.content[i];if(b&&b.type==="text"){try{var j=JSON.parse(b.text);if(j&&j.records)return j.records;if(Array.isArray(j))return j;}catch(e){}}}}
+      if(res&&res.content){for(var i=0;i<res.content.length;i++){var b=res.content[i];if(b&&b.type==="text"){var tx=b.text||"";try{var j=JSON.parse(tx);if(j&&j.records)return j.records;if(Array.isArray(j))return j;}catch(e){ if(/^\s*</.test(tx)||/maintenance|down for maintenance|<html/i.test(tx)){var mErr=new Error("Salesforce non disponibile (manutenzione)");mErr.code="server_unavailable";mErr.retryable=true;throw mErr;} }}}}
       return [];
     }catch(e){
       lastErr=e; var c=e&&e.code;
