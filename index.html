@@ -3105,8 +3105,8 @@ async function doRefreshRFAPI(){
   function st(m){var a=document.getElementById("refreshStatusRF");if(a)a.innerHTML=m;var t=document.getElementById("rfStatus");if(t)t.innerHTML=m;}
   try{
     st("RF &middot; caricamento da backend (Salesforce + ADV)...");
-    var r=await fetch("api/rf",{headers:{Accept:"application/json"}}); var d=await r.json();
-    if(!r.ok||d.error)throw new Error(d.error||("HTTP "+r.status));
+    var r=await fetch("api/rf",{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;});
+    if(!r.ok||!d||d.error)throw new Error((d&&d.error)||("Backend/Salesforce non disponibile (HTTP "+r.status+") &middot; riprova tra poco"));
     if(d.sf){var s=d.sf; for(var i=0;i<12;i++){ if(s.offline)RF_OFFLINE[i]=s.offline[i]||0; if(s.partner)RF_PARTNER[i]=s.partner[i]||0; if(s.ordOffline)RF_ORD_OFFLINE[i]=s.ordOffline[i]||0; if(s.ordPartner)RF_ORD_PARTNER[i]=s.ordPartner[i]||0; if(s.offlineP)RF_OFFLINE_PEND[i]=s.offlineP[i]||0; if(s.partnerP)RF_PARTNER_PEND[i]=s.partnerP[i]||0; } }
     var shOk=(d.shopify && !d.shopify.error);
     // Shopify (scope read_orders senza read_all_orders) vede solo ~60 giorni: aggiorna i mesi COPERTI, tiene i seed sugli altri
