@@ -290,6 +290,7 @@
       <button role="tab" aria-selected="false" data-tab="reopen">Reopen</button>
       <button role="tab" aria-selected="false" data-tab="tmk">TMK</button>
       <button role="tab" aria-selected="false" data-tab="operatori">Operatori Sales</button>
+      <button role="tab" aria-selected="false" data-tab="vinti">Vinti</button>
     </div>
     <div class="tabgroup">
       <span class="tabgrp">Customer</span>
@@ -381,6 +382,24 @@
       </div>
       <div class="card-b scroll"><table id="oppScartoTable"></table></div>
     </div>
+  </section>
+
+  <!-- ============ SALES : VINTI (dettaglio Opportunity Chiuso-Vinto/Pending) ============ -->
+  <section class="panel" id="panel-vinti">
+    <div class="card">
+      <div class="card-h">
+        <h2>Vinti &mdash; dettaglio Opportunity chiuse</h2>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <label class="fld" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;color:var(--muted)">Mese <select id="wonMonth" style="font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink)"></select></label>
+          <button id="wonCsv" style="border:1px solid var(--border);background:transparent;color:var(--ink);font:inherit;font-size:12px;font-weight:640;padding:7px 12px;border-radius:8px;cursor:pointer">Esporta CSV</button>
+          <span class="hint">Chiuso-Vinto + Chiuso-Pending &middot; per <code>CloseDate</code> &middot; live da Salesforce</span>
+        </div>
+      </div>
+      <div id="wonFilters" style="padding:2px 16px 6px"></div>
+      <div id="wonCap" class="hint" style="padding:0 16px 10px"></div>
+      <div class="card-b scroll"><table id="wonTable"></table></div>
+    </div>
+    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Elenco nominativo delle Opportunity IREC <b>Chiuso - Vinto</b> e <b>Chiuso - Pending</b> del mese selezionato (per <code>CloseDate</code>, escluse le Reopen): dati anagrafici (nominativo, email, telefono), <b>stato</b>, <b>operatore Sales</b> che ha gestito la trattativa (Owner), importo e sorgente. Si carica dal vivo da Salesforce (Aggiorna IREC o cambio mese). I <b>Pending</b> sono chiusi in attesa di pagamento (Amount spesso 0).</p>
   </section>
 
   <!-- ============ CUSTOMER : RECENSIONI (IREC) ============ -->
@@ -1849,6 +1868,81 @@ function renderMotiv(){
   body+='</tbody>';
   el.innerHTML=head+body;
 }
+/* ---------- SALES: VINTI (dettaglio Opportunity Chiuso-Vinto/Pending, per CloseDate) ----------
+   Elenco nominativo con anagrafica + operatore (Owner) + stato. Caricato dal vivo per mese
+   (MCP su claude.ai, fallback /api/dashboard?view=vinti su Vercel), con cache per mese. */
+var wonMonthSel = (typeof CUR_MONTH!=="undefined"&&CUR_MONTH>0)?CUR_MONTH:9;   // mese selezionato 1..12
+var wonCache = {};       // {mese: [ {nome,email,tel,op,st,amt,src,date} ]}
+var wonLoading = false;
+var wonFSt = "tutti";    // filtro stato: tutti | Vinto | Pending
+function wonGrp(m){ return "SELECT ContactName__c, ContactEmail__c, ContactPhone__c, Owner.Name, StageName, Amount, CloseDate, LeadSource FROM Opportunity WHERE "+VW[7].w+VW[7].extra+" AND CALENDAR_MONTH(CloseDate)="+m+" ORDER BY CloseDate DESC"; }
+function wonMapRecs(recs){ return (recs||[]).map(function(r){ return { nome:(r.ContactName__c||""), email:(r.ContactEmail__c||""), tel:(r.ContactPhone__c||""), op:(r.Owner&&r.Owner.Name)||"", st:(r.StageName||""), amt:(r.Amount==null?null:+r.Amount), src:(r.LeadSource||""), date:String(r.CloseDate||"").slice(0,10) }; }); }
+async function ensureWonMonth(){
+  var m=wonMonthSel;
+  if(wonCache[m]!=null){renderWon();return;}
+  if(wonLoading){renderWon();return;}
+  wonLoading=true; renderWon();
+  try{
+    if(hasMcp()){ var sf=await findTool(); wonCache[m]=wonMapRecs(await sfCall(sf.tool,wonGrp(m))); }
+    else{ var r=await fetch("api/dashboard?view=vinti&month="+m,{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;}); wonCache[m]=(r.ok&&d&&d.rows)?d.rows:[]; }
+  }catch(e){ if(wonCache[m]==null)wonCache[m]=[]; }
+  wonLoading=false; renderWon();
+}
+function fillWonMonths(){
+  var sel=document.getElementById("wonMonth"); if(!sel)return;
+  var maxM=(typeof CUR_MONTH!=="undefined"&&CUR_MONTH>0)?CUR_MONTH:12, html="";
+  for(var i=1;i<=maxM;i++){ html+='<option value="'+i+'"'+(i===wonMonthSel?" selected":"")+'>'+RF_MONTHS[i-1]+" 2026"+(i===CUR_MONTH?" (in corso)":"")+"</option>"; }
+  sel.innerHTML=html;
+}
+function renderWon(){
+  var el=document.getElementById("wonTable"); if(!el)return;
+  var m=wonMonthSel, all=wonCache[m], cap=document.getElementById("wonCap");
+  var fb=document.getElementById("wonFilters");
+  if(fb){
+    var chip=function(v,lab){var on=(v===wonFSt);return '<button type="button" data-v="'+v+'" style="font:inherit;font-size:12px;line-height:1;padding:6px 11px;border:1px solid;border-radius:8px;cursor:pointer;margin-right:6px;'+(on?"background:var(--accent);color:#fff;border-color:var(--accent)":"background:var(--surface);color:var(--ink);border-color:var(--border)")+'">'+lab+"</button>";};
+    fb.innerHTML='<span style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-right:6px">Stato</span>'+chip("tutti","Tutti")+chip("Vinto","Chiuso - Vinto")+chip("Pending","Chiuso - Pending");
+    fb.querySelectorAll("button").forEach(function(b){b.addEventListener("click",function(){wonFSt=b.getAttribute("data-v");renderWon();});});
+  }
+  if(all==null){ if(cap)cap.innerHTML="Mese: "+RF_MONTHS[m-1]+" 2026 &middot; "+(wonLoading?"caricamento&hellip;":"premi <b>Aggiorna IREC</b> o cambia mese per caricare"); el.innerHTML='<tbody><tr><td class="voce muted" colspan="8">'+(wonLoading?"Caricamento dal vivo da Salesforce&hellip;":"Nessun dato caricato. Premi Aggiorna IREC o seleziona un mese.")+"</td></tr></tbody>"; return; }
+  var list=all.filter(function(o){ return wonFSt==="tutti"||(wonFSt==="Vinto"?o.st==="Chiuso - Vinto":o.st==="Chiuso - Pending"); });
+  var nV=all.filter(function(o){return o.st==="Chiuso - Vinto";}).length, nP=all.filter(function(o){return o.st==="Chiuso - Pending";}).length, totAmt=0;
+  list.forEach(function(o){ totAmt+=(o.amt||0); });
+  if(cap)cap.innerHTML="Mese: "+RF_MONTHS[m-1]+" 2026 &middot; <b>"+all.length+"</b> chiusi ("+nV+" vinti + "+nP+" pending) &middot; Importo <b>"+eur2(totAmt)+"</b>"+(list.length!==all.length?" &middot; mostrati "+list.length:"");
+  var fmtd=function(d){ if(!d)return ""; var p=String(d).slice(0,10).split("-"); return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:d; };
+  var telHref=function(t){ var c=String(t||"").replace(/[^0-9+]/g,""); return c?'<a href="tel:'+esc(c)+'" style="color:var(--accent);text-decoration:none">'+esc(t)+"</a>":'<span class="muted">&mdash;</span>'; };
+  var head='<thead><tr><th class="voce">Nominativo</th><th>Email</th><th>Telefono</th><th>Operatore Sales</th><th>Stato</th><th>Importo</th><th>Sorgente</th><th>Data chiusura</th></tr></thead>';
+  var body="<tbody>";
+  if(!list.length){ body+='<tr><td class="voce muted" colspan="8">Nessun chiuso per il filtro selezionato.</td></tr>'; }
+  else list.forEach(function(o){
+    var vinto=(o.st==="Chiuso - Vinto"), stCol=vinto?"var(--good)":"var(--warn)", stLab=vinto?"Vinto":"Pending", em=o.email||"";
+    body+='<tr><td class="voce" style="font-size:12px">'+esc(o.nome||"&mdash;")+"</td>"
+      +"<td>"+(em?'<a href="mailto:'+esc(em)+'" style="color:var(--accent);text-decoration:none">'+esc(em)+"</a>":'<span class="muted">&mdash;</span>')+"</td>"
+      +'<td class="tnum">'+telHref(o.tel)+"</td>"
+      +"<td>"+esc(o.op||"&mdash;")+"</td>"
+      +'<td><span style="color:'+stCol+';font-weight:600">&#9679; '+stLab+"</span></td>"
+      +'<td class="tnum">'+(o.amt?eur2(o.amt):'<span class="muted">0</span>')+"</td>"
+      +'<td style="font-size:12px">'+esc(o.src||"&mdash;")+"</td>"
+      +'<td class="tnum">'+(o.date?fmtd(o.date):'<span class="muted">&mdash;</span>')+"</td></tr>";
+  });
+  body+="</tbody>";
+  el.innerHTML=head+body;
+}
+function wonExport(){
+  var m=wonMonthSel, all=wonCache[m]||[];
+  var list=all.filter(function(o){ return wonFSt==="tutti"||(wonFSt==="Vinto"?o.st==="Chiuso - Vinto":o.st==="Chiuso - Pending"); });
+  if(!list.length){ rstatus("Nessun chiuso da esportare per "+RF_MONTHS[m-1]+" (premi Aggiorna IREC).","err"); return; }
+  var _fd=function(d){if(!d)return "";var p=String(d).slice(0,10).split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:d;};
+  var rows=[["Nominativo","Email","Telefono","Operatore Sales","Stato","Importo EUR","Sorgente","Data chiusura"]];
+  list.forEach(function(o){ rows.push([o.nome||"",o.email||"",o.tel||"",o.op||"",o.st||"",(o.amt||0).toFixed(2),o.src||"",_fd(o.date)]); });
+  var csv="\ufeff"+rows.map(function(r){return r.map(function(c){var s=String(c==null?"":c); return /[";\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";");}).join("\r\n");
+  var base="vinti-IREC-"+RF_MONTHS[m-1]+"-2026";
+  if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){ rstatus("Download disponibile solo dentro claude.ai.","err"); return; }
+  var save=function(ext){ return window.claude.downloads.save({filename:base+"."+ext, data:csv}); };
+  save("csv").then(function(){rstatus("Vinti "+RF_MONTHS[m-1]+" scaricato (CSV).","ok");}).catch(function(e){var c=e&&e.code;
+    if(c==="extension_not_enabled"||c==="rejected_extension"){ save("txt").then(function(){rstatus("Vinti "+RF_MONTHS[m-1]+" scaricato (.txt).","ok");}).catch(function(){rstatus("Download non riuscito.","err");}); }
+    else if(c==="declined"){ rstatus("Download annullato.","err"); }
+    else { rstatus("Download non disponibile in questa vista.","err"); } });
+}
 // Tabella motivazioni di scarto a livello Opportunity (Chiuso-Perso): righe = motivo, colonne = mesi + Totale
 function renderOppScarto(){
   var el=document.getElementById("oppScartoTable"); if(!el)return;
@@ -2373,7 +2467,7 @@ function renderRFAdv(){
   wireRfCurEdit("rfAdvTable",renderRFActive);
 }
 /* ---------- refresh a fasi: overlay barra di caricamento per gruppo di tab ---------- */
-var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",recensioni:"customer"};
+var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",vinti:"sales",recensioni:"customer"};
 var RF_TAB_GROUP={andamento:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",recensioni:"customer"};
 var groupReady={general:true,marketing:true,tmk:true,sales:true};
 var currentView="irec-dash";
@@ -2413,7 +2507,7 @@ function showView(v){
   updateOverlay();
   try{localStorage.setItem("irec_view",v);}catch(e){}
 }
-function renderAll(){renderTiles();renderFunnel();renderMoM();renderOperators();renderOppScarto();renderTMK();renderPivot();renderMotiv();renderADV();renderReopen();renderSources();renderRecIrec();renderChan();topVis(currentTab);}
+function renderAll(){renderTiles();renderFunnel();renderMoM();renderOperators();renderOppScarto();renderTMK();renderWon();renderPivot();renderMotiv();renderADV();renderReopen();renderSources();renderRecIrec();renderChan();topVis(currentTab);}
 
 /* --- avviso "modifica manuale" sugli input budget (con silenzia 10 min) --- */
 var budgetWarnUntil=0, budgetTarget=null, budgetModalOpen=false, skipGuardOnce=false;
@@ -2527,6 +2621,10 @@ function initControls(){
   document.getElementById("dReset").addEventListener("click",function(){
     rangeStart=monthStart(CUR_MONTH);rangeEnd=LAST_DAY;rangeCustom=false;dS.value=rangeStart;dE.value=rangeEnd;renderTiles();
   });
+  // Vinti: selettore mese + export CSV
+  fillWonMonths();
+  var _wm=document.getElementById("wonMonth"); if(_wm)_wm.addEventListener("change",function(){wonMonthSel=+_wm.value||wonMonthSel;ensureWonMonth();});
+  var _wc=document.getElementById("wonCsv"); if(_wc)_wc.addEventListener("click",wonExport);
   // tabs
   document.querySelectorAll('.tabs button').forEach(function(b){
     b.addEventListener("click",function(){
@@ -2539,6 +2637,7 @@ function initControls(){
       if(currentTab==="sources")renderSources();
       if(currentTab==="operatori")renderOperators();
       if(currentTab==="tmk")renderTMK();
+      if(currentTab==="vinti"){fillWonMonths();ensureWonMonth();}
       if(currentTab==="recensioni")renderRecIrec();
       updateOverlay();
     });
@@ -2923,7 +3022,7 @@ async function doRefreshAPI(){
     if(dS)dS.max=LAST_DAY; if(dE)dE.max=LAST_DAY;
     if(!rangeCustom){rangeStart=monthStart(CUR_MONTH);rangeEnd=LAST_DAY;if(dS)dS.value=rangeStart;if(dE)dE.value=rangeEnd;}
     else if(rangeEnd>LAST_DAY){rangeEnd=LAST_DAY;if(dE)dE.value=LAST_DAY;}
-    lastUpdate=new Date(); updBadge(); renderAll(); saveSnapshot();
+    lastUpdate=new Date(); updBadge(); wonCache={}; renderAll(); if(currentTab==="vinti")ensureWonMonth(); saveSnapshot();
     rstatus("Aggiornato: "+fmtDT(lastUpdate),"ok");
   }catch(e){rstatus("Dati live non disponibili in questa vista.","err");}
   finally{refreshing=false; if(icon)icon.className=""; if(btn)btn.disabled=false; setBar(null);}
@@ -3259,7 +3358,7 @@ async function doRefreshUnified(scope){
     }
 
     // re-render di sicurezza: aggiorna TUTTE le viste della sezione aggiornata (tutti i tab)
-    if(doI){ renderAll(); renderChart(); }
+    if(doI){ wonCache={}; renderAll(); renderChart(); if(currentTab==="vinti")ensureWonMonth(); }
     if(doR){ renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); }
     lastUpdate=now; updBadge(); if(doI)saveSnapshot(); if(doR)rfPersist(); topVis(currentTab);
     var okmsg;

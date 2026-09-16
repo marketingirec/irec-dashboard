@@ -121,6 +121,16 @@ export default async function handler(req, res){
       return;
     }
 
+    // vista "vinti" per un mese specifico (?view=vinti&month=9): elenco Opportunity Chiuso-Vinto/Pending
+    // (per CloseDate, escluse Reopen) con anagrafica + operatore (Owner).
+    if((req.query.view||'')==='vinti'){
+      const m = Math.max(1, Math.min(12, Number(req.query.month)||curM));
+      const recs = await soql(ctx, `SELECT ContactName__c, ContactEmail__c, ContactPhone__c, Owner.Name, StageName, Amount, CloseDate, LeadSource FROM Opportunity WHERE ${VW[7].w}${VW[7].extra} AND CALENDAR_MONTH(CloseDate)=${m} ORDER BY CloseDate DESC`);
+      const rows = (recs||[]).map(r => ({ nome:r.ContactName__c||'', email:r.ContactEmail__c||'', tel:r.ContactPhone__c||'', op:(r.Owner&&r.Owner.Name)||'', st:r.StageName||'', amt:r.Amount==null?null:+r.Amount, src:r.LeadSource||'', date:String(r.CloseDate||'').slice(0,10) }));
+      res.status(200).json({ month:m, year:YEAR, rows });
+      return;
+    }
+
     // dataset completo
     const real=[]; let contratti=null, fatturato=null;
     for(let i=0;i<8;i++){ const recs=await soql(ctx, monthGrp(i));
