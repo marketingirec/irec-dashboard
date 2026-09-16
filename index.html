@@ -714,7 +714,7 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
 "use strict";
 
 /* ---------- DATI REAL (snapshot Salesforce) ---------- */
-var SNAPSHOT = "2026-08-04";
+var SNAPSHOT = "2026-09-16";
 var CUR_MONTH = 9;              // settembre in corso (parziale)
 var MESI = ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
 var MESI_LUNGHI = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
@@ -727,17 +727,17 @@ var REAL = {
     {voce:"In target da Policy",      grp:"Marketing", kpi:"KPI 14", fmt:"int", data:pad([559,386,530,262,257,340,486,51])},
     {voce:"In target criteri sec. TMK",grp:"Marketing",kpi:"KPI 30", fmt:"int", data:pad([465,302,455,208,198,265,440,50])},
     {voce:"Contattabili TMK",         grp:"Telemarketing", kpi:"KPI 32", fmt:"int", data:pad([122,74,108,73,63,51,164,29])},
-    {voce:"MQL",                      grp:"Marketing", kpi:"KPI 36", fmt:"int", data:pad([92,87,70,72,63,71,104,35])},
-    {voce:"SQL",                      grp:"Rete",      kpi:"KPI 38", fmt:"int", data:pad([53,42,43,33,30,36,49,20])},
-    {voce:"Trattative",               grp:"Rete",      kpi:"KPI 45", fmt:"int", data:pad([48,40,39,33,27,34,46,20])},
-    {voce:"Chiusi vinti (+pending)",  grp:"Rete",      kpi:"KPI 47", fmt:"int", data:pad([21,25,28,19,13,17,29,24])}
+    {voce:"MQL",                      grp:"Marketing", kpi:"KPI 36", fmt:"int", data:pad([92,87,70,72,63,71,103,75,54])},
+    {voce:"SQL",                      grp:"Rete",      kpi:"KPI 38", fmt:"int", data:pad([53,42,43,33,30,36,49,37,31])},
+    {voce:"Trattative",               grp:"Rete",      kpi:"KPI 45", fmt:"int", data:pad([48,40,39,33,27,34,46,37,31])},
+    {voce:"Chiusi vinti (+pending)",  grp:"Rete",      kpi:"KPI 47", fmt:"int", data:pad([21,25,28,19,13,17,30,30,21])}
   ]
 };
 // economics (funnel General)
-var FATTURATO = pad([21169.8,22944.6,25661.2,18233.28,11892.2,12525,6232,643.2]);
-var CONTRATTI = pad([21,25,28,19,13,17,29,24]);   // Chiusi vinti TOT (tutte le opp vinte del mese) = Nuovi + Upsell
-var NUOVI     = pad([21,25,28,19,13,17,29,23]);   // di cui Nuovi = clienti netti nuovi (dedup Account, esclusi i gia'-clienti)
-var UPSELL    = pad([0,0,0,0,0,0,0,1]);           // di cui Upsell = duplicati stesso mese + clienti gia' vinti in passato ri-vinti
+var FATTURATO = pad([21169.8,22944.6,25661.2,18233.28,11892.2,12525,6232,4087.2,1512]);
+var CONTRATTI = pad([21,25,28,19,13,17,30,30,21]);   // Chiusi vinti TOT (tutte le opp vinte del mese) = Nuovi + Upsell
+var NUOVI     = pad([21,25,28,19,13,17,30,29,21]);   // di cui Nuovi = clienti netti nuovi (dedup Account, esclusi i gia'-clienti)
+var UPSELL    = pad([0,0,0,0,0,0,0,1,0]);           // di cui Upsell = duplicati stesso mese + clienti gia' vinti in passato ri-vinti
 // Breakdown Chiusi Vinti per SORGENTE e OPERATORE, per mese: {mese:{src:{name:{tot,nuovi,ups}}, op:{...}}}
 // Nuovi attribuiti (opzione B) alla sorgente/operatore del PRIMO contratto del cliente. Rigenerato dal refresh (mesi finestra).
 var WONBRK = {};
@@ -813,9 +813,9 @@ var BUDGET_SRC = "Forecast NORMAL &middot; IREC Reforecast H2";
 // ADV a budget (Reforecast H2, solo lug-dic): spesa ADV totale (Meta+Google) e Venduto FE (fatturato a budget)
 var SPESA_BUD   = [null,null,null,null,null,null,16190,10100,16220,21395,20195,12820];
 // Spesa Meta REAL di IREC (account 608295893328900), netta della frode rimborsata di giugno (Sales Adset 1/2/3 = 77.548,80). Estratta da Meta Marketing API. Google non ancora agganciato.
-var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,3898.38,null,null,null];
+var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,7159.81,null,null,null];
 // Google Ads IREC (account Irec-Allcore 716-426-7762), live via API. Spesa ADV real IREC = Meta + Google.
-var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,479.44,null,null,null];
+var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,870.64,null,null,null];
 // Lead e Venduto per CANALE (da Sorgenti/Salesforce): Meta = LeadAds Facebook + Meta ADS; Google = Google Ads. Per CPL/ROAS per canale.
 var ADV_META_LEADS  = [830,582,628,380,398,563,706,634,0,0,0,0];
 var ADV_GOOGLE_LEADS= [23,19,11,11,25,19,24,7,0,0,0,0];
@@ -1191,10 +1191,10 @@ async function chanLoadRealH2(){var btn=document.getElementById("chanLoadBtn");
 // ADV Real. Meta = importato dall'account RF act_3120594051452791 (sola lettura, al centesimo);
 // aggiornato dallo script locale update-meta.py (token in .meta-token-rf, mai nell'artefatto). Google/Altri manuali.
 // Indici 0..11 = Gen..Dic. RF_META_REAL segna i mesi importati (non-null = sola lettura). Meta RF parte da Feb; Google da Gen.
-var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,750.75,null,null,null];   // Meta RF live (account act_3120594051452791)
-var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,1579.06,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
-var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,750.75,0,0,0];
-var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,1579.06,0,0,0];
+var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,1386.61,null,null,null];   // Meta RF live (account act_3120594051452791)
+var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,3036.22,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
+var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,1386.61,0,0,0];
+var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,3036.22,0,0,0];
 var RF_ADV_ALTRI =[0,0,0,0,0,0,0,0,0,0,0,0];
 var RF_ADV_EXTRA =[0,0,0,0,0,0,0,0,0,0,0,0];
 var RF_ADV_EVENTI=[0,0,0,0,0,0,0,0,0,0,0,0];
@@ -2610,7 +2610,7 @@ function updBadge(){var b=document.getElementById("snapBadge");if(!b)return;
   else{b.innerHTML='<span class="dot warn"></span>Ultimo dato: '+SNAPSHOT.split("-").reverse().join("/")+' (snapshot)';}}
 // Persistenza dell'ultimo aggiornamento: cosi all'apertura si vedono subito i numeri dell'ultimo refresh
 function saveSnapshot(){try{
-  localStorage.setItem("irec_data_v1", JSON.stringify({
+  localStorage.setItem("irec_data_v2", JSON.stringify({
     real: REAL.general.map(function(r){return r.data;}),
     reopen: REAL.reopen.map(function(r){return r.data;}),
     fatturato: FATTURATO, contratti: CONTRATTI,
@@ -2620,7 +2620,7 @@ function saveSnapshot(){try{
   }));
 }catch(e){}}
 function loadSnapshot(){try{
-  var s=localStorage.getItem("irec_data_v1"); if(!s)return;
+  var s=localStorage.getItem("irec_data_v2"); if(!s)return;
   var d=JSON.parse(s);
   if(d.real){for(var k=0;k<8;k++){if(d.real[k])REAL.general[k].data=d.real[k];}}
   if(d.reopen){for(var k2=0;k2<8;k2++){if(d.reopen[k2])REAL.reopen[k2].data=d.reopen[k2];}}

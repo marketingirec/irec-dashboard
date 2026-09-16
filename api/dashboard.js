@@ -20,6 +20,8 @@ const NT = "'VUOLE COLLABORARE CON NOI','NON IN TARGET PER MANCANZA DOCUMENTAZIO
 const CM = "CALENDAR_MONTH(Data_Compilazione_Questionario__c)";
 const CMC = "CALENDAR_MONTH(CloseDate)";
 const DD = "DAY_ONLY(Data_Compilazione_Questionario__c)";
+// Motivi Chiuso-Perso che contano comunque come SQL (preventivo/consulenza avvenuta).
+const SQLSUB = "(ChiusoPerso_Substage__c='SPIEGATO ITER, NON INTERESSATO A IREC' OR ChiusoPerso_Substage__c LIKE 'NON VUOLE ANTICIPARE SPESE%' OR ChiusoPerso_Substage__c LIKE 'NON CI CONOSCE NON SI FIDA DI NOI%')";
 
 // 8 voci del funnel: oggetto, where, extra, won(=count+sum)
 const VW = [
@@ -28,9 +30,9 @@ const VW = [
   { o:'Lead', w:LB, extra:" AND Data_Compilazione_Questionario__c!=null AND (Scartato_Substage_Answered__c!='NON IN TARGET - MARKETING' OR Scartato_Substage_Answered__c=null) AND (Scartato_Substage__c NOT IN ("+NT+") OR Scartato_Substage__c=null)" },
   { o:'Lead', w:LB, extra:" AND Data_Compilazione_Questionario__c!=null AND (Scartato_Substage_Answered__c!='NON IN TARGET - MARKETING' OR Scartato_Substage_Answered__c=null) AND (Scartato_Substage_Answered__c NOT IN ('DATI NON CORRETTI','NON HA MAI RISPOSTO') OR Scartato_Substage_Answered__c=null) AND (Scartato_Substage__c NOT IN ("+NT+") OR Scartato_Substage__c=null)" },
   { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null)" },                          // MQL senza Reopen
-  { o:'Opp', w:OB, extra:" AND (Amount>0 OR (StageName='Chiuso - Perso' AND Amount=null))" },
-  { o:'Opp', w:OB, extra:" AND Amount>0" },
-  { o:'Opp', w:OB, extra:" AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')", won:true }
+  { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND (Amount!=null OR StageName='Trattativa' OR "+SQLSUB+")" }, // SQL: Amount valorizzato (anche 0) o Trattativa o Chiuso-Perso-motivo
+  { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND Amount!=null" },          // Trattative: Amount valorizzato (0,00 o >0)
+  { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')", won:true }
 ];
 const monthGrp = (i)=>{ const g = VW[i].o==='Lead'?CM:CMC; const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t'; const from = VW[i].o==='Lead'?'Lead':'Opportunity'; return `SELECT ${g} m,${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} GROUP BY ${g}`; };
 const srcGrp   = (i,m)=>{ const dcol = VW[i].o==='Lead'?'Data_Compilazione_Questionario__c':'CloseDate'; const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t'; const from = VW[i].o==='Lead'?'Lead':'Opportunity'; return `SELECT LeadSource s,${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} AND CALENDAR_MONTH(${dcol})=${m} GROUP BY LeadSource`; };
