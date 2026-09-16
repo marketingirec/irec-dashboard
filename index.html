@@ -291,6 +291,7 @@
       <button role="tab" aria-selected="false" data-tab="tmk">TMK</button>
       <button role="tab" aria-selected="false" data-tab="operatori">Operatori Sales</button>
       <button role="tab" aria-selected="false" data-tab="vinti">Vinti</button>
+      <button role="tab" aria-selected="false" data-tab="campagne">Dettaglio Campagne</button>
     </div>
     <div class="tabgroup">
       <span class="tabgrp">Customer</span>
@@ -400,6 +401,22 @@
       <div class="card-b scroll"><table id="wonTable"></table></div>
     </div>
     <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Elenco nominativo delle Opportunity IREC <b>Chiuso - Vinto</b> e <b>Chiuso - Pending</b> del mese selezionato (per <code>CloseDate</code>, escluse le Reopen): dati anagrafici (nominativo, email, telefono), <b>stato</b>, <b>operatore Sales</b> che ha gestito la trattativa (Owner), importo e sorgente. Si carica dal vivo da Salesforce (Aggiorna IREC o cambio mese). I <b>Pending</b> sono chiusi in attesa di pagamento (Amount spesso 0).</p>
+  </section>
+
+  <!-- ============ SALES : DETTAGLIO CAMPAGNE (funnel filtrato per utm_medium) ============ -->
+  <section class="panel" id="panel-campagne">
+    <div class="card">
+      <div class="card-h">
+        <h2>Andamento mese su mese &middot; per campagna</h2>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <label class="fld" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;color:var(--muted)">Campagna (<code>utm_medium</code>) <select id="campMediumSel" style="max-width:440px;font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink)"></select></label>
+          <button id="campCsv" style="border:1px solid var(--border);background:transparent;color:var(--ink);font:inherit;font-size:12px;font-weight:640;padding:7px 12px;border-radius:8px;cursor:pointer">Esporta CSV</button>
+        </div>
+      </div>
+      <div id="campBadge" class="hint" style="padding:0 16px 10px"></div>
+      <div class="card-b scroll"><table id="campTable"></table></div>
+    </div>
+    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Il solito funnel commerciale (KPI sulle righe, mesi sulle colonne) <b>filtrato per <code>utm_medium</code></b> = la campagna selezionata. Stesse regole delle altre viste: voci <b>Lead</b> per <code>Data_Compilazione_Questionario__c</code>, voci <b>Opportunity</b> per <code>CloseDate</code>. Seleziona una campagna dal menu; il dato si carica dal vivo da Salesforce (o con Aggiorna IREC).</p>
   </section>
 
   <!-- ============ CUSTOMER : RECENSIONI (IREC) ============ -->
@@ -1699,6 +1716,77 @@ function renderReopen(){
     +'<div class="card-b scroll"><table>'+head+body+'</table></div></div>'
     +'<p class="hint" style="color:var(--muted);font-size:12px;margin:2px 2px 0">I <b>Lead</b> con source Reopen sono 0 (la source &ldquo;Reopen&rdquo; &egrave; valorizzata solo sulle Opportunity): l&rsquo;attivit&agrave; reopen &egrave; concentrata sulle voci Opportunity (MQL/Chiusi).</p>';
 }
+/* ---------- SALES: DETTAGLIO CAMPAGNE (funnel filtrato per utm_medium) ----------
+   Stesso funnel a 8 voci (KPI righe x mesi colonne) del tab Reopen, ma filtrato per
+   utm_medium (la "campagna"). Selettore campagna + caricamento live per medium con cache. */
+var campMedium = "";        // utm_medium selezionato
+var campCache = {};          // {medium: [8 x [12]]}
+var campMediums = null;      // [{m,t}] elenco per il selettore (caricato live)
+var campLoading = false, campMedLoading = false;
+function soqlEsc(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
+function campGrp(i,med){
+  var g=(VW[i].o==="Lead")?_CM:_CMC, from=(VW[i].o==="Lead")?"Lead":"Opportunity";
+  return "SELECT "+g+" m,COUNT(Id) t FROM "+from+" WHERE "+VW[i].w+VW[i].extra+" AND utm_medium__c='"+soqlEsc(med)+"' GROUP BY "+g;
+}
+async function ensureCampMediums(){
+  if(campMediums!=null){ if(!campMedium&&campMediums.length)campMedium=campMediums[0].m; fillCampMediums(); ensureCampData(); return; }
+  if(campMedLoading){renderCampaign();return;}
+  campMedLoading=true; renderCampaign();
+  try{
+    if(hasMcp()){ var sf=await findTool(); var recs=await sfCall(sf.tool,"SELECT utm_medium__c m,COUNT(Id) t FROM Lead WHERE "+_LB+" AND utm_medium__c!=null GROUP BY utm_medium__c ORDER BY COUNT(Id) DESC LIMIT 300"); campMediums=(recs||[]).map(function(r){return {m:(r.m||""),t:+(r.t||0)};}).filter(function(x){return x.m!=="";}); }
+    else{ var r=await fetch("api/dashboard?view=mediums",{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;}); campMediums=(r.ok&&d&&d.rows)?d.rows:[]; }
+  }catch(e){ campMediums=campMediums||[]; }
+  campMedLoading=false;
+  if(!campMedium && campMediums.length)campMedium=campMediums[0].m;
+  fillCampMediums(); ensureCampData();
+}
+async function ensureCampData(){
+  var med=campMedium; if(!med){renderCampaign();return;}
+  if(campCache[med]!=null){renderCampaign();return;}
+  if(campLoading){renderCampaign();return;}
+  campLoading=true; renderCampaign();
+  try{
+    var cm=(typeof CUR_MONTH!=="undefined"&&CUR_MONTH>0)?CUR_MONTH:12;
+    if(hasMcp()){ var sf=await findTool(); var arr=[]; for(var i=0;i<8;i++){ arr[i]=buildMonthly(await sfCall(sf.tool,campGrp(i,med)),"t",cm); } campCache[med]=arr; }
+    else{ var r=await fetch("api/dashboard?view=campaign&medium="+encodeURIComponent(med),{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;}); campCache[med]=(r.ok&&d&&d.data)?d.data:null; }
+  }catch(e){ /* lascia null: mostra errore/ritenta */ }
+  campLoading=false; renderCampaign();
+}
+function fillCampMediums(){
+  var sel=document.getElementById("campMediumSel"); if(!sel||campMediums==null)return;
+  sel.innerHTML=campMediums.map(function(x){ var lab=x.m+" ("+x.t+")"; if(lab.length>90)lab=lab.slice(0,88)+"\u2026"; return '<option value="'+esc(x.m)+'"'+(x.m===campMedium?" selected":"")+'>'+esc(lab)+"</option>"; }).join("");
+}
+function renderCampaign(){
+  var el=document.getElementById("campTable"); if(!el)return;
+  var badge=document.getElementById("campBadge");
+  var med=campMedium, data=med?campCache[med]:null;
+  if(badge)badge.innerHTML=med?('Solo record con <code>utm_medium = &#39;'+esc(med)+'&#39;</code> &middot; Real'):"Seleziona una campagna.";
+  var head='<thead><tr><th class="voce">Voce funnel</th>';
+  for(var m=0;m<12;m++){head+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+"</th>";}
+  head+="</tr></thead>";
+  var body="<tbody>";
+  if(campMediums==null||campMedLoading){ body+='<tr><td class="voce muted" colspan="13">Caricamento elenco campagne (utm_medium) da Salesforce&hellip;</td></tr>'; }
+  else if(!med){ body+='<tr><td class="voce muted" colspan="13">Nessuna campagna disponibile.</td></tr>'; }
+  else if(data==null){ body+='<tr><td class="voce muted" colspan="13">'+(campLoading?"Caricamento funnel da Salesforce&hellip;":"Nessun dato. Premi Aggiorna IREC o riseleziona la campagna.")+"</td></tr>"; }
+  else { for(var i=0;i<8;i++){ body+='<tr><td class="voce">'+REAL.general[i].voce+"</td>"; for(var mm=0;mm<12;mm++){var v=data[i][mm]; body+='<td class="'+(mm===CUR_MONTH-1?"now":"")+'">'+(v==null?'<span class="muted">&mdash;</span>':nf(v))+"</td>";} body+="</tr>"; } }
+  body+="</tbody>";
+  el.innerHTML=head+body;
+}
+function campExport(){
+  var med=campMedium, data=med?campCache[med]:null;
+  if(!data){ rstatus("Nessun dato campagna da esportare (seleziona una campagna e attendi il caricamento).","err"); return; }
+  var rows=[["Voce funnel"].concat(MESI.slice())];
+  for(var i=0;i<8;i++){ var r=[REAL.general[i].voce]; for(var m=0;m<12;m++){var v=data[i][m]; r.push(v==null?"":v);} rows.push(r); }
+  var csv="\ufeff"+rows.map(function(r){return r.map(function(c){var s=String(c==null?"":c); return /[";\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";");}).join("\r\n");
+  var safe=String(med).replace(/[^A-Za-z0-9]+/g,"_").slice(0,40);
+  var base="campagna-"+safe+"-2026";
+  if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){ rstatus("Download disponibile solo dentro claude.ai.","err"); return; }
+  var save=function(ext){ return window.claude.downloads.save({filename:base+"."+ext, data:csv}); };
+  save("csv").then(function(){rstatus("Campagna esportata (CSV).","ok");}).catch(function(e){var c=e&&e.code;
+    if(c==="extension_not_enabled"||c==="rejected_extension"){ save("txt").then(function(){rstatus("Campagna esportata (.txt).","ok");}).catch(function(){rstatus("Download non riuscito.","err");}); }
+    else if(c==="declined"){ rstatus("Download annullato.","err"); }
+    else { rstatus("Download non disponibile in questa vista.","err"); } });
+}
 function renderSources(){
   var el=document.getElementById("srcTable"); if(!el)return;
   var missing=srcMonths.filter(function(m){return srcCache[m]==null;});
@@ -2467,7 +2555,7 @@ function renderRFAdv(){
   wireRfCurEdit("rfAdvTable",renderRFActive);
 }
 /* ---------- refresh a fasi: overlay barra di caricamento per gruppo di tab ---------- */
-var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",vinti:"sales",recensioni:"customer"};
+var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",vinti:"sales",campagne:"sales",recensioni:"customer"};
 var RF_TAB_GROUP={andamento:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",recensioni:"customer"};
 var groupReady={general:true,marketing:true,tmk:true,sales:true};
 var currentView="irec-dash";
@@ -2507,7 +2595,7 @@ function showView(v){
   updateOverlay();
   try{localStorage.setItem("irec_view",v);}catch(e){}
 }
-function renderAll(){renderTiles();renderFunnel();renderMoM();renderOperators();renderOppScarto();renderTMK();renderWon();renderPivot();renderMotiv();renderADV();renderReopen();renderSources();renderRecIrec();renderChan();topVis(currentTab);}
+function renderAll(){renderTiles();renderFunnel();renderMoM();renderOperators();renderOppScarto();renderTMK();renderWon();renderCampaign();renderPivot();renderMotiv();renderADV();renderReopen();renderSources();renderRecIrec();renderChan();topVis(currentTab);}
 
 /* --- avviso "modifica manuale" sugli input budget (con silenzia 10 min) --- */
 var budgetWarnUntil=0, budgetTarget=null, budgetModalOpen=false, skipGuardOnce=false;
@@ -2625,6 +2713,9 @@ function initControls(){
   fillWonMonths();
   var _wm=document.getElementById("wonMonth"); if(_wm)_wm.addEventListener("change",function(){wonMonthSel=+_wm.value||wonMonthSel;ensureWonMonth();});
   var _wc=document.getElementById("wonCsv"); if(_wc)_wc.addEventListener("click",wonExport);
+  // Dettaglio Campagne: selettore utm_medium + export CSV
+  var _cs=document.getElementById("campMediumSel"); if(_cs)_cs.addEventListener("change",function(){campMedium=_cs.value||"";ensureCampData();});
+  var _cc=document.getElementById("campCsv"); if(_cc)_cc.addEventListener("click",campExport);
   // tabs
   document.querySelectorAll('.tabs button').forEach(function(b){
     b.addEventListener("click",function(){
@@ -2638,6 +2729,7 @@ function initControls(){
       if(currentTab==="operatori")renderOperators();
       if(currentTab==="tmk")renderTMK();
       if(currentTab==="vinti"){fillWonMonths();ensureWonMonth();}
+      if(currentTab==="campagne")ensureCampMediums();
       if(currentTab==="recensioni")renderRecIrec();
       updateOverlay();
     });
@@ -3022,7 +3114,7 @@ async function doRefreshAPI(){
     if(dS)dS.max=LAST_DAY; if(dE)dE.max=LAST_DAY;
     if(!rangeCustom){rangeStart=monthStart(CUR_MONTH);rangeEnd=LAST_DAY;if(dS)dS.value=rangeStart;if(dE)dE.value=rangeEnd;}
     else if(rangeEnd>LAST_DAY){rangeEnd=LAST_DAY;if(dE)dE.value=LAST_DAY;}
-    lastUpdate=new Date(); updBadge(); wonCache={}; renderAll(); if(currentTab==="vinti")ensureWonMonth(); saveSnapshot();
+    lastUpdate=new Date(); updBadge(); wonCache={}; campCache={}; renderAll(); if(currentTab==="vinti")ensureWonMonth(); if(currentTab==="campagne")ensureCampData(); saveSnapshot();
     rstatus("Aggiornato: "+fmtDT(lastUpdate),"ok");
   }catch(e){rstatus("Dati live non disponibili in questa vista.","err");}
   finally{refreshing=false; if(icon)icon.className=""; if(btn)btn.disabled=false; setBar(null);}
@@ -3358,7 +3450,7 @@ async function doRefreshUnified(scope){
     }
 
     // re-render di sicurezza: aggiorna TUTTE le viste della sezione aggiornata (tutti i tab)
-    if(doI){ wonCache={}; renderAll(); renderChart(); if(currentTab==="vinti")ensureWonMonth(); }
+    if(doI){ wonCache={}; campCache={}; renderAll(); renderChart(); if(currentTab==="vinti")ensureWonMonth(); if(currentTab==="campagne")ensureCampData(); }
     if(doR){ renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); }
     lastUpdate=now; updBadge(); if(doI)saveSnapshot(); if(doR)rfPersist(); topVis(currentTab);
     var okmsg;
