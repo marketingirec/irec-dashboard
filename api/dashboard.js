@@ -131,24 +131,37 @@ export default async function handler(req, res){
       return;
     }
 
-    // vista "mediums": elenco utm_medium con conteggio Lead (per il selettore Dettaglio Campagne)
-    if((req.query.view||'')==='mediums'){
-      const recs = await soql(ctx, `SELECT utm_medium__c m,COUNT(Id) t FROM Lead WHERE ${LB} AND utm_medium__c!=null GROUP BY utm_medium__c ORDER BY COUNT(Id) DESC LIMIT 300`);
-      res.status(200).json({ year:YEAR, rows:(recs||[]).map(r=>({ m:r.m||'', t:+(r.t||0) })).filter(x=>x.m!=='') });
+    // vista "campopts": elenchi valori per i filtri Dettaglio Campagne (LeadSource/utm_source/utm_medium/utm_campaign)
+    if((req.query.view||'')==='campopts'){
+      const CF = [['lead','LeadSource'],['src','utm_source__c'],['med','utm_medium__c'],['camp','utm_campaign__c']];
+      const opts = {};
+      for(const [key,field] of CF){
+        const recs = await soql(ctx, `SELECT ${field} v,COUNT(Id) t FROM Lead WHERE ${LB} AND ${field}!=null GROUP BY ${field} ORDER BY COUNT(Id) DESC LIMIT 300`);
+        opts[key] = (recs||[]).map(r=>({ v:r.v||'', t:+(r.t||0) })).filter(x=>x.v!=='');
+      }
+      res.status(200).json({ year:YEAR, opts });
       return;
     }
 
-    // vista "campaign": funnel a 8 voci filtrato per utm_medium (KPI x mesi)
+    // vista "campaign": funnel a 8 voci filtrabile per LeadSource/utm_source/utm_medium/utm_campaign
+    // (IN entro il campo, AND fra campi). ?filters={"lead":[...],"src":[...],"med":[...],"camp":[...]}
     if((req.query.view||'')==='campaign'){
-      const med = String(req.query.medium||'');
+      const FMAP = { lead:'LeadSource', src:'utm_source__c', med:'utm_medium__c', camp:'utm_campaign__c' };
+      let filters = {};
+      try { filters = JSON.parse(req.query.filters||'{}') || {}; } catch(_e) { filters = {}; }
       const esc = s => String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      let where = '';
+      for(const key of Object.keys(FMAP)){
+        const vs = Array.isArray(filters[key]) ? filters[key] : [];
+        if(vs.length) where += ` AND ${FMAP[key]} IN (${vs.map(v=>`'${esc(v)}'`).join(',')})`;
+      }
       const data = [];
       for(let i=0;i<8;i++){
         const g = VW[i].o==='Lead'?CM:CMC, from = VW[i].o==='Lead'?'Lead':'Opportunity';
-        const recs = await soql(ctx, `SELECT ${g} m,COUNT(Id) t FROM ${from} WHERE ${VW[i].w}${VW[i].extra} AND utm_medium__c='${esc(med)}' GROUP BY ${g}`);
+        const recs = await soql(ctx, `SELECT ${g} m,COUNT(Id) t FROM ${from} WHERE ${VW[i].w}${VW[i].extra}${where} GROUP BY ${g}`);
         data[i] = buildMonthly(recs, 't', curM);
       }
-      res.status(200).json({ medium:med, year:YEAR, data });
+      res.status(200).json({ year:YEAR, data });
       return;
     }
 

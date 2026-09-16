@@ -406,17 +406,21 @@
   <!-- ============ SALES : DETTAGLIO CAMPAGNE (funnel filtrato per utm_medium) ============ -->
   <section class="panel" id="panel-campagne">
     <div class="card">
-      <div class="card-h">
+      <div class="card-h" style="align-items:flex-start">
         <h2>Andamento mese su mese &middot; per campagna</h2>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-          <label class="fld" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;color:var(--muted)">Campagna (<code>utm_medium</code>) <select id="campMediumSel" style="max-width:440px;font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink)"></select></label>
-          <button id="campCsv" style="border:1px solid var(--border);background:transparent;color:var(--ink);font:inherit;font-size:12px;font-weight:640;padding:7px 12px;border-radius:8px;cursor:pointer">Esporta CSV</button>
-        </div>
+        <button id="campCsv" style="border:1px solid var(--border);background:transparent;color:var(--ink);font:inherit;font-size:12px;font-weight:640;padding:7px 12px;border-radius:8px;cursor:pointer">Esporta CSV</button>
       </div>
+      <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;padding:0 16px 6px">
+        <div style="flex:1 1 220px;min-width:190px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 4px 2px">LeadSource</div><div id="campf_lead" class="campfbox" style="max-height:150px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--surface)"></div></div>
+        <div style="flex:1 1 220px;min-width:190px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 4px 2px">utm_source</div><div id="campf_src" class="campfbox" style="max-height:150px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--surface)"></div></div>
+        <div style="flex:1 1 260px;min-width:190px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 4px 2px">utm_medium</div><div id="campf_med" class="campfbox" style="max-height:150px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--surface)"></div></div>
+        <div style="flex:1 1 260px;min-width:190px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 4px 2px">utm_campaign</div><div id="campf_camp" class="campfbox" style="max-height:150px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px 8px;background:var(--surface)"></div></div>
+      </div>
+      <div style="padding:0 16px 8px"><button id="campReset" style="border:1px solid var(--border);background:transparent;color:var(--muted);font:inherit;font-size:12px;padding:6px 11px;border-radius:8px;cursor:pointer">Azzera filtri</button> <span class="hint" style="font-size:11px;color:var(--muted)">Spunta pi&ugrave; valori nello stesso filtro per sommarli (OR); i quattro filtri si combinano in AND.</span></div>
       <div id="campBadge" class="hint" style="padding:0 16px 10px"></div>
       <div class="card-b scroll"><table id="campTable"></table></div>
     </div>
-    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Il solito funnel commerciale (KPI sulle righe, mesi sulle colonne) <b>filtrato per <code>utm_medium</code></b> = la campagna selezionata. Stesse regole delle altre viste: voci <b>Lead</b> per <code>Data_Compilazione_Questionario__c</code>, voci <b>Opportunity</b> per <code>CloseDate</code>. Seleziona una campagna dal menu; il dato si carica dal vivo da Salesforce (o con Aggiorna IREC).</p>
+    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Il solito funnel commerciale (KPI sulle righe, mesi sulle colonne) <b>filtrabile</b> per <code>LeadSource</code>, <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code> (i filtri si combinano in <b>AND</b>; &ldquo;(tutte)&rdquo; = nessun filtro su quel campo). Stesse regole delle altre viste: voci <b>Lead</b> per <code>Data_Compilazione_Questionario__c</code>, voci <b>Opportunity</b> per <code>CloseDate</code>. Il dato si carica dal vivo da Salesforce (o con Aggiorna IREC).</p>
   </section>
 
   <!-- ============ CUSTOMER : RECENSIONI (IREC) ============ -->
@@ -1716,74 +1720,99 @@ function renderReopen(){
     +'<div class="card-b scroll"><table>'+head+body+'</table></div></div>'
     +'<p class="hint" style="color:var(--muted);font-size:12px;margin:2px 2px 0">I <b>Lead</b> con source Reopen sono 0 (la source &ldquo;Reopen&rdquo; &egrave; valorizzata solo sulle Opportunity): l&rsquo;attivit&agrave; reopen &egrave; concentrata sulle voci Opportunity (MQL/Chiusi).</p>';
 }
-/* ---------- SALES: DETTAGLIO CAMPAGNE (funnel filtrato per utm_medium) ----------
-   Stesso funnel a 8 voci (KPI righe x mesi colonne) del tab Reopen, ma filtrato per
-   utm_medium (la "campagna"). Selettore campagna + caricamento live per medium con cache. */
-var campMedium = "";        // utm_medium selezionato
-var campCache = {};          // {medium: [8 x [12]]}
-var campMediums = null;      // [{m,t}] elenco per il selettore (caricato live)
-var campLoading = false, campMedLoading = false;
+/* ---------- SALES: DETTAGLIO CAMPAGNE (funnel filtrabile) ----------
+   Stesso funnel a 8 voci (KPI righe x mesi colonne) del tab Reopen, ma filtrabile per
+   LeadSource / utm_source / utm_medium / utm_campaign (in AND). Opzioni ed esiti
+   caricati dal vivo, con cache per combinazione di filtri. */
+var CAMP_FIELDS=[
+  {key:"lead", field:"LeadSource",      label:"LeadSource"},
+  {key:"src",  field:"utm_source__c",   label:"utm_source"},
+  {key:"med",  field:"utm_medium__c",   label:"utm_medium"},
+  {key:"camp", field:"utm_campaign__c", label:"utm_campaign"}
+];
+var campFilters={lead:[],src:[],med:[],camp:[]};  // array di valori selezionati; [] = (tutte)
+var campOpts=null;    // {lead:[{v,t}],src:[...],med:[...],camp:[...]}
+var campCache={};     // {comboKey: [8 x [12]]}
+var campLoading=false, campOptLoading=false;
 function soqlEsc(s){ return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
-function campGrp(i,med){
+function campWhere(){ var w=""; CAMP_FIELDS.forEach(function(f){ var vs=campFilters[f.key]||[]; if(vs.length)w+=" AND "+f.field+" IN ("+vs.map(function(v){return "'"+soqlEsc(v)+"'";}).join(",")+")"; }); return w; }
+function campKey(){ return CAMP_FIELDS.map(function(f){return (campFilters[f.key]||[]).slice().sort().join("~");}).join("||"); }
+function campGrp(i){
   var g=(VW[i].o==="Lead")?_CM:_CMC, from=(VW[i].o==="Lead")?"Lead":"Opportunity";
-  return "SELECT "+g+" m,COUNT(Id) t FROM "+from+" WHERE "+VW[i].w+VW[i].extra+" AND utm_medium__c='"+soqlEsc(med)+"' GROUP BY "+g;
+  return "SELECT "+g+" m,COUNT(Id) t FROM "+from+" WHERE "+VW[i].w+VW[i].extra+campWhere()+" GROUP BY "+g;
 }
-async function ensureCampMediums(){
-  if(campMediums!=null){ if(!campMedium&&campMediums.length)campMedium=campMediums[0].m; fillCampMediums(); ensureCampData(); return; }
-  if(campMedLoading){renderCampaign();return;}
-  campMedLoading=true; renderCampaign();
+async function ensureCampOpts(){
+  if(campOpts!=null){ fillCampFilters(); ensureCampData(); return; }
+  if(campOptLoading){renderCampaign();return;}
+  campOptLoading=true; renderCampaign();
   try{
-    if(hasMcp()){ var sf=await findTool(); var recs=await sfCall(sf.tool,"SELECT utm_medium__c m,COUNT(Id) t FROM Lead WHERE "+_LB+" AND utm_medium__c!=null GROUP BY utm_medium__c ORDER BY COUNT(Id) DESC LIMIT 300"); campMediums=(recs||[]).map(function(r){return {m:(r.m||""),t:+(r.t||0)};}).filter(function(x){return x.m!=="";}); }
-    else{ var r=await fetch("api/dashboard?view=mediums",{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;}); campMediums=(r.ok&&d&&d.rows)?d.rows:[]; }
-  }catch(e){ campMediums=campMediums||[]; }
-  campMedLoading=false;
-  if(!campMedium && campMediums.length)campMedium=campMediums[0].m;
-  fillCampMediums(); ensureCampData();
+    if(hasMcp()){
+      var sf=await findTool(); campOpts={};
+      for(var k=0;k<CAMP_FIELDS.length;k++){ var f=CAMP_FIELDS[k];
+        var recs=await sfCall(sf.tool,"SELECT "+f.field+" v,COUNT(Id) t FROM Lead WHERE "+_LB+" AND "+f.field+"!=null GROUP BY "+f.field+" ORDER BY COUNT(Id) DESC LIMIT 300");
+        campOpts[f.key]=(recs||[]).map(function(r){return {v:(r.v||""),t:+(r.t||0)};}).filter(function(x){return x.v!=="";});
+      }
+    } else {
+      var r=await fetch("api/dashboard?view=campopts",{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;});
+      campOpts=(r.ok&&d&&d.opts)?d.opts:{lead:[],src:[],med:[],camp:[]};
+    }
+  }catch(e){ campOpts=campOpts||{lead:[],src:[],med:[],camp:[]}; }
+  campOptLoading=false; fillCampFilters(); ensureCampData();
 }
 async function ensureCampData(){
-  var med=campMedium; if(!med){renderCampaign();return;}
-  if(campCache[med]!=null){renderCampaign();return;}
+  var key=campKey();
+  if(campCache[key]!=null){renderCampaign();return;}
   if(campLoading){renderCampaign();return;}
   campLoading=true; renderCampaign();
   try{
     var cm=(typeof CUR_MONTH!=="undefined"&&CUR_MONTH>0)?CUR_MONTH:12;
-    if(hasMcp()){ var sf=await findTool(); var arr=[]; for(var i=0;i<8;i++){ arr[i]=buildMonthly(await sfCall(sf.tool,campGrp(i,med)),"t",cm); } campCache[med]=arr; }
-    else{ var r=await fetch("api/dashboard?view=campaign&medium="+encodeURIComponent(med),{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;}); campCache[med]=(r.ok&&d&&d.data)?d.data:null; }
+    if(hasMcp()){ var sf=await findTool(); var arr=[]; for(var i=0;i<8;i++){ arr[i]=buildMonthly(await sfCall(sf.tool,campGrp(i)),"t",cm); } campCache[key]=arr; }
+    else{ var r=await fetch("api/dashboard?view=campaign&filters="+encodeURIComponent(JSON.stringify(campFilters)),{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;}); campCache[key]=(r.ok&&d&&d.data)?d.data:null; }
   }catch(e){ /* lascia null: mostra errore/ritenta */ }
   campLoading=false; renderCampaign();
 }
-function fillCampMediums(){
-  var sel=document.getElementById("campMediumSel"); if(!sel||campMediums==null)return;
-  sel.innerHTML=campMediums.map(function(x){ var lab=x.m+" ("+x.t+")"; if(lab.length>90)lab=lab.slice(0,88)+"\u2026"; return '<option value="'+esc(x.m)+'"'+(x.m===campMedium?" selected":"")+'>'+esc(lab)+"</option>"; }).join("");
+function fillCampFilters(){
+  if(campOpts==null)return;
+  CAMP_FIELDS.forEach(function(f){
+    var box=document.getElementById("campf_"+f.key); if(!box)return;
+    var cur=campFilters[f.key]||[];
+    var list=(campOpts[f.key]||[]);
+    if(!list.length){ box.innerHTML='<div class="muted" style="font-size:12px;padding:2px 2px">nessun valore</div>'; return; }
+    box.innerHTML=list.map(function(x){ var on=cur.indexOf(x.v)>=0;
+      return '<label style="display:flex;gap:7px;align-items:flex-start;font-size:12px;line-height:1.35;padding:3px 2px;cursor:pointer"><input type="checkbox" data-v="'+esc(x.v)+'"'+(on?" checked":"")+' style="margin-top:2px;flex:0 0 auto"><span>'+esc(x.v)+' <span class="muted">('+x.t+')</span></span></label>'; }).join("");
+    box.querySelectorAll('input[type="checkbox"]').forEach(function(cb){ cb.addEventListener("change",function(){
+      var v=cb.getAttribute("data-v"), a=campFilters[f.key]||(campFilters[f.key]=[]), k=a.indexOf(v);
+      if(cb.checked){ if(k<0)a.push(v); } else if(k>=0){ a.splice(k,1); }
+      ensureCampData();
+    }); });
+  });
 }
 function renderCampaign(){
   var el=document.getElementById("campTable"); if(!el)return;
-  var badge=document.getElementById("campBadge");
-  var med=campMedium, data=med?campCache[med]:null;
-  if(badge)badge.innerHTML=med?('Solo record con <code>utm_medium = &#39;'+esc(med)+'&#39;</code> &middot; Real'):"Seleziona una campagna.";
+  var badge=document.getElementById("campBadge"), key=campKey(), data=campCache[key];
+  if(badge){ var act=CAMP_FIELDS.filter(function(f){return (campFilters[f.key]||[]).length;}).map(function(f){var vs=campFilters[f.key]; return "<code>"+f.field+(vs.length>1?(" IN ("+vs.length+")"):(" = &#39;"+esc(vs[0])+"&#39;"))+"</code>"+(vs.length>1?" <span class=\"muted\">"+esc(vs.join(", ")).slice(0,80)+"</span>":""); }); badge.innerHTML=(act.length?("Filtri (AND fra campi, OR entro il campo): "+act.join(" &middot; ")):"Nessun filtro &middot; tutti i lead IREC")+" &middot; Real"; }
   var head='<thead><tr><th class="voce">Voce funnel</th>';
   for(var m=0;m<12;m++){head+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+"</th>";}
   head+="</tr></thead>";
   var body="<tbody>";
-  if(campMediums==null||campMedLoading){ body+='<tr><td class="voce muted" colspan="13">Caricamento elenco campagne (utm_medium) da Salesforce&hellip;</td></tr>'; }
-  else if(!med){ body+='<tr><td class="voce muted" colspan="13">Nessuna campagna disponibile.</td></tr>'; }
-  else if(data==null){ body+='<tr><td class="voce muted" colspan="13">'+(campLoading?"Caricamento funnel da Salesforce&hellip;":"Nessun dato. Premi Aggiorna IREC o riseleziona la campagna.")+"</td></tr>"; }
+  if(campOpts==null||campOptLoading){ body+='<tr><td class="voce muted" colspan="13">Caricamento elenchi filtri da Salesforce&hellip;</td></tr>'; }
+  else if(data==null){ body+='<tr><td class="voce muted" colspan="13">'+(campLoading?"Caricamento funnel da Salesforce&hellip;":"Nessun dato. Premi Aggiorna IREC o cambia i filtri.")+"</td></tr>"; }
   else { for(var i=0;i<8;i++){ body+='<tr><td class="voce">'+REAL.general[i].voce+"</td>"; for(var mm=0;mm<12;mm++){var v=data[i][mm]; body+='<td class="'+(mm===CUR_MONTH-1?"now":"")+'">'+(v==null?'<span class="muted">&mdash;</span>':nf(v))+"</td>";} body+="</tr>"; } }
   body+="</tbody>";
   el.innerHTML=head+body;
 }
 function campExport(){
-  var med=campMedium, data=med?campCache[med]:null;
-  if(!data){ rstatus("Nessun dato campagna da esportare (seleziona una campagna e attendi il caricamento).","err"); return; }
+  var key=campKey(), data=campCache[key];
+  if(!data){ rstatus("Nessun dato da esportare (attendi il caricamento o cambia i filtri).","err"); return; }
   var rows=[["Voce funnel"].concat(MESI.slice())];
   for(var i=0;i<8;i++){ var r=[REAL.general[i].voce]; for(var m=0;m<12;m++){var v=data[i][m]; r.push(v==null?"":v);} rows.push(r); }
   var csv="\ufeff"+rows.map(function(r){return r.map(function(c){var s=String(c==null?"":c); return /[";\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";");}).join("\r\n");
-  var safe=String(med).replace(/[^A-Za-z0-9]+/g,"_").slice(0,40);
-  var base="campagna-"+safe+"-2026";
+  var safe=CAMP_FIELDS.filter(function(f){return (campFilters[f.key]||[]).length;}).map(function(f){return campFilters[f.key].join("-");}).join("_").replace(/[^A-Za-z0-9]+/g,"_").slice(0,50)||"tutte";
+  var base="campagne-"+safe+"-2026";
   if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){ rstatus("Download disponibile solo dentro claude.ai.","err"); return; }
   var save=function(ext){ return window.claude.downloads.save({filename:base+"."+ext, data:csv}); };
-  save("csv").then(function(){rstatus("Campagna esportata (CSV).","ok");}).catch(function(e){var c=e&&e.code;
-    if(c==="extension_not_enabled"||c==="rejected_extension"){ save("txt").then(function(){rstatus("Campagna esportata (.txt).","ok");}).catch(function(){rstatus("Download non riuscito.","err");}); }
+  save("csv").then(function(){rstatus("Funnel campagne esportato (CSV).","ok");}).catch(function(e){var c=e&&e.code;
+    if(c==="extension_not_enabled"||c==="rejected_extension"){ save("txt").then(function(){rstatus("Funnel campagne esportato (.txt).","ok");}).catch(function(){rstatus("Download non riuscito.","err");}); }
     else if(c==="declined"){ rstatus("Download annullato.","err"); }
     else { rstatus("Download non disponibile in questa vista.","err"); } });
 }
@@ -2713,8 +2742,8 @@ function initControls(){
   fillWonMonths();
   var _wm=document.getElementById("wonMonth"); if(_wm)_wm.addEventListener("change",function(){wonMonthSel=+_wm.value||wonMonthSel;ensureWonMonth();});
   var _wc=document.getElementById("wonCsv"); if(_wc)_wc.addEventListener("click",wonExport);
-  // Dettaglio Campagne: selettore utm_medium + export CSV
-  var _cs=document.getElementById("campMediumSel"); if(_cs)_cs.addEventListener("change",function(){campMedium=_cs.value||"";ensureCampData();});
+  // Dettaglio Campagne: reset filtri + export CSV (i checkbox dei 4 filtri si agganciano in fillCampFilters)
+  var _crst=document.getElementById("campReset"); if(_crst)_crst.addEventListener("click",function(){campFilters={lead:[],src:[],med:[],camp:[]};fillCampFilters();ensureCampData();});
   var _cc=document.getElementById("campCsv"); if(_cc)_cc.addEventListener("click",campExport);
   // tabs
   document.querySelectorAll('.tabs button').forEach(function(b){
@@ -2729,7 +2758,7 @@ function initControls(){
       if(currentTab==="operatori")renderOperators();
       if(currentTab==="tmk")renderTMK();
       if(currentTab==="vinti"){fillWonMonths();ensureWonMonth();}
-      if(currentTab==="campagne")ensureCampMediums();
+      if(currentTab==="campagne")ensureCampOpts();
       if(currentTab==="recensioni")renderRecIrec();
       updateOverlay();
     });
