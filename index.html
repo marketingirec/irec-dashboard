@@ -579,6 +579,7 @@
         <button role="tab" aria-selected="false" data-rftab="operatori">Operatori Sales</button>
       </div>
       <div class="tabgroup"><span class="tabgrp">Customer</span>
+        <button role="tab" aria-selected="false" data-rftab="comportamento">Comportamento</button>
         <button role="tab" aria-selected="false" data-rftab="recensioni">Recensioni</button>
       </div>
       <div class="tabgroup"><span class="tabgrp">Dettaglio</span>
@@ -644,6 +645,16 @@
           <p style="margin:0;font-size:14px">In costruzione &mdash; servono i dati dei sondaggi (voto medio e n. compilazioni su ordini del mese). Indicami la fonte e la aggancio.</p>
         </div>
       </div>
+    </section>
+
+    <section class="rfpanel" id="rfpanel-comportamento">
+      <section class="tiles" id="rfCompTiles"></section>
+      <div class="card">
+        <div class="card-h"><h2>Comportamento clienti &mdash; nuovi vs di ritorno</h2><span class="hint">solo <b>online</b> (Shopify) &middot; per mese</span></div>
+        <div id="rfCompCap" class="hint" style="padding:0 16px 8px"></div>
+        <div class="card-b scroll"><table id="rfCompTable"></table></div>
+      </div>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Comportamento d&rsquo;acquisto dei clienti <b>online</b> (Shopify) mese su mese: <b>Nuovi</b> vs <b>Clienti di ritorno</b>, <b>% di ritorno</b> (fidelizzazione), <b>ordini per cliente</b> (frequenza), <b>fatturato per cliente</b> e <b>AOV</b>. La <b>% di ritorno</b> &egrave; il <code>returning_customer_rate</code> ufficiale di Shopify (clienti di ritorno / clienti del mese); nuovi e di ritorno sono conteggiati da Shopify su base ordine, quindi la loro somma pu&ograve; non coincidere esattamente coi clienti totali. Riguarda solo la parte online: offline/partner (Salesforce) non sono inclusi. Si carica dal vivo da Shopify (Aggiorna RF); i valori iniziali sono l&rsquo;ultimo dato noto.</p>
     </section>
 
     <section class="rfpanel" id="rfpanel-recensioni">
@@ -1146,6 +1157,65 @@ function renderRevSnap(elId,src){var el=document.getElementById(elId);if(!el)ret
   revWire(el);}
 function renderRecIrec(){renderRevSnap("recIrecSnap","irec_google");}
 function renderRecRf(){renderRevSnap("recRfTpSnap","rf_trustpilot");renderRevSnap("recRfGSnap","rf_google");}
+/* ---------- RF CUSTOMER: COMPORTAMENTO (nuovi vs di ritorno, solo online Shopify) ----------
+   Metriche ShopifyQL per mese (idx 0..11). Seed 2026 Gen..Set; live via connettore Shopify. */
+var RF_COMPORT={
+  newC:   [67,57,70,50,68,58,64,28,33,null,null,null],
+  retC:   [68,57,70,59,62,77,63,25,33,null,null,null],
+  custTot:[121,109,136,107,125,133,124,53,66,null,null,null],
+  retRate:[0.561983,0.522936,0.514706,0.551402,0.496,0.578947,0.508065,0.471698,0.5,null,null,null],
+  orders: [256,150,174,138,163,168,167,61,80,null,null,null],
+  net:    [63398.39,26273.42,27735.84,24013.01,28681.72,26673.02,24887.76,6344.48,13548.33,null,null,null]
+};
+var rfCompLoaded=false, rfCompLoading=false, rfCompErr="";
+async function ensureRfComport(force){
+  if(!(window.claude&&window.claude.mcp)){ renderRFComport(); return; } // Vercel/no-MCP: mostra i seed
+  if(rfCompLoading)return;
+  if(rfCompLoaded&&!force){ renderRFComport(); return; }
+  rfCompLoading=true; rfCompErr=""; renderRFComport();
+  try{
+    var sh=await findShopify(); if(!sh)throw new Error("Shopify non agganciato");
+    var q="FROM sales SHOW new_customers, returning_customers, customers, returning_customer_rate, orders, net_sales TIMESERIES month SINCE 2026-01-01 UNTIL 2026-12-31";
+    var res=await window.claude.mcp.callTool(sh.server,sh.tool,{query:q},{cache:false});
+    var rows=shopifyRows(res);
+    if(rows&&rows.length){
+      var nc=[],rc=[],ct=[],rr=[],od=[],ns=[]; for(var i=0;i<12;i++){nc[i]=null;rc[i]=null;ct[i]=null;rr[i]=null;od[i]=null;ns[i]=null;}
+      rows.forEach(function(r){ var mo=String(r[0]||"").slice(0,7); var mi=parseInt(mo.slice(5,7),10)-1; if(mi<0||mi>11)return;
+        nc[mi]=numify(r[1]); rc[mi]=numify(r[2]); ct[mi]=numify(r[3]); rr[mi]=parseFloat(r[4])||0; od[mi]=numify(r[5]); ns[mi]=numify(r[6]); });
+      RF_COMPORT={newC:nc,retC:rc,custTot:ct,retRate:rr,orders:od,net:ns}; rfCompLoaded=true;
+    } else { rfCompErr="Shopify non ha restituito dati (mostro l'ultimo dato noto)."; }
+  }catch(e){ rfCompErr="Shopify non disponibile (mostro l'ultimo dato noto)."; }
+  rfCompLoading=false; renderRFComport();
+}
+function renderRFComport(){
+  var el=document.getElementById("rfCompTable"); if(!el)return;
+  var C=RF_COMPORT;
+  var head='<thead><tr><th class="voce">Voce</th>';
+  for(var m=0;m<12;m++){head+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+'</th>';}
+  head+='</tr></thead>';
+  function row(lab,fn,o){ o=o||{}; var s='<tr'+(o.sep?' class="sep"':'')+'><td class="voce"'+(o.style?' style="'+o.style+'"':'')+'>'+lab+'</td>';
+    for(var m=0;m<12;m++){var v=fn(m); var disp=(v==null)?'<span class="muted">&mdash;</span>':(o.pct?(v.toLocaleString("it-IT",{maximumFractionDigits:1})+"%"):(o.num?nf(v):(o.dec1?v.toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1}):eur(v)))); s+='<td class="'+(m===CUR_MONTH-1?"now":"")+'">'+disp+'</td>';}
+    return s+'</tr>'; }
+  var body='<tbody>';
+  body+=row("Clienti totali",function(m){return C.custTot[m];},{num:true,style:"font-weight:660"});
+  body+=row("Nuovi clienti",function(m){return C.newC[m];},{num:true});
+  body+=row("Clienti di ritorno",function(m){return C.retC[m];},{num:true});
+  body+=row("% di ritorno",function(m){return C.retRate[m]==null?null:C.retRate[m]*100;},{pct:true,sep:true,style:"font-weight:680;color:var(--good)"});
+  body+=row("% nuovi (su clienti mese)",function(m){return (C.newC[m]==null||!C.custTot[m])?null:C.newC[m]/C.custTot[m]*100;},{pct:true,style:"color:var(--muted)"});
+  body+=row("Ordini per cliente",function(m){return (!C.custTot[m])?null:(C.orders[m]||0)/C.custTot[m];},{dec1:true,sep:true});
+  body+=row("Fatturato per cliente",function(m){return (!C.custTot[m])?null:(C.net[m]||0)/C.custTot[m];});
+  body+=row("AOV (scontrino medio)",function(m){return (!C.orders[m])?null:(C.net[m]||0)/C.orders[m];});
+  body+='</tbody>';
+  el.innerHTML=head+body;
+  var cap=document.getElementById("rfCompCap"); if(cap)cap.innerHTML="Solo online (Shopify) &middot; "+(rfCompLoading?"caricamento dal vivo&hellip;":(rfCompErr?('<span style="color:var(--warn)">'+esc(rfCompErr)+"</span>"):(rfCompLoaded?"dati live":"dati iniziali (premi Aggiorna RF per il live)")));
+  var t=document.getElementById("rfCompTiles"); if(t){ var i=rfMonthSel, rr=C.retRate[i], nn=C.newC[i], rc=C.retC[i], opc=(C.custTot[i]?(C.orders[i]||0)/C.custTot[i]:null);
+    function tile(lab,val,sub){return '<div class="tile"><div class="lab">'+lab+'</div><div class="val tnum">'+val+'</div><div class="sub">'+sub+'</div></div>';}
+    t.innerHTML=tile("% di ritorno &middot; "+MESI[i],(rr==null?"&mdash;":(rr*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%"),"clienti gi&agrave; acquisiti")
+      +tile("Nuovi clienti",(nn==null?"&mdash;":nf(nn)),MESI[i]+" 2026")
+      +tile("Clienti di ritorno",(rc==null?"&mdash;":nf(rc)),MESI[i]+" 2026")
+      +tile("Ordini per cliente",(opc==null?"&mdash;":opc.toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1})),"frequenza d'acquisto");
+  }
+}
 function renderRecActive(){renderRecIrec();renderRecRf();}
 
 /* ===== SORGENTI IREC: Budget vs Real per CANALE (Meta / Google), mese su mese =====
@@ -2366,6 +2436,7 @@ function renderRFActive(){
   else if(rfTab==="adv")renderRFAdv();
   else if(rfTab==="operatori")renderRFOperatori();
   else if(rfTab==="ordini")renderRFOrders();
+  else if(rfTab==="comportamento"){renderRFComport();ensureRfComport();}
   else if(rfTab==="recensioni")renderRecRf();
 }
 var rfOrdFSt="tutti", rfOrdFSrc="tutti", rfOrdSort="net";   // filtri e ordinamento del dettaglio ordini
@@ -2589,7 +2660,7 @@ function renderRFAdv(){
 }
 /* ---------- refresh a fasi: overlay barra di caricamento per gruppo di tab ---------- */
 var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",vinti:"sales",campagne:"sales",recensioni:"customer"};
-var RF_TAB_GROUP={andamento:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",recensioni:"customer"};
+var RF_TAB_GROUP={andamento:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",comportamento:"customer",recensioni:"customer"};
 var groupReady={general:true,marketing:true,tmk:true,sales:true};
 var currentView="irec-dash";
 function tabOverlay(panelEl,on){
@@ -3117,7 +3188,7 @@ async function doRefreshRFAPI(){
     var byM={}; if(d.sf&&d.sf.orders)d.sf.orders.forEach(function(o){var mi=(o.m||0)-1;if(mi>=0&&mi<12){(byM[mi]=byM[mi]||[]).push(o);}}); if(shOk&&d.shopify.orders)d.shopify.orders.forEach(function(o){var mi=(o.m||0)-1;if(mi>=0&&mi<12){(byM[mi]=byM[mi]||[]).push(o);}});
     for(var mm=0;mm<12;mm++){ if(!_cov(mm))continue; RF_ORDERS[mm]=(byM[mm]||[]).map(function(o){return {n:o.n,nome:o.nome,email:o.email,dpag:o.dpag,net:o.net,st:o.st,sr:o.sr};}); }
     if(d.adspend){var g=d.adspend.google||[],m2=d.adspend.meta||[]; for(var k=0;k<12;k++){if(m2[k]!=null)RF_ADV_META[k]=m2[k]; if(g[k]!=null)RF_ADV_GOOGLE[k]=g[k];}}
-    renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); rfPersist();
+    rfCompLoaded=false; renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); rfPersist();
     st("RF aggiornato &middot; Salesforce + ADV"+(shOk?" + Shopify (ultimi ~60 giorni; mesi precedenti da storico)":" &middot; &#9888; Shopify non agganciato (online sui dati statici)"));
   }catch(e){ st("Errore aggiornamento RF: "+(e&&e.message||e)); }
   finally{ refreshing=false; if(icon)icon.className=""; if(btn)btn.disabled=false; }
@@ -3352,7 +3423,7 @@ async function doRefreshUnified(scope){
       }
       for(var _ti=0;_ti<rfTargets.length;_ti++){ st("RF &middot; "+(RF_MONTHS[rfTargets[_ti]-1]||rfTargets[_ti])+" ("+(_ti+1)+"/"+rfTargets.length+") &middot; storni/rimborsi..."); await rfRefreshMonth(rfTargets[_ti]); }
       // aggiorna TUTTE le viste RF (tutti i tab: PV, Andamento, Ordini, Sorgenti, ADV, Operatori) + tab attivo
-      renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); rfPersist();
+      rfCompLoaded=false; renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); rfPersist();
       rfFullYear=false;
     }
 
