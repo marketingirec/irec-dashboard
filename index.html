@@ -654,7 +654,34 @@
         <div id="rfCompCap" class="hint" style="padding:0 16px 8px"></div>
         <div class="card-b scroll"><table id="rfCompTable"></table></div>
       </div>
-      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Comportamento d&rsquo;acquisto dei clienti <b>online</b> (Shopify) mese su mese: <b>Nuovi</b> vs <b>Clienti di ritorno</b>, <b>% di ritorno</b> (fidelizzazione), <b>ordini per cliente</b> (frequenza), <b>fatturato per cliente</b> e <b>AOV</b>. La <b>% di ritorno</b> &egrave; il <code>returning_customer_rate</code> ufficiale di Shopify (clienti di ritorno / clienti del mese); nuovi e di ritorno sono conteggiati da Shopify su base ordine, quindi la loro somma pu&ograve; non coincidere esattamente coi clienti totali. Riguarda solo la parte online: offline/partner (Salesforce) non sono inclusi. Si carica dal vivo da Shopify (Aggiorna RF); i valori iniziali sono l&rsquo;ultimo dato noto.</p>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Comportamento d&rsquo;acquisto dei clienti <b>online</b> (Shopify) mese su mese. Riguarda solo la parte online: offline/partner (Salesforce) non sono inclusi. Si carica dal vivo da Shopify (Aggiorna RF); i valori iniziali sono l&rsquo;ultimo dato noto. Definizioni dei KPI sotto.</p>
+
+      <div class="card" style="margin-top:18px">
+        <div class="card-h"><h2>Coorte &mdash; ordini nel tempo dal primo acquisto</h2><span class="hint">per mese del 1&deg; ordine (online)</span></div>
+        <div id="rfCohortCap" class="hint" style="padding:0 16px 8px"></div>
+        <div class="card-b scroll"><table id="rfCohortTable"></table></div>
+      </div>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Ogni colonna &egrave; una <b>coorte</b> = i clienti il cui <b>primo ordine</b> (online) &egrave; caduto in quel mese. <b>Ordini medi per cliente</b> = ordini totali fatti da quella coorte &divide; clienti acquisiti, <b>cumulati fino a oggi</b>. Le coorti pi&ugrave; vecchie (a sinistra) hanno avuto pi&ugrave; tempo per riordinare, quindi il valore &egrave; pi&ugrave; alto: es. i clienti acquisiti a <b>gennaio</b> hanno fatto in media ~2,6 ordini, quelli di settembre ~1,0 (appena acquisiti). NB: &egrave; un cumulato a oggi, non un dettaglio mese&ndash;per&ndash;mese (Shopify non espone il triangolo completo della coorte).</p>
+
+      <div class="card" style="margin-top:18px">
+        <div class="card-h"><h2>Definizioni KPI &mdash; cosa includono e come sono calcolati</h2><span class="hint">fonte: Shopify (online)</span></div>
+        <div class="card-b" style="padding:8px 18px 16px">
+          <table class="tax">
+            <thead><tr><th style="text-align:left">KPI</th><th style="text-align:left">Definizione</th></tr></thead>
+            <tbody style="font-size:12.5px;line-height:1.5">
+              <tr><td class="voce"><b>Nuovo cliente</b></td><td>Cliente il cui <b>primo ordine in assoluto</b> sullo store cade nel mese (first-time buyer). Metrica Shopify <code>new_customers</code>.</td></tr>
+              <tr><td class="voce"><b>Cliente di ritorno</b></td><td>Cliente che aveva <b>gi&agrave; almeno un ordine prima</b> del mese e ne ha fatto un altro nel mese. Metrica Shopify <code>returning_customers</code>. La classificazione dipende dalla <b>data del primo ordine</b> del cliente, non dal singolo acquisto.</td></tr>
+              <tr><td class="voce">Clienti totali</td><td>Clienti <b>distinti</b> che hanno ordinato nel mese (<code>customers</code>). NB: nuovi + di ritorno pu&ograve; non coincidere con i totali perch&eacute; Shopify li conta su base ordine ai bordi del periodo.</td></tr>
+              <tr><td class="voce">% di ritorno</td><td><code>returning_customer_rate</code> ufficiale Shopify = clienti di ritorno &divide; clienti del mese. &Egrave; l&rsquo;indicatore di <b>fidelizzazione</b>.</td></tr>
+              <tr><td class="voce">% nuovi</td><td>Nuovi clienti &divide; clienti del mese (calcolo nostro).</td></tr>
+              <tr><td class="voce">Ordini per cliente</td><td>Ordini del mese &divide; clienti del mese = <b>frequenza d&rsquo;acquisto</b> nel mese.</td></tr>
+              <tr><td class="voce">Fatturato per cliente</td><td><code>net_sales</code> del mese &divide; clienti del mese.</td></tr>
+              <tr><td class="voce">AOV</td><td>Scontrino medio = <code>net_sales</code> &divide; ordini del mese.</td></tr>
+              <tr><td class="voce">Coorte &middot; Ordini medi</td><td>Per i clienti col <b>primo ordine</b> in quel mese: ordini totali che hanno fatto (a oggi) &divide; n. clienti della coorte. Cresce col tempo perch&eacute; misura i riacquisti accumulati.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <section class="rfpanel" id="rfpanel-recensioni">
@@ -1167,6 +1194,13 @@ var RF_COMPORT={
   orders: [256,150,174,138,163,168,167,61,80,null,null,null],
   net:    [63398.39,26273.42,27735.84,24013.01,28681.72,26673.02,24887.76,6344.48,13548.33,null,null,null]
 };
+// Coorte per mese del PRIMO ordine (dataset ShopifyQL "customers"): clienti acquisiti,
+// ordini totali (lifetime a oggi) e spesa totale di quella coorte.
+var RF_COHORT={
+  acq:    [67,57,70,50,68,58,64,28,33,null,null,null],
+  ordTot: [174,104,120,57,87,65,71,39,33,null,null,null],
+  spent:  [53655.52,20802.82,18581.48,14683.05,21085.75,16334.90,16407.66,4356.17,9418.65,null,null,null]
+};
 var rfCompLoaded=false, rfCompLoading=false, rfCompErr="";
 async function ensureRfComport(force){
   if(!(window.claude&&window.claude.mcp)){ renderRFComport(); return; } // Vercel/no-MCP: mostra i seed
@@ -1184,6 +1218,15 @@ async function ensureRfComport(force){
         nc[mi]=numify(r[1]); rc[mi]=numify(r[2]); ct[mi]=numify(r[3]); rr[mi]=parseFloat(r[4])||0; od[mi]=numify(r[5]); ns[mi]=numify(r[6]); });
       RF_COMPORT={newC:nc,retC:rc,custTot:ct,retRate:rr,orders:od,net:ns}; rfCompLoaded=true;
     } else { rfCompErr="Shopify non ha restituito dati (mostro l'ultimo dato noto)."; }
+    // coorte (dataset customers, GROUP BY mese primo ordine)
+    var qc="FROM customers SHOW new_customer_records, total_number_of_orders, total_amount_spent GROUP BY month SINCE 2026-01-01 UNTIL 2026-12-31 ORDER BY month ASC";
+    var resc=await window.claude.mcp.callTool(sh.server,sh.tool,{query:qc},{cache:false});
+    var rowsc=shopifyRows(resc);
+    if(rowsc&&rowsc.length){
+      var aq=[],ot=[],sp=[]; for(var k=0;k<12;k++){aq[k]=null;ot[k]=null;sp[k]=null;}
+      rowsc.forEach(function(r){ var mi=parseInt(String(r[0]||"").slice(5,7),10)-1; if(mi<0||mi>11)return; aq[mi]=numify(r[1]); ot[mi]=numify(r[2]); sp[mi]=numify(r[3]); });
+      RF_COHORT={acq:aq,ordTot:ot,spent:sp};
+    }
   }catch(e){ rfCompErr="Shopify non disponibile (mostro l'ultimo dato noto)."; }
   rfCompLoading=false; renderRFComport();
 }
@@ -1215,6 +1258,25 @@ function renderRFComport(){
       +tile("Clienti di ritorno",(rc==null?"&mdash;":nf(rc)),MESI[i]+" 2026")
       +tile("Ordini per cliente",(opc==null?"&mdash;":opc.toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1})),"frequenza d'acquisto");
   }
+  renderRFCohort();
+}
+function renderRFCohort(){
+  var el=document.getElementById("rfCohortTable"); if(!el)return;
+  var H=RF_COHORT;
+  var head='<thead><tr><th class="voce">Coorte (mese 1&deg; ordine)</th>';
+  for(var m=0;m<12;m++){head+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+'</th>';}
+  head+='</tr></thead>';
+  function row(lab,fn,o){ o=o||{}; var s='<tr'+(o.sep?' class="sep"':'')+'><td class="voce"'+(o.style?' style="'+o.style+'"':'')+'>'+lab+'</td>';
+    for(var m=0;m<12;m++){var v=fn(m); var disp=(v==null)?'<span class="muted">&mdash;</span>':(o.num?nf(v):(o.dec2?v.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2}):eur(v))); s+='<td class="'+(m===CUR_MONTH-1?"now":"")+'">'+disp+'</td>';}
+    return s+'</tr>'; }
+  var body='<tbody>';
+  body+=row("Clienti acquisiti",function(m){return H.acq[m];},{num:true,style:"font-weight:660"});
+  body+=row("Ordini totali (lifetime a oggi)",function(m){return H.ordTot[m];},{num:true});
+  body+=row("Ordini medi per cliente",function(m){return (!H.acq[m])?null:(H.ordTot[m]||0)/H.acq[m];},{dec2:true,sep:true,style:"font-weight:680;color:var(--good)"});
+  body+=row("Spesa media per cliente (lifetime)",function(m){return (!H.acq[m])?null:(H.spent[m]||0)/H.acq[m];});
+  body+='</tbody>';
+  el.innerHTML=head+body;
+  var cap=document.getElementById("rfCohortCap"); if(cap)cap.innerHTML="Per mese del <b>primo ordine</b> del cliente (online) &middot; valori <b>cumulati a oggi</b> &middot; "+(rfCompLoading?"caricamento&hellip;":(rfCompLoaded?"dati live":"dati iniziali"));
 }
 function renderRecActive(){renderRecIrec();renderRecRf();}
 
