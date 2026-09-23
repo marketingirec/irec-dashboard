@@ -187,6 +187,11 @@ export default async function handler(req, res){
     const irD = buildMonthly(await soql(ctx, `SELECT ${CM} m,COUNT(Id) t FROM Lead WHERE ${VW[2].w}${VW[2].extra} AND Scartato_Substage_Answered__c='DATI NON CORRETTI' GROUP BY ${CM}`), 't', curM);
     const irN = buildMonthly(await soql(ctx, `SELECT ${CM} m,COUNT(Id) t FROM Lead WHERE ${VW[2].w}${VW[2].extra} AND Scartato_Substage_Answered__c='NON HA MAI RISPOSTO' GROUP BY ${CM}`), 't', curM);
 
+    // Tipologia lead (Privati/Aziende/Liberi professionisti) da Tipologia_Lead__c (valorizzato solo Mag-Lug 2026)
+    const tipo = { priv:new Array(12).fill(0), az:new Array(12).fill(0), lp:new Array(12).fill(0) };
+    const tipoRecs = await soql(ctx, `SELECT ${CM} m, Tipologia_Lead__c t, COUNT(Id) c FROM Lead WHERE ${LB} AND Tipologia_Lead__c!=null GROUP BY ${CM}, Tipologia_Lead__c`);
+    tipoRecs.forEach(r=>{ const mi=(+r.m)-1; if(mi<0||mi>11) return; const c=+(r.c||0); if(r.t==='Privati') tipo.priv[mi]=c; else if(r.t==='Aziende') tipo.az[mi]=c; else if(r.t==='Liberi professionisti') tipo.lp[mi]=c; });
+
     // spesa ADV (Google Ads + Meta) — non blocca se non configurata o in errore
     let adspend = null;
     try { adspend = await getAdSpend(YEAR); } catch(_e) { adspend = null; }
@@ -197,6 +202,7 @@ export default async function handler(req, res){
       daily: { tot:dtot, mql:dmql, won:dwon, fat:dfat },
       sources: { month: curM, rows: buildSrc(recsByVoce) },
       contatt: { nuovi: cNuo, aw: cAw, irD, irN },
+      tipo,
       adspend
     });
   }catch(e){

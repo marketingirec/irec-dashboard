@@ -465,7 +465,7 @@
         <span class="hint">Lead IREC per mese di compilazione &middot; Totali entrati &rarr; In target da Policy &rarr; In target criteri sec. &rarr; Irraggiungibili / Contattabili TMK</span>
       </div>
       <div class="card-b scroll"><table id="motivTable"></table></div>
-      <div class="card-b" style="padding-top:0"><p class="hint" style="margin:0">Ogni blocco in grassetto = totale; le righe <b>&rsaquo; di cui</b> si sottraggono per arrivare al blocco successivo. <b>In target da Policy</b> = Totali entrati &minus; motivazioni di scarto marketing. <b>In target criteri sec.</b> = In target da Policy &minus; NON IN TARGET (criteri secondari). <b>Contattati</b> = Contattabili &minus; Nuovi &minus; Attivo-Working.</p></div>
+      <div class="card-b" style="padding-top:0"><p class="hint" style="margin:0">Ogni blocco in grassetto = totale; le righe <b>&rsaquo; di cui</b> si sottraggono per arrivare al blocco successivo. <b>In target da Policy</b> = Totali entrati &minus; motivazioni di scarto marketing. <b>In target criteri sec.</b> = In target da Policy &minus; NON IN TARGET (criteri secondari). <b>Contattati</b> = Contattabili &minus; Nuovi &minus; Attivo-Working. <b>Tipologia lead</b> (Privati / Aziende / Liberi professionisti) dal campo <code>Tipologia_Lead__c</code>: NB &egrave; valorizzato <b>solo da Maggio a Luglio 2026</b> (~615 lead), quindi gli altri mesi (incl. Ago&ndash;Set) risultano a &ldquo;&mdash;&rdquo;. Non &egrave; un sotto-insieme del funnel: &egrave; una scomposizione trasversale dei soli lead classificati.</p></div>
     </div>
   </section>
 
@@ -971,6 +971,10 @@ var SCARTO2=[
 // ---- Vista MOTIVAZIONI (funnel qualifica lead). I valori dei sub-stage vengono letti da SCARTO2 per key;
 //      NON IN TARGET - MARKETING sta nel campo _Answered -> array a parte MOTIV_MKT. ----
 var MOTIV_MKT=[5,14,13,13,8,16,14,5,6,0,0,0];   // NON IN TARGET - MARKETING (Scartato_Substage_Answered__c)
+// Tipologia lead (Tipologia_Lead__c). NB: valorizzato SOLO Mag-Lug 2026 (~615 lead su 5888); vuoto altrove.
+var MOTIV_TIPO_PRIV=[1,0,1,0,82,164,36,0,0,0,0,0]; // 'Privati'
+var MOTIV_TIPO_AZ  =[0,1,0,0,93,118,33,0,0,0,0,0]; // 'Aziende'
+var MOTIV_TIPO_LP  =[1,0,1,0,42,29,13,0,0,0,0,0];  // 'Liberi professionisti'
 var MOTIV_A=[   // di cui di "Totali entrati" (si sottraggono -> In target da Policy)
   {label:"NON IN TARGET - MARKETING",key:"__MKT__"},
   {label:"NON GENERA INSOLUTI",key:"NON GENERA INSOLUTI"},
@@ -2118,6 +2122,12 @@ function renderMotiv(){
   body+=row("Nuovi",fNuo,{sub:true})+mpf(fNuo);
   body+=row("Attivo - Working",fAw,{sub:true})+mpf(fAw);
   body+=row("Contattati (contatto riuscito)",fCtt,{sub:true})+mpf(fCtt);
+  // Tipologia lead (da Tipologia_Lead__c): scomposizione privati/aziende dove il campo e' valorizzato (Mag-Lug 2026)
+  var fTipo=function(m){return (MOTIV_TIPO_PRIV[m]||0)+(MOTIV_TIPO_AZ[m]||0)+(MOTIV_TIPO_LP[m]||0);};
+  body+=row("Tipologia lead &middot; dove valorizzata",function(m){var v=fTipo(m);return v||null;},{bold:true,sep:true});
+  body+=row("Privati",function(m){return MOTIV_TIPO_PRIV[m];},{sub:true});
+  body+=row("Aziende",function(m){return MOTIV_TIPO_AZ[m];},{sub:true});
+  body+=row("Liberi professionisti",function(m){return MOTIV_TIPO_LP[m];},{sub:true});
   body+='</tbody>';
   el.innerHTML=head+body;
 }
@@ -3270,6 +3280,7 @@ async function doRefreshAPI(){
     if(d.reopen){for(var k2=0;k2<8;k2++){if(d.reopen[k2])REAL.reopen[k2].data=d.reopen[k2];}}
     if(d.adspend){var _g=d.adspend.google||[],_m=d.adspend.meta||[],anyAdv=false;for(var mi=0;mi<12;mi++){var gv=_g[mi],mv=_m[mi];if(gv!=null||mv!=null){BUDGET.adv[mi]=(gv||0)+(mv||0);anyAdv=true;}}if(anyAdv)persist();}
     if(d.contatt){if(d.contatt.nuovi)CONTATT_NUOVI=d.contatt.nuovi;if(d.contatt.aw)CONTATT_AW=d.contatt.aw;if(d.contatt.irD)IRR_DNC=d.contatt.irD;if(d.contatt.irN)IRR_NMR=d.contatt.irN;}
+    if(d.tipo){if(d.tipo.priv)MOTIV_TIPO_PRIV=d.tipo.priv;if(d.tipo.az)MOTIV_TIPO_AZ=d.tipo.az;if(d.tipo.lp)MOTIV_TIPO_LP=d.tipo.lp;}
     if(d.contratti)CONTRATTI=d.contratti.slice(); if(d.fatturato)FATTURATO=d.fatturato; LEAD_TOT=REAL.general[0].data;
     if(d.daily){if(d.daily.tot)DTOT=d.daily.tot;if(d.daily.mql)DMQL=d.daily.mql;if(d.daily.won)DWON=d.daily.won;if(d.daily.fat)DFAT=d.daily.fat;}
     if(d.day0)DAY0=d.day0; if(d.dayN)DAYN=d.dayN; LAST_DAY=isoAddDays(DAY0,DAYN-1);
@@ -3320,9 +3331,11 @@ async function doRefreshMCP(){
     var rAw =await q("SELECT "+_CM+" m,COUNT(Id) t FROM Lead WHERE "+VW[3].w+VW[3].extra+" AND Status='Attivo - Working' GROUP BY "+_CM);
     var rIrD=await q("SELECT "+_CM+" m,COUNT(Id) t FROM Lead WHERE "+VW[2].w+VW[2].extra+" AND Scartato_Substage_Answered__c='DATI NON CORRETTI' GROUP BY "+_CM);
     var rIrN=await q("SELECT "+_CM+" m,COUNT(Id) t FROM Lead WHERE "+VW[2].w+VW[2].extra+" AND Scartato_Substage_Answered__c='NON HA MAI RISPOSTO' GROUP BY "+_CM);
+    var rTipo=await q("SELECT "+_CM+" m,Tipologia_Lead__c t,COUNT(Id) c FROM Lead WHERE "+_LB+" AND Tipologia_Lead__c!=null GROUP BY "+_CM+",Tipologia_Lead__c");
     for(var k=0;k<8;k++){if(nr[k])REAL.general[k].data=nr[k];}
     if(rNuo!=null)CONTATT_NUOVI=buildMonthly(rNuo,"t",curM); if(rAw!=null)CONTATT_AW=buildMonthly(rAw,"t",curM);
     if(rIrD!=null)IRR_DNC=buildMonthly(rIrD,"t",curM); if(rIrN!=null)IRR_NMR=buildMonthly(rIrN,"t",curM);
+    if(rTipo!=null){var _P=new Array(12).fill(0),_A=new Array(12).fill(0),_L=new Array(12).fill(0); rTipo.forEach(function(r){var mi=(+r.m)-1; if(mi<0||mi>11)return; var c=+(r.c||0); if(r.t==="Privati")_P[mi]=c; else if(r.t==="Aziende")_A[mi]=c; else if(r.t==="Liberi professionisti")_L[mi]=c;}); MOTIV_TIPO_PRIV=_P;MOTIV_TIPO_AZ=_A;MOTIV_TIPO_LP=_L;}
     if(won)CONTRATTI=won.slice(); if(fat)FATTURATO=fat; LEAD_TOT=REAL.general[0].data;
     DTOT=dtot;DMQL=dmql;DWON=dwon;DFAT=dfat;DAYN=n; LAST_DAY=isoAddDays(DAY0,n-1); SNAPSHOT=todayISO; CUR_MONTH=curM;
     var dS=document.getElementById("dStart"),dE=document.getElementById("dEnd");
