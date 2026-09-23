@@ -3226,7 +3226,7 @@ async function ensureTmkMonths(){
 
 var refreshing=false;
 function hasMcp(){return !!(window.claude&&window.claude.mcp!==undefined);}
-async function doRefresh(){ if(refreshing)return; return hasMcp()?doRefreshUnified("both"):doRefreshAPI(); }
+async function doRefresh(){ if(refreshing)return; if(hasMcp())return doRefreshUnified("both"); await doRefreshAPI(); return doRefreshRFAPI(); }
 async function doRefreshIREConly(){ if(refreshing)return; return hasMcp()?doRefreshUnified("irec"):doRefreshAPI(); }
 async function doRefreshRFonly(){ if(refreshing)return; if(!hasMcp()){ return doRefreshRFAPI(); } return doRefreshUnified("rf"); }
 async function doRefreshRFyear(){ if(refreshing)return; if(!hasMcp()){ return doRefreshRFAPI(); } rfFullYear=true; return doRefreshUnified("rf"); }
