@@ -819,6 +819,33 @@ var UPSELL    = pad([0,0,0,0,0,0,0,1,0]);           // di cui Upsell = duplicati
 // Breakdown Chiusi Vinti per SORGENTE e OPERATORE, per mese: {mese:{src:{name:{tot,nuovi,ups}}, op:{...}}}
 // Nuovi attribuiti (opzione B) alla sorgente/operatore del PRIMO contratto del cliente. Rigenerato dal refresh (mesi finestra).
 var WONBRK = {};
+/* ---- COERENZA DELLO SPLIT: "di cui Nuovi" + "di cui Upsell" DEVONO fare Chiusi Vinti TOT ----
+   Il TOT (REAL.general[7].data) viene riscritto da ogni refresh e ripristinato dallo snapshot;
+   lo split invece non veniva mai risincronizzato, percio' la somma poteva non tornare.
+   Regola: l'Upsell e' il dato "raro" e stabile (duplicati stesso mese + gia'-clienti ri-vinti),
+   i Nuovi sono il RESIDUO -> Nuovi = TOT - Upsell (Upsell limitato a [0..TOT]).
+   Va chiamata dopo ogni caricamento/aggiornamento dei Chiusi Vinti. */
+function syncWonSplit(){
+  var tot=(REAL.general[7]&&REAL.general[7].data)||[];
+  while(NUOVI.length<12)NUOVI.push(null);
+  while(UPSELL.length<12)UPSELL.push(null);
+  while(CONTRATTI.length<12)CONTRATTI.push(null);
+  for(var m=0;m<12;m++){
+    var t=tot[m];
+    if(t==null){NUOVI[m]=null;UPSELL[m]=null;continue;}
+    var u=+UPSELL[m]||0; if(u<0)u=0; if(u>t)u=t;
+    UPSELL[m]=u; NUOVI[m]=t-u; CONTRATTI[m]=t;
+  }
+  // stessa regola sul breakdown per sorgente/operatore (tot = nuovi + ups per ogni colonna)
+  for(var k in WONBRK){
+    var w=WONBRK[k]; if(!w)continue;
+    ["src","op"].forEach(function(g){
+      var b=w[g]; if(!b)return;
+      for(var name in b){var c=b[name]; if(!c)continue; var ct=+c.tot||0, cu=+c.ups||0; if(cu<0)cu=0; if(cu>ct)cu=ct; c.ups=cu; c.nuovi=ct-cu;}
+    });
+  }
+}
+syncWonSplit();
 var LEAD_TOT  = REAL.general[0].data;
 
 /* ---------- FUNNEL REOPEN (solo record con LeadSource='Reopen') ----------
@@ -1978,7 +2005,9 @@ function renderSources(){
       body+='<tr><td class="voce">'+vlab+'</td>';
       srcs.forEach(function(s){var v=s.v[i]||0; rowTot+=v; body+='<td class="tnum">'+(isEur?eur(v):nf(v))+'</td>';});
       body+='<td class="tnum"><b>'+(isEur?eur(rowTot):nf(rowTot))+'</b></td></tr>';
-      if(i===7){ [["di cui Nuovi","nuovi"],["di cui Upsell","ups"]].forEach(function(pair){var rt=0;body+='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8226; '+pair[0]+'</td>';srcs.forEach(function(s){var v=srcW(s.src,pair[1]);rt+=v;body+='<td class="tnum" style="color:var(--muted)">'+nf(v)+'</td>';});body+='<td class="tnum" style="color:var(--muted)"><b>'+nf(rt)+'</b></td></tr>';}); }
+      // di cui Nuovi / Upsell: ancorati al TOT della colonna (Nuovi = TOT - Upsell) cosi' la somma torna sempre
+      if(i===7){ var spl=srcs.map(function(s){var ct=s.v[7]||0,u=srcW(s.src,"ups"); if(u<0)u=0; if(u>ct)u=ct; return {nuovi:ct-u,ups:u};});
+        [["di cui Nuovi","nuovi"],["di cui Upsell","ups"]].forEach(function(pair){var rt=0;body+='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8226; '+pair[0]+'</td>';spl.forEach(function(p){var v=p[pair[1]];rt+=v;body+='<td class="tnum" style="color:var(--muted)">'+nf(v)+'</td>';});body+='<td class="tnum" style="color:var(--muted)"><b>'+nf(rt)+'</b></td></tr>';}); }
     }
   }
   body+='</tbody>';
@@ -2008,7 +2037,9 @@ function renderOperators(){
       body+='<tr><td class="voce">'+vlab+'</td>';
       ops.forEach(function(o){var v=o.v[i]||0; rowTot+=v; body+='<td class="tnum">'+(isEur?eur(v):nf(v))+'</td>';});
       body+='<td class="tnum"><b>'+(isEur?eur(rowTot):nf(rowTot))+'</b></td></tr>';
-      if(i===3){ [["di cui Nuovi","nuovi"],["di cui Upsell","ups"]].forEach(function(pair){var rt=0;body+='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8226; '+pair[0]+'</td>';ops.forEach(function(o){var v=opW(o.op,pair[1]);rt+=v;body+='<td class="tnum" style="color:var(--muted)">'+nf(v)+'</td>';});body+='<td class="tnum" style="color:var(--muted)"><b>'+nf(rt)+'</b></td></tr>';}); }
+      // di cui Nuovi / Upsell: ancorati al TOT della colonna (Nuovi = TOT - Upsell) cosi' la somma torna sempre
+      if(i===3){ var spl=ops.map(function(o){var ct=o.v[3]||0,u=opW(o.op,"ups"); if(u<0)u=0; if(u>ct)u=ct; return {nuovi:ct-u,ups:u};});
+        [["di cui Nuovi","nuovi"],["di cui Upsell","ups"]].forEach(function(pair){var rt=0;body+='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8226; '+pair[0]+'</td>';spl.forEach(function(p){var v=p[pair[1]];rt+=v;body+='<td class="tnum" style="color:var(--muted)">'+nf(v)+'</td>';});body+='<td class="tnum" style="color:var(--muted)"><b>'+nf(rt)+'</b></td></tr>';}); }
     }
   }
   body+='</tbody>';
@@ -2981,6 +3012,7 @@ function saveSnapshot(){try{
     real: REAL.general.map(function(r){return r.data;}),
     reopen: REAL.reopen.map(function(r){return r.data;}),
     fatturato: FATTURATO, contratti: CONTRATTI,
+    nuovi: NUOVI, upsell: UPSELL, wonbrk: WONBRK,
     daily:{tot:DTOT,mql:DMQL,won:DWON,fat:DFAT},
     day0:DAY0, dayN:DAYN, snapshot:SNAPSHOT, curMonth:CUR_MONTH,
     sources:BYSRC, cNuovi:CONTATT_NUOVI, cAw:CONTATT_AW, irD:IRR_DNC, irN:IRR_NMR, advReal:BUDGET.adv, lastUpdate: lastUpdate?lastUpdate.getTime():null
@@ -2999,6 +3031,8 @@ function loadSnapshot(){try{
   if(d.cNuovi)CONTATT_NUOVI=d.cNuovi; if(d.cAw)CONTATT_AW=d.cAw;
   if(d.irD)IRR_DNC=d.irD; if(d.irN)IRR_NMR=d.irN;
   if(d.advReal&&BUDGET&&BUDGET.adv){for(var ai=0;ai<12;ai++){if(d.advReal[ai]!=null)BUDGET.adv[ai]=d.advReal[ai];}}
+  if(d.nuovi)NUOVI=d.nuovi; if(d.upsell)UPSELL=d.upsell; if(d.wonbrk)WONBRK=d.wonbrk;
+  syncWonSplit();   // lo split segue sempre il TOT ripristinato (Nuovi = TOT - Upsell)
   if(d.lastUpdate)lastUpdate=new Date(d.lastUpdate);
 }catch(e){}}
 function rstatus(msg,kind){var el=document.getElementById("refreshStatus");if(!el)return;el.innerHTML=msg||"";el.style.color=kind==="err"?"var(--bad)":kind==="ok"?"var(--good)":"var(--ink)";}
@@ -3282,6 +3316,8 @@ async function doRefreshAPI(){
     if(d.contatt){if(d.contatt.nuovi)CONTATT_NUOVI=d.contatt.nuovi;if(d.contatt.aw)CONTATT_AW=d.contatt.aw;if(d.contatt.irD)IRR_DNC=d.contatt.irD;if(d.contatt.irN)IRR_NMR=d.contatt.irN;}
     if(d.tipo){if(d.tipo.priv)MOTIV_TIPO_PRIV=d.tipo.priv;if(d.tipo.az)MOTIV_TIPO_AZ=d.tipo.az;if(d.tipo.lp)MOTIV_TIPO_LP=d.tipo.lp;}
     if(d.contratti)CONTRATTI=d.contratti.slice(); if(d.fatturato)FATTURATO=d.fatturato; LEAD_TOT=REAL.general[0].data;
+    if(d.nuovi)NUOVI=d.nuovi.slice(); if(d.upsell)UPSELL=d.upsell.slice(); if(d.wonbrk)WONBRK=d.wonbrk;
+    syncWonSplit();   // il backend puo' non mandare lo split: i Nuovi restano il residuo del TOT
     if(d.daily){if(d.daily.tot)DTOT=d.daily.tot;if(d.daily.mql)DMQL=d.daily.mql;if(d.daily.won)DWON=d.daily.won;if(d.daily.fat)DFAT=d.daily.fat;}
     if(d.day0)DAY0=d.day0; if(d.dayN)DAYN=d.dayN; LAST_DAY=isoAddDays(DAY0,DAYN-1);
     if(d.snapshot)SNAPSHOT=d.snapshot; if(d.curMonth)CUR_MONTH=d.curMonth;
@@ -3337,6 +3373,7 @@ async function doRefreshMCP(){
     if(rIrD!=null)IRR_DNC=buildMonthly(rIrD,"t",curM); if(rIrN!=null)IRR_NMR=buildMonthly(rIrN,"t",curM);
     if(rTipo!=null){var _P=new Array(12).fill(0),_A=new Array(12).fill(0),_L=new Array(12).fill(0); rTipo.forEach(function(r){var mi=(+r.m)-1; if(mi<0||mi>11)return; var c=+(r.c||0); if(r.t==="Privati")_P[mi]=c; else if(r.t==="Aziende")_A[mi]=c; else if(r.t==="Liberi professionisti")_L[mi]=c;}); MOTIV_TIPO_PRIV=_P;MOTIV_TIPO_AZ=_A;MOTIV_TIPO_LP=_L;}
     if(won)CONTRATTI=won.slice(); if(fat)FATTURATO=fat; LEAD_TOT=REAL.general[0].data;
+    syncWonSplit();   // questo percorso ricalcola solo il TOT: riallinea Nuovi = TOT - Upsell
     DTOT=dtot;DMQL=dmql;DWON=dwon;DFAT=dfat;DAYN=n; LAST_DAY=isoAddDays(DAY0,n-1); SNAPSHOT=todayISO; CUR_MONTH=curM;
     var dS=document.getElementById("dStart"),dE=document.getElementById("dEnd");
     if(dS)dS.max=LAST_DAY; if(dE)dE.max=LAST_DAY;
@@ -3546,6 +3583,7 @@ async function doRefreshUnified(scope){
           });
           WONBRK[mo2]={src:srcB, op:opB};
         }
+        syncWonSplit();   // garanzia finale: Nuovi + Upsell = Chiusi Vinti TOT su ogni mese
       }
       var ciStart=isoDiff(DAY0,dailyStart), ciEnd=n-1;
       // GIORNALIERI (3) + CONTATTABILI/IRRAGGIUNGIBILI (4): SEQUENZIALE per stabilita'
@@ -3652,6 +3690,7 @@ async function doRefreshUnified(scope){
 
 /* ------- go ------- */
 loadSnapshot();                              // ripristina i numeri dell'ultimo aggiornamento
+syncWonSplit();                               // Nuovi + Upsell = Chiusi Vinti TOT (anche sui dati ripristinati)
 rfLoad();                                     // ripristina i dati RF dell'ultimo aggiornamento
 pivMonths=[CUR_MONTH-1]; srcMonths=[CUR_MONTH];
 if(!rangeCustom){rangeStart=monthStart(CUR_MONTH);rangeEnd=LAST_DAY;}
