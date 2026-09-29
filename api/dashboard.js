@@ -81,6 +81,44 @@ function buildOpRows(recsByCol){ const map={}; const ens=(o)=>{ if(!map[o]) map[
 const tmkGrpAll = (m)=>`SELECT Owner.Name o, Status s, COUNT(Id) t FROM Lead WHERE ${VW[3].w}${VW[3].extra} AND CALENDAR_MONTH(Data_Compilazione_Questionario__c)=${m} GROUP BY Owner.Name, Status`;
 function buildTmkRows(recs){ const map={}; const ens=(o)=>{ if(!map[o]) map[o]=[0,0,0,0]; return map[o]; }; (recs||[]).forEach(r=>{ const op=(r.o==null||r.o==='')?'operatore non trovato':r.o; const row=ens(op), t=(r.t==null?0:+r.t), s=r.s; row[0]+=t; if(s==='Nuovo') row[1]+=t; else if(s==='Attivo - Working') row[2]+=t; else if(s==='Convertito') row[3]+=t; }); return Object.keys(map).map(o=>({ op:o, v:map[o] })); }
 
+/* ---- Chiusi Vinti: split "di cui Nuovi" / "di cui Upsell" + breakdown sorgente/operatore ----
+   Stessa regola del client (index.html, doRefreshUnified): un cliente e' NUOVO nel mese m se il suo
+   PRIMO chiuso-vinto in assoluto cade in m (dedup per AccountId, esclusi i gia'-clienti di mesi/anni
+   precedenti); tutto il resto - duplicati dello stesso mese + gia'-clienti ri-vinti - e' UPSELL.
+   Per costruzione Nuovi + Upsell = Chiusi Vinti TOT (stessa WHERE della voce 7 del funnel).
+   Il "Nuovo" e' attribuito (opzione B) alla sorgente/operatore del PRIMO contratto del cliente. */
+const WONBASE = "RecordType.DeveloperName='IREC' AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')";
+async function wonSplit(ctx, curM){
+  const nuovi=new Array(12).fill(null), upsell=new Array(12).fill(null), wonbrk={};
+  for(let m=1;m<=curM;m++){ nuovi[m-1]=0; upsell[m-1]=0; }
+  // tutte le opportunity vinte dell'anno (poche centinaia): mese, cliente, sorgente, operatore
+  const det = await soql(ctx, `SELECT AccountId, LeadSource, Owner.Name, CloseDate FROM Opportunity WHERE ${VW[7].w}${VW[7].extra} ORDER BY CloseDate`);
+  if(!det.length) return { nuovi, upsell, wonbrk };
+  // primo chiuso-vinto IN ASSOLUTO di ciascun cliente (anche di anni precedenti):
+  // se cade nel mese in esame, quel cliente e' un cliente netto nuovo. Una query ogni 200 account.
+  const ids=[...new Set(det.map(r=>r.AccountId).filter(Boolean))], firstWon={};
+  for(let i=0;i<ids.length;i+=200){
+    const chunk=ids.slice(i,i+200).map(x=>`'${x}'`).join(',');
+    const recs=await soql(ctx, `SELECT AccountId a, MIN(CloseDate) f FROM Opportunity WHERE ${WONBASE} AND AccountId IN (${chunk}) GROUP BY AccountId`);
+    recs.forEach(r=>{ if(r.a) firstWon[r.a]=String(r.f||'').slice(0,10); });
+  }
+  const seen={};
+  det.forEach(r=>{
+    const d=String(r.CloseDate||'').slice(0,10), mi=+d.slice(5,7);
+    if(!(mi>=1&&mi<=12)) return;
+    const acc=r.AccountId, src=r.LeadSource||'(non tracciato)', op=(r.Owner&&r.Owner.Name)||'(nessuno)';
+    if(!wonbrk[mi]) wonbrk[mi]={ src:{}, op:{} };
+    const B=wonbrk[mi];
+    if(!B.src[src]) B.src[src]={tot:0,nuovi:0,ups:0};
+    if(!B.op[op])   B.op[op]={tot:0,nuovi:0,ups:0};
+    B.src[src].tot++; B.op[op].tot++;
+    const isNew = !!acc && firstWon[acc] && firstWon[acc].slice(0,7)===d.slice(0,7) && !seen[acc];
+    if(isNew){ seen[acc]=1; nuovi[mi-1]=(nuovi[mi-1]||0)+1; B.src[src].nuovi++; B.op[op].nuovi++; }
+    else { upsell[mi-1]=(upsell[mi-1]||0)+1; B.src[src].ups++; B.op[op].ups++; }
+  });
+  return { nuovi, upsell, wonbrk };
+}
+
 export default async function handler(req, res){
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
@@ -192,6 +230,11 @@ export default async function handler(req, res){
     const tipoRecs = await soql(ctx, `SELECT ${CM} m, Tipologia_Lead__c t, COUNT(Id) c FROM Lead WHERE ${LB} AND Tipologia_Lead__c!=null GROUP BY ${CM}, Tipologia_Lead__c`);
     tipoRecs.forEach(r=>{ const mi=(+r.m)-1; if(mi<0||mi>11) return; const c=+(r.c||0); if(r.t==='Privati') tipo.priv[mi]=c; else if(r.t==='Aziende') tipo.az[mi]=c; else if(r.t==='Liberi professionisti') tipo.lp[mi]=c; });
 
+    // split Chiusi Vinti (Nuovi/Upsell) - non blocca la dashboard se fallisce: il client
+    // riallinea comunque con syncWonSplit() (Nuovi = TOT - Upsell)
+    let split = null;
+    try { split = await wonSplit(ctx, curM); } catch(_e) { split = null; }
+
     // spesa ADV (Google Ads + Meta) — non blocca se non configurata o in errore
     let adspend = null;
     try { adspend = await getAdSpend(YEAR); } catch(_e) { adspend = null; }
@@ -199,6 +242,7 @@ export default async function handler(req, res){
     res.status(200).json({
       snapshot: today, curMonth: curM, year: YEAR, day0, dayN: n,
       real, fatturato, contratti, reopen,
+      nuovi: split && split.nuovi, upsell: split && split.upsell, wonbrk: split && split.wonbrk,
       daily: { tot:dtot, mql:dmql, won:dwon, fat:dfat },
       sources: { month: curM, rows: buildSrc(recsByVoce) },
       contatt: { nuovi: cNuo, aw: cAw, irD, irN },
