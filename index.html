@@ -918,9 +918,9 @@ var BUDGET_SRC = "Forecast NORMAL &middot; IREC Reforecast H2";
 // ADV a budget (Reforecast H2, solo lug-dic): spesa ADV totale (Meta+Google) e Venduto FE (fatturato a budget)
 var SPESA_BUD   = [null,null,null,null,null,null,16190,10100,16220,21395,20195,12820];
 // Spesa Meta REAL di IREC (account 608295893328900), netta della frode rimborsata di giugno (Sales Adset 1/2/3 = 77.548,80). Estratta da Meta Marketing API. Google non ancora agganciato.
-var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,7159.81,null,null,null];
+var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,13099.31,null,null,null];
 // Google Ads IREC (account Irec-Allcore 716-426-7762), live via API. Spesa ADV real IREC = Meta + Google.
-var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,870.64,null,null,null];
+var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,1601.34,null,null,null];
 // Lead e Venduto per CANALE (da Sorgenti/Salesforce): Meta = LeadAds Facebook + Meta ADS; Google = Google Ads. Per CPL/ROAS per canale.
 var ADV_META_LEADS  = [830,582,628,380,398,563,706,634,0,0,0,0];
 var ADV_GOOGLE_LEADS= [23,19,11,11,25,19,24,7,0,0,0,0];
@@ -1394,10 +1394,10 @@ async function chanLoadRealH2(){var btn=document.getElementById("chanLoadBtn");
 // ADV Real. Meta = importato dall'account RF act_3120594051452791 (sola lettura, al centesimo);
 // aggiornato dallo script locale update-meta.py (token in .meta-token-rf, mai nell'artefatto). Google/Altri manuali.
 // Indici 0..11 = Gen..Dic. RF_META_REAL segna i mesi importati (non-null = sola lettura). Meta RF parte da Feb; Google da Gen.
-var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,1386.61,null,null,null];   // Meta RF live (account act_3120594051452791)
-var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,3036.22,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
-var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,1386.61,0,0,0];
-var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,3036.22,0,0,0];
+var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2608.97,null,null,null];   // Meta RF live (account act_3120594051452791)
+var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,5747.61,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
+var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2608.97,0,0,0];
+var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,5747.61,0,0,0];
 var RF_ADV_ALTRI =[0,0,0,0,0,0,0,0,0,0,0,0];
 var RF_ADV_EXTRA =[0,0,0,0,0,0,0,0,0,0,0,0];
 var RF_ADV_EVENTI=[0,0,0,0,0,0,0,0,0,0,0,0];
@@ -3312,7 +3312,17 @@ async function doRefreshAPI(){
     setBar(95);
     for(var k=0;k<8;k++){if(d.real&&d.real[k])REAL.general[k].data=d.real[k];}
     if(d.reopen){for(var k2=0;k2<8;k2++){if(d.reopen[k2])REAL.reopen[k2].data=d.reopen[k2];}}
-    if(d.adspend){var _g=d.adspend.google||[],_m=d.adspend.meta||[],anyAdv=false;for(var mi=0;mi<12;mi++){var gv=_g[mi],mv=_m[mi];if(gv!=null||mv!=null){BUDGET.adv[mi]=(gv||0)+(mv||0);anyAdv=true;}}if(anyAdv)persist();}
+    // ADV real IREC dal backend. NB: oltre al totale in BUDGET.adv va scritto anche lo split
+    // Meta/Google, perche' renderADV usa BUDGET.adv SOLO se IREC_*_REAL sono null - e non lo sono
+    // mai: senza questo la riga "Spesa ADV TOT real" restava ferma ai valori di update-meta.py
+    // (stessa logica gia' usata dal ramo RF piu' sopra). Solo i mesi <= mese corrente: sui mesi
+    // futuri il backend manda 0 e sovrascriverebbe i null, facendo comparire "0,00" al posto di "—".
+    if(d.adspend){var _g=d.adspend.google||[],_m=d.adspend.meta||[],anyAdv=false,_cmA=(d.curMonth||CUR_MONTH||12);
+      for(var mi=0;mi<12;mi++){var gv=_g[mi],mv=_m[mi];
+        if(gv==null&&mv==null)continue;
+        BUDGET.adv[mi]=(gv||0)+(mv||0);anyAdv=true;
+        if(mi<_cmA){ if(mv!=null)IREC_META_REAL[mi]=mv; if(gv!=null)IREC_GOOGLE_REAL[mi]=gv; }}
+      if(anyAdv)persist();}
     if(d.contatt){if(d.contatt.nuovi)CONTATT_NUOVI=d.contatt.nuovi;if(d.contatt.aw)CONTATT_AW=d.contatt.aw;if(d.contatt.irD)IRR_DNC=d.contatt.irD;if(d.contatt.irN)IRR_NMR=d.contatt.irN;}
     if(d.tipo){if(d.tipo.priv)MOTIV_TIPO_PRIV=d.tipo.priv;if(d.tipo.az)MOTIV_TIPO_AZ=d.tipo.az;if(d.tipo.lp)MOTIV_TIPO_LP=d.tipo.lp;}
     if(d.contratti)CONTRATTI=d.contratti.slice(); if(d.fatturato)FATTURATO=d.fatturato; LEAD_TOT=REAL.general[0].data;
