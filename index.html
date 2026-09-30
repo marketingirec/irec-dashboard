@@ -1777,87 +1777,79 @@ function bTag(txt){return '<span class="mtag" style="color:var(--budget)">'+txt+
 function rTag(txt){return '<span class="mtag" style="color:var(--accent)">'+txt+'</span>';}
 function renderADV(){
   var LEAD_BUD=FORECAST_GEN[0];
-  var head='<thead><tr><th class="voce">Metrica</th>';
-  for(var m=0;m<12;m++)head+='<th class="'+(m===CUR_MONTH-1?'colhdr-now':'')+'">'+MESI[m]+'</th>';
-  head+='</tr></thead>';
-  var rSpB ='<tr><td class="voce">Spesa ADV '+bTag('&middot; budget')+'</td>';
-  var rSpBm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)" title="Budget Meta dal forecast (colonna &euro; ADV BDG Meta). Non editabile: se modifichi il totale, lo split resta quello a forecast.">&#8627; di cui Meta</td>';
-  var rSpBg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)" title="Budget Google dal forecast (colonna &euro; ADV BDG Google). Non editabile: se modifichi il totale, lo split resta quello a forecast.">&#8627; di cui Google</td>';
-  var rSpR ='<tr class="sep"><td class="voce">Spesa ADV TOT '+rTag('&middot; real Meta+Google')+'</td>';
-  var rSpRm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Meta</td>';
-  var rSpRg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Google</td>';
-  var rDelE ='<tr class="sep"><td class="voce" title="Real meno Budget. Segno positivo = spesa superiore al previsto. Calcolato solo sui mesi trascorsi e dove esiste un budget: il Reforecast copre solo Lug-Dic.">Delta spesa ADV &middot; &euro;</td>';
-  var rDelEm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Meta</td>';
-  var rDelEg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Google</td>';
-  var rDelP ='<tr><td class="voce" title="Real meno Budget. Segno positivo = spesa superiore al previsto. Calcolato solo sui mesi trascorsi e dove esiste un budget: il Reforecast copre solo Lug-Dic.">Delta spesa ADV &middot; %</td>';
-  var rDelPm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Meta</td>';
-  var rDelPg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Google</td>';
-  var rFatB='<tr class="sep"><td class="voce">Venduto '+bTag('&middot; budget')+'</td>';
-  var rFatR='<tr><td class="voce">Venduto '+rTag('&middot; real SF')+'</td>';
-  var rCPLb='<tr class="sep"><td class="voce">CPL '+bTag('&middot; budget')+'</td>';
-  var rCPLr='<tr><td class="voce" title="Media tra CPL Meta e CPL Google">CPL TOT '+rTag('&middot; real')+'</td>';
-  var rCPLm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)" title="Spesa Meta / lead arrivati dal canale Meta (LeadAds Facebook + Meta ADS), da Sorgenti">&#8627; CPL Meta</td>';
-  var rCPLg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)" title="Spesa Google / lead arrivati da Google Ads, da Sorgenti">&#8627; CPL Google</td>';
-  var rROAb='<tr class="sep"><td class="voce">ROAS '+bTag('&middot; budget')+'</td>';
-  var rROAr='<tr><td class="voce" title="Media tra ROAS Meta e ROAS Google">ROAS TOT '+rTag('&middot; real')+'</td>';
-  var rROAm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)" title="Venduto dal canale Meta / spesa Meta (da Sorgenti)">&#8627; ROAS Meta</td>';
-  var rROAg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)" title="Venduto da Google Ads / spesa Google (da Sorgenti)">&#8627; ROAS Google</td>';
-  // cella valuta editabile-al-clic: mostra l'importo formattato (con centesimi), clic -> input numerico
-  function curSpan(val,key,m){return '<span class="curedit tnum" role="button" tabindex="0" data-key="'+key+'" data-m="'+m+'" title="Clic per modificare" style="cursor:text;border-bottom:1px dashed var(--border)">'+(val==null?'<span class="muted">&mdash;</span>':eur2(val))+'</span>';}
-  for(var m=0;m<12;m++){
-    var nowc=(m===CUR_MONTH-1);
-    var spB=BUDGET.advBud[m];
-    // TOT real: per i mesi importati e' SEMPRE Meta+Google (ignora eventuali valori vecchi salvati in localStorage/snapshot); altrimenti il valore manuale editato
-    var spR=(IREC_META_REAL[m]!=null||IREC_GOOGLE_REAL[m]!=null)?((IREC_META_REAL[m]||0)+(IREC_GOOGLE_REAL[m]||0)):BUDGET.adv[m];
-    var leadB=LEAD_BUD[m], leadR=LEAD_TOT[m], fatB=VENDUTO_BUD[m], fatR=FATTURATO[m];
-    rSpB +='<td'+(nowc?' class="now"':'')+'>'+curSpan(spB,'advBud',m)+'</td>';
-    var _bm=SPESA_BUD_META[m],_bg=SPESA_BUD_GOOGLE[m];
-    rSpBm+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--budget)">'+(_bm==null?'<span class="muted">&mdash;</span>':eur2(_bm))+'</td>';
-    rSpBg+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--budget)">'+(_bg==null?'<span class="muted">&mdash;</span>':eur2(_bg))+'</td>';
-    if(IREC_META_REAL[m]!=null||IREC_GOOGLE_REAL[m]!=null){ // importato da Meta+Google: non editabile, al centesimo
-      var _tip="Importato da API (non editabile) &middot; Meta "+eur2(IREC_META_REAL[m]||0)+" + Google "+eur2(IREC_GOOGLE_REAL[m]||0);
-      rSpR +='<td class="tnum'+(nowc?' now':'')+'"><span style="color:var(--accent);font-weight:560" title="'+_tip.replace(/"/g,"")+'">'+eur2(spR)+'</span></td>';
-    } else {
-      rSpR +='<td'+(nowc?' class="now"':'')+'>'+curSpan(spR,'adv',m)+'</td>';
-    }
-    var mv=IREC_META_REAL[m], gv=IREC_GOOGLE_REAL[m];
-    rSpRm+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(mv==null?'<span class="muted">&mdash;</span>':eur2(mv))+'</td>';
-    rSpRg+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(gv==null?'<span class="muted">&mdash;</span>':eur2(gv))+'</td>';
-    // Delta Real-Budget della spesa ADV, in euro e in %. Solo mesi gia' trascorsi: sui mesi futuri
-    // il real vale 0 e produrrebbe un -100% privo di significato. Niente verde/rosso: per la spesa
-    // "sopra budget" non e' di per se' buono o cattivo, quindi il colore imporrebbe un giudizio.
-    var _past=(m<=CUR_MONTH-1);
-    function _dE(real,bud,sub){var c='<td class="tnum'+(nowc?' now':'')+'"'+(sub?' style="color:var(--muted)"':'')+'>';
-      if(!_past||real==null||bud==null||bud==='')return c+'<span class="muted">&mdash;</span></td>';
-      var d=real-(+bud); return c+(d>0?'+':'')+eur2(d)+'</td>';}
-    function _dP(real,bud,sub){var c='<td class="tnum'+(nowc?' now':'')+'"'+(sub?' style="color:var(--muted)"':'')+'>';
-      if(!_past||real==null||bud==null||bud===''||+bud===0)return c+'<span class="muted">&mdash;</span></td>';
-      var d=(real-(+bud))/(+bud)*100; return c+(d>0?'+':'')+d.toLocaleString('it-IT',{maximumFractionDigits:1})+'%</td>';}
-    rDelE +=_dE(spR,spB);            rDelP +=_dP(spR,spB);
-    rDelEm+=_dE(mv,SPESA_BUD_META[m],1);   rDelPm+=_dP(mv,SPESA_BUD_META[m],1);
-    rDelEg+=_dE(gv,SPESA_BUD_GOOGLE[m],1); rDelPg+=_dP(gv,SPESA_BUD_GOOGLE[m],1);
-    rFatB+='<td class="tnum'+(nowc?' now':'')+'">'+(fatB==null?'<span class="muted">&mdash;</span>':eur(fatB))+'</td>';
-    rFatR+='<td class="tnum'+(nowc?' now':'')+'">'+(fatR==null?'<span class="muted">&mdash;</span>':eur(fatR))+'</td>';
-    var cplB=(spB!=null&&leadB)?spB/leadB:null;
-    var roaB=(spB&&fatB!=null)?fatB/spB:null;
-    // CPL/ROAS per canale (spesa da API, lead+venduto da Sorgenti/SF)
+  // Ogni mese e' un gruppo di 3 colonne affiancate: Budget | Real | Delta. Prima budget e real
+  // stavano su righe lontane e il confronto andava fatto a memoria; cosi' si legge in orizzontale.
+  // Delta = Real - Budget, in % (in punti percentuali per il ROAS, che e' gia' una percentuale),
+  // solo sui mesi trascorsi e dove un budget esiste. Niente verde/rosso: su spesa e CPL "sopra
+  // budget" non e' di per se' buono o cattivo, il colore imporrebbe un giudizio.
+  function vals(m){
+    var spB=BUDGET.advBud[m], mv=IREC_META_REAL[m], gv=IREC_GOOGLE_REAL[m];
+    // fallback manuale (BUDGET.adv) solo se ha senso: sui mesi futuri il backend manda 0 e
+    // mostrerebbe "0,00" accanto al budget, come se non si fosse speso nulla di previsto.
+    var _fb=BUDGET.adv[m];
+    var spR=(mv!=null||gv!=null)?((mv||0)+(gv||0)):((m>CUR_MONTH-1&&!_fb)?null:_fb);
+    var fatB=VENDUTO_BUD[m], fatR=FATTURATO[m], leadB=LEAD_BUD[m];
     var cplM=(mv!=null&&ADV_META_LEADS[m])?mv/ADV_META_LEADS[m]:null, cplG=(gv!=null&&ADV_GOOGLE_LEADS[m])?gv/ADV_GOOGLE_LEADS[m]:null;
-    var roaM=(mv&&ADV_META_VEND[m]!=null)?ADV_META_VEND[m]/mv:null, roaG=(gv&&ADV_GOOGLE_VEND[m]!=null)?ADV_GOOGLE_VEND[m]/gv:null;
-    // TOT = media dei canali disponibili (richiesta utente: media tra CPL Meta e CPL Google, idem ROAS)
-    var _cA=[cplM,cplG].filter(function(x){return x!=null;}), _rA=[roaM,roaG].filter(function(x){return x!=null;});
-    var cplR=_cA.length?_cA.reduce(function(s,x){return s+x;},0)/_cA.length:null;
-    var roaR=_rA.length?_rA.reduce(function(s,x){return s+x;},0)/_rA.length:null;
-    rCPLb+='<td class="tnum'+(nowc?' now':'')+'">'+(cplB==null?'<span class="muted">&mdash;</span>':eur(cplB))+'</td>';
-    rCPLr+='<td class="tnum'+(nowc?' now':'')+'">'+(cplR==null?'<span class="muted">&mdash;</span>':eur(cplR))+'</td>';
-    rCPLm+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(cplM==null?'<span class="muted">&mdash;</span>':eur(cplM))+'</td>';
-    rCPLg+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(cplG==null?'<span class="muted">&mdash;</span>':eur(cplG))+'</td>';
-    rROAb+='<td class="tnum'+(nowc?' now':'')+'">'+(roaB==null?'<span class="muted">&mdash;</span>':nf(Math.round(roaB*100))+'%')+'</td>';
-    rROAr+='<td class="tnum'+(nowc?' now':'')+'">'+(roaR==null?'<span class="muted">&mdash;</span>':nf(Math.round(roaR*100))+'%')+'</td>';
-    rROAm+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(roaM==null?'<span class="muted">&mdash;</span>':nf(Math.round(roaM*100))+'%')+'</td>';
-    rROAg+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(roaG==null?'<span class="muted">&mdash;</span>':nf(Math.round(roaG*100))+'%')+'</td>';
+    var roaM=(mv&&ADV_META_VEND[m]!=null)?ADV_META_VEND[m]/mv*100:null, roaG=(gv&&ADV_GOOGLE_VEND[m]!=null)?ADV_GOOGLE_VEND[m]/gv*100:null;
+    var _c=[cplM,cplG].filter(function(x){return x!=null;}), _r=[roaM,roaG].filter(function(x){return x!=null;});
+    return {spB:spB, spR:spR, mv:mv, gv:gv, fatB:fatB, fatR:fatR,
+      cplB:(spB!=null&&leadB)?spB/leadB:null,
+      cplR:_c.length?_c.reduce(function(s,x){return s+x;},0)/_c.length:null, cplM:cplM, cplG:cplG,
+      roaB:(spB&&fatB!=null)?fatB/spB*100:null,
+      roaR:_r.length?_r.reduce(function(s,x){return s+x;},0)/_r.length:null, roaM:roaM, roaG:roaG};
   }
-  var rows=[rSpB,rSpBm,rSpBg,rSpR,rSpRm,rSpRg,rDelE,rDelEm,rDelEg,rDelP,rDelPm,rDelPg,rFatB,rFatR,rCPLb,rCPLr,rCPLm,rCPLg,rROAb,rROAr,rROAm,rROAg].map(function(r){return r+'</tr>';}).join("");
-  document.getElementById("advTable").innerHTML=head+'<tbody>'+rows+'</tbody>';
+  var NIL='<span class="muted">&mdash;</span>';
+  // cella valuta editabile-al-clic: mostra l'importo formattato, clic -> input numerico
+  function curSpan(val,key,m){return '<span class="curedit tnum" role="button" tabindex="0" data-key="'+key+'" data-m="'+m+'" title="Clic per modificare" style="cursor:text;border-bottom:1px dashed var(--border)">'+(val==null?NIL:eur2(val))+'</span>';}
+  function fv(x,f){ return x==null?NIL:(f==='pct'?(nf(Math.round(x))+'%'):eur2(x)); }
+  function fd(r,b,f,past){
+    if(!past||r==null||b==null||b==='')return NIL;
+    if(f==='pct'){var dp=r-(+b); return (dp>0?'+':'')+dp.toLocaleString('it-IT',{maximumFractionDigits:0})+'pp';}
+    if(+b===0)return NIL;
+    var d=(r-(+b))/(+b)*100; return (d>0?'+':'')+d.toLocaleString('it-IT',{maximumFractionDigits:1})+'%';
+  }
+  var SPEC=[
+    {lab:'Spesa ADV', f:'eur', spesa:1, b:function(v,m){return v.spB;}, r:function(v,m){return v.spR;}},
+    {lab:'&#8627; di cui Meta', f:'eur', sub:1, b:function(v,m){return SPESA_BUD_META[m];}, r:function(v){return v.mv;}},
+    {lab:'&#8627; di cui Google', f:'eur', sub:1, b:function(v,m){return SPESA_BUD_GOOGLE[m];}, r:function(v){return v.gv;}},
+    {lab:'Venduto', f:'eur', sep:1, b:function(v){return v.fatB;}, r:function(v){return v.fatR;}},
+    {lab:'CPL', f:'eur', sep:1, tip:'Budget: spesa a budget / lead a budget. Real: media fra CPL Meta e CPL Google.', b:function(v){return v.cplB;}, r:function(v){return v.cplR;}},
+    {lab:'&#8627; CPL Meta', f:'eur', sub:1, b:function(){return null;}, r:function(v){return v.cplM;}},
+    {lab:'&#8627; CPL Google', f:'eur', sub:1, b:function(){return null;}, r:function(v){return v.cplG;}},
+    {lab:'ROAS', f:'pct', sep:1, tip:'Venduto / spesa. Real = media fra ROAS Meta e ROAS Google. Delta in punti percentuali.', b:function(v){return v.roaB;}, r:function(v){return v.roaR;}},
+    {lab:'&#8627; ROAS Meta', f:'pct', sub:1, b:function(){return null;}, r:function(v){return v.roaM;}},
+    {lab:'&#8627; ROAS Google', f:'pct', sub:1, b:function(){return null;}, r:function(v){return v.roaG;}}
+  ];
+  var SEPL='border-left:2px solid var(--border)';
+  var head='<thead><tr><th class="voce" rowspan="2">Metrica</th>';
+  for(var m=0;m<12;m++)head+='<th colspan="3" style="text-align:center;'+SEPL+'" class="'+(m===CUR_MONTH-1?'colhdr-now':'')+'">'+MESI[m]+'</th>';
+  head+='</tr><tr>';
+  for(var mh=0;mh<12;mh++){var nw=(mh===CUR_MONTH-1?' now':'');
+    head+='<th style="position:static;font-size:10px;'+SEPL+'" class="'+nw+'">Budget</th>'
+        + '<th style="position:static;font-size:10px" class="'+nw+'">Real</th>'
+        + '<th style="position:static;font-size:10px;color:var(--accent)" class="'+nw+'">&Delta;</th>';}
+  head+='</tr></thead>';
+  var body='';
+  SPEC.forEach(function(sp){
+    var sty=sp.sub?'padding-left:24px;font-style:italic;color:var(--muted)':'font-weight:600';
+    body+='<tr'+(sp.sep?' class="sep"':'')+'><td class="voce" style="'+sty+'"'+(sp.tip?' title="'+sp.tip+'"':'')+'>'+sp.lab+'</td>';
+    for(var m=0;m<12;m++){
+      var v=vals(m), nowc=(m===CUR_MONTH-1), nw=nowc?' now':'', past=(m<=CUR_MONTH-1);
+      var bv=sp.b(v,m), rv=sp.r(v,m);
+      var bCell, rCell;
+      if(sp.spesa){
+        bCell=curSpan(bv,'advBud',m);
+        rCell=(IREC_META_REAL[m]!=null||IREC_GOOGLE_REAL[m]!=null)
+          ? '<span style="color:var(--accent);font-weight:560" title="Importato da API (non editabile) &middot; Meta '+eur2(IREC_META_REAL[m]||0)+' + Google '+eur2(IREC_GOOGLE_REAL[m]||0)+'">'+eur2(rv)+'</span>'
+          : curSpan(rv,'adv',m);
+      } else { bCell=fv(bv,sp.f); rCell=fv(rv,sp.f); }
+      body+='<td class="tnum'+nw+'" style="color:var(--budget);'+SEPL+'">'+bCell+'</td>'
+          + '<td class="tnum'+nw+'">'+rCell+'</td>'
+          + '<td class="tnum'+nw+'" style="color:var(--muted)">'+fd(rv,bv,sp.f,past)+'</td>';
+    }
+    body+='</tr>';
+  });
+  document.getElementById("advTable").innerHTML=head+'<tbody>'+body+'</tbody>';
   // click-to-edit sulle celle valuta formattate (budget e real editabili)
   document.querySelectorAll("#advTable .curedit").forEach(function(sp){
     var open=function(){
