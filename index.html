@@ -597,7 +597,7 @@
       La <b>spesa ADV real</b> (Meta/Google/Altri/Extra/Eventi) &egrave; <b>editabile a mano</b> nella colonna Real finch&eacute; non si agganciano le API Meta/Google; il <b>MER</b> usa la spesa ADV inserita. &middot;
       <b>MER no Partner</b> = (Online+Offline)/Investimento&nbsp;ads; <b>MER TOT</b> = Fatturato/Investimento&nbsp;ads. Budget MER dal Reforecast (Lug 380% / 349,95%). &middot;
       <b>Gestito Venditori</b> (= Venduto Operatori) = Online con codice sconto <i>nome venditore + numero</i> (es. Massimo10, Lorenzop15, Elisap20) o referral con un nome, <b>+ tutto l&rsquo;Offline + tutto il Partner</b> (sempre gestiti dai venditori). Lo <b>Spontaneo</b> &egrave; l&rsquo;online senza codice venditore. Cos&igrave; <b>Spontaneo + Gestito = Totale Fatturato</b> del mese. &middot;
-      Gli ordini <b>&ldquo;Sconto Credito Wallet&rdquo;</b> (uso del credito wallet dei clienti) sono esclusi dal fatturato e dal conteggio ordini. &middot;
+      Il <b>credito wallet</b> &egrave; uno <b>sconto sul prezzo</b>, non un metodo di pagamento: l&rsquo;imponibile &egrave; gi&agrave; al netto del credito scalato e viene incassato per intero, quindi l&rsquo;ordine conta normalmente. Solo se il credito copre l&rsquo;intero ordine l&rsquo;imponibile &egrave; &euro;&nbsp;0 (nessuna transazione) e l&rsquo;ordine resta fuori. &middot;
       <b>Nota budget:</b> a Reforecast, sull&rsquo;<b>online</b> lo <b>Spontaneo</b> vale il <b>60%</b> e il <b>Guidato</b> il <b>40%</b>; nel Real invece lo split &egrave; quello effettivo dai codici venditore.
     </p>
     </section><!-- /rfpanel-pv -->
@@ -734,7 +734,7 @@
           <tr><td class="voce">Gestito Venditori (online)</td><td>Shopify</td><td>Ordini con <b>codice sconto = nome venditore + numero</b> (es. <code>Massimo10</code>, <code>Lorenzop15</code>, <code>Elisap20</code>) oppure referral valorizzato con un nome. Codici generici (PROMO20, SMS20, startup15&hellip;) non contano.</td></tr>
           <tr><td class="voce">Spontaneo (online)</td><td>Shopify</td><td>Online &minus; Gestito Venditori (ordini senza codice venditore). <b>A budget (Reforecast) lo Spontaneo &egrave; il 60% e il Guidato il 40% dell&rsquo;online</b>; nel Real lo split &egrave; quello effettivo dai codici.</td></tr>
           <tr><td class="voce">Venduto Operatori</td><td>&mdash;</td><td>Online gestito + <b>tutto</b> l&rsquo;Offline + <b>tutto</b> il Partner (offline e partner sono sempre gestiti dai venditori).</td></tr>
-          <tr style="font-style:italic"><td class="voce">Sconto Credito Wallet</td><td>Shopify</td><td>Ordini con codice <code>Sconto Credito Wallet</code>: uso del credito wallet dei clienti, <b>esclusi</b> dal fatturato e dal conteggio ordini.</td></tr>
+          <tr><td class="voce">Sconto Credito Wallet</td><td>Shopify</td><td>Ordini in cui il cliente scala il credito wallet. Il credito &egrave; applicato come <b>sconto sul prezzo</b>, non come metodo di pagamento: <code>net_sales</code> &egrave; gi&agrave; al netto e l&rsquo;imponibile residuo viene incassato per intero con carta (es. #16948: 59,00 &minus; 11,51 = 47,49 + IVA, un&rsquo;unica transazione). Contano quindi come qualsiasi altro ordine. Se il credito copre l&rsquo;intero ordine l&rsquo;imponibile &egrave; 0 e non c&rsquo;&egrave; alcuna transazione: quegli ordini restano esclusi da fatturato e conteggio.</td></tr>
           <tr><td class="voce">Dettaglio ordini (tab)</td><td>Shopify + Salesforce</td><td>Ledger per singolo ordine del mese: <b>N ordine</b> (Shopify <code>#&hellip;</code> o nome Opportunity SF), <b>Fatturato netto</b>, <b>Stato pagamento</b> (Pagato = Shopify pagato / SF Chiuso-Vinto; In attesa = Shopify pending / SF Chiuso-Pending), <b>Fonte</b>. Esclude gli ordini a &euro;&nbsp;0 (wallet). Il Totale Pagato coincide col Totale Fatturato del PV.</td></tr>
           <tr><td class="voce">Budget</td><td>Forecast / Reforecast RF</td><td><b>Gen&ndash;Giu</b>: Forecast originale (target Online/Offline/Partner per mese, fisso). <b>Lug&ndash;Dic</b>: Reforecast RF, Google Sheet tab <i>RF - ReFORECAST</i>, scenario NORMAL: Fatturato, ADV, ordini, AOV, spontaneo/gestito 60/40, operatori.</td></tr>
         </tbody>
@@ -1126,7 +1126,10 @@ var RF_ONLINE_GEST=[5158.42,9374.67,12663.95,7257.51,8375.48,8214.98,6985.69,924
 // Prefissi nome venditore (estendibile). Un codice come "Massimo10","Lorenzop15","Elisap20" e' gestito; "PROMO20","SMS20","startup15" no.
 var RF_SELLERS=["massimo","massimiliano","lorenzo","elisa","federica","dorella","rosario","rosita","jacopo","raffaella"];
 var RF_OP_NAMES={massimo:"Massimo Zaccaria",massimiliano:"Massimiliano Casoni",lorenzo:"Lorenzo P",elisa:"Elisa Passeri",federica:"Federica Sbrega",rosario:"Rosario Cipriano",dorella:"Dorella Chiarella",rosita:"Rosita Stagliano",jacopo:"Jacopo Mazzilli",raffaella:"Raffaella"};
-function rfIsWallet(code){return /^sconto credito wallet/i.test(String(code||""));} // credito wallet: escluso dal fatturato
+// Il credito wallet e' uno SCONTO sul prezzo, non un metodo di pagamento: net e' gia' al netto del
+// credito scalato e il residuo viene incassato per intero con carta. Nessuna esclusione: se il
+// credito copre tutto l'ordine l'imponibile e' 0 (nessuna transazione) e basta il filtro net<=0.
+// (Verificato sulla contabilita' di Settembre 2026.)
 function rfSellerKey(code){ // ritorna il prefisso-nome del venditore se il codice e' un codice venditore, altrimenti null
   if(!code)return null;
   var c=String(code).toLowerCase().replace(/[\s.]/g,""); var m=c.match(/^([a-z]+?)(\d{1,2})$/); if(!m)return null;
@@ -2494,7 +2497,7 @@ async function refreshRF(){
       var rows=shopifyRows(rG);
       if(rows){
         var onT=0, gest=0, ordOn=0, opMap={};
-        rows.forEach(function(r){ var code=r[1], ns=numify(r[2]); if(rfIsWallet(code))return; if(ns<=0)return; onT+=ns; ordOn++;
+        rows.forEach(function(r){ var code=r[1], ns=numify(r[2]); if(ns<=0)return; onT+=ns; ordOn++;
           var key=rfSellerKey(code); if(key){ gest+=ns; if(!opMap[key])opMap[key]={ord:0,amt:0}; opMap[key].ord++; opMap[key].amt+=ns; } });
         RF_ONLINE[i]=onT; RF_ONLINE_GEST[i]=gest; RF_ORD_ONLINE[i]=ordOn;
         RF_OPERATORI[i]=Object.keys(opMap).map(function(k){return {op:RF_OP_NAMES[k]||(k.charAt(0).toUpperCase()+k.slice(1)), ord:opMap[k].ord, amt:opMap[k].amt};});
@@ -3523,14 +3526,14 @@ async function doRefreshUnified(scope){
       var onT=0,gest=0,ordOn=0,opMap={},pTot=0,ord=[];
       edges.forEach(function(e){ var n=e&&e.node; if(!n)return;
         var net=numify(n.currentSubtotalPriceSet&&n.currentSubtotalPriceSet.shopMoney&&n.currentSubtotalPriceSet.shopMoney.amount);
-        var codes=n.discountCodes||[], wallet=codes.some(function(c){return rfIsWallet(c);});
+        var codes=n.discountCodes||[];
         var cust=n.customer||{}, nome=cust.displayName||"", email=cust.email||"";
         var pay=null; (n.transactions||[]).forEach(function(t){ if((t.kind==="SALE"||t.kind==="CAPTURE")&&t.status==="SUCCESS"){ if(!pay||String(t.processedAt)>String(pay))pay=t.processedAt; } });
-        if(pay){ if(String(pay).slice(0,7)!==ym)return; if(wallet||net<=0)return;
+        if(pay){ if(String(pay).slice(0,7)!==ym)return; if(net<=0)return;
           onT+=net; ordOn++; ord.push({n:(n.name||""),net:net,st:"Pagato",sr:"Shopify",nome:nome,email:email,dpag:String(pay).slice(0,10)});
           var key=null; codes.forEach(function(c){var k=rfSellerKey(c); if(k)key=k;});
           if(key){ gest+=net; if(!opMap[key])opMap[key]={ord:0,amt:0}; opMap[key].ord++; opMap[key].amt+=net; }
-        } else { if(String(n.createdAt||"").slice(0,7)!==ym)return; if(wallet||net<=0)return; pTot+=net; ord.push({n:(n.name||""),net:net,st:"In attesa",sr:"Shopify",nome:nome,email:email,dpag:""}); }
+        } else { if(String(n.createdAt||"").slice(0,7)!==ym)return; if(net<=0)return; pTot+=net; ord.push({n:(n.name||""),net:net,st:"In attesa",sr:"Shopify",nome:nome,email:email,dpag:""}); }
       });
       return {onT:onT,gest:gest,ordOn:ordOn,opMap:opMap,pTot:pTot,ord:ord};
     }
@@ -3546,12 +3549,12 @@ async function doRefreshUnified(scope){
         else {
           var rG=await shq("FROM sales SHOW net_sales, orders GROUP BY order_name, discount_code, customer_name, customer_email, day WHERE order_payment_status = 'paid' SINCE "+rng.s+" UNTIL "+rng.e+" ORDER BY net_sales DESC LIMIT 500");
           var rows=shopifyRows(rG);
-          if(rows){ ordDetSh=true; var onT=0,gest=0,ordOn=0,opMap={}; rows.forEach(function(r){var code=r[1],ns=numify(r[5]); if(rfIsWallet(code))return; if(ns<=0)return; onT+=ns;ordOn++; shOrd.push({n:(r[0]||""),net:ns,st:"Pagato",sr:"Shopify",nome:(r[2]||""),email:(r[3]||""),dpag:String(r[4]||"").slice(0,10)}); var key=rfSellerKey(code); if(key){gest+=ns; if(!opMap[key])opMap[key]={ord:0,amt:0}; opMap[key].ord++; opMap[key].amt+=ns;}});
+          if(rows){ ordDetSh=true; var onT=0,gest=0,ordOn=0,opMap={}; rows.forEach(function(r){var code=r[1],ns=numify(r[5]); if(ns<=0)return; onT+=ns;ordOn++; shOrd.push({n:(r[0]||""),net:ns,st:"Pagato",sr:"Shopify",nome:(r[2]||""),email:(r[3]||""),dpag:String(r[4]||"").slice(0,10)}); var key=rfSellerKey(code); if(key){gest+=ns; if(!opMap[key])opMap[key]={ord:0,amt:0}; opMap[key].ord++; opMap[key].amt+=ns;}});
             RF_ONLINE[ri]=onT; RF_ONLINE_GEST[ri]=gest; RF_ORD_ONLINE[ri]=ordOn;
             RF_OPERATORI[ri]=Object.keys(opMap).map(function(k){return {op:RF_OP_NAMES[k]||(k.charAt(0).toUpperCase()+k.slice(1)),ord:opMap[k].ord,amt:opMap[k].amt};}); }
           var rpq=await shq("FROM sales SHOW net_sales GROUP BY order_name, discount_code, customer_name, customer_email WHERE order_payment_status = 'pending' SINCE "+rng.s+" UNTIL "+rng.e+" ORDER BY net_sales DESC LIMIT 500");
           var prows=shopifyRows(rpq);
-          if(prows){ var pTot=0; prows.forEach(function(r){var code=r[1],ns=numify(r[4]); if(rfIsWallet(code))return; if(ns<=0)return; pTot+=ns; shOrd.push({n:(r[0]||""),net:ns,st:"In attesa",sr:"Shopify",nome:(r[2]||""),email:(r[3]||""),dpag:""});}); RF_ONLINE_PEND[ri]=pTot; }
+          if(prows){ var pTot=0; prows.forEach(function(r){var code=r[1],ns=numify(r[4]); if(ns<=0)return; pTot+=ns; shOrd.push({n:(r[0]||""),net:ns,st:"In attesa",sr:"Shopify",nome:(r[2]||""),email:(r[3]||""),dpag:""});}); RF_ONLINE_PEND[ri]=pTot; }
         }
         var rU=await shq("FROM sales SHOW net_sales GROUP BY utm_source, utm_medium, utm_campaign WITH ANY_CLICK_ATTRIBUTION SINCE "+rng.s+" UNTIL "+rng.e+" ORDER BY net_sales__any_click DESC LIMIT 40"); var uRows=shopifyRows(rU); if(uRows){RF_UTM[mm]=uRows.map(function(r){var s=(r[0]==null||r[0]==="")?"(diretto / non tracciato)":r[0]; return {s:s,m:r[1]||"",c:r[2]||"",a:numify(r[3])};});}
       }
