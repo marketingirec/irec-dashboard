@@ -77,7 +77,7 @@ a{color:var(--accent)}
 try{document.documentElement.setAttribute("data-theme",localStorage.getItem("bk_theme")||"light");}catch(e){}
 var MESI=["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
 var ULTIMO_BOOKLET=7; // indice Agosto: fin qui i dati sono statici dal booklet
-var DATI=null, vista="mesi";
+var DATI=null, vista="mesi", sezAttiva=null;
 
 function isPct(k){return /^%|\(%|% /.test(k)||/^%/.test(k.trim());}
 function isEur(k){return /investimento|venduto|vendite|€|cpl|costo|aov|ticket|cac|incasso/i.test(k)&&!isPct(k);}
@@ -94,16 +94,20 @@ function delta(a,b,k){
   var d=(a-b)/Math.abs(b)*100;
   return '<span class="'+(d>=0?"dpos":"dneg")+'">'+(d>0?"+":"")+d.toLocaleString("it-IT",{maximumFractionDigits:1})+"%</span>";
 }
-// aggregati: somma per conteggi/importi, rapporto ricostruito per le percentuali
-function agg(arr,from,to,k){
-  var s=null,n=0;
-  for(var i=from;i<=to;i++){if(arr[i]!=null){s=(s||0)+arr[i];n++;}}
-  if(s==null)return null;
-  // PROVVISORIO: per i rapporti serve ricostruire numeratore/denominatore aggregati (CPL = spesa
-  // del periodo / lead del periodo). Finche' non e' mappato riga per riga, qui c'e' la media dei
-  // mesi, che pesa uguale mesi con volumi diversi ed e' quindi solo indicativa: la vista e' marcata.
-  if(isPct(k)||/mer|roas|cpl|aov|ticket|cac|costo per/i.test(k))return n?s/n:null;
-  return s;
+function somma(arr,from,to){var s=null;for(var i=from;i<=to;i++){if(arr[i]!=null)s=(s||0)+arr[i];}return s;}
+// Aggregazione. Conteggi e importi: somma. Rapporti (CPL, %, MER, ROAS, AOV, CAC): NON la media dei
+// mesi, che peserebbe uguale mesi con volumi diversi, ma il rapporto fra i numeratori e i
+// denominatori aggregati - il CPL del trimestre e' la spesa del trimestre diviso i lead del
+// trimestre. La coppia numeratore/denominatore di ogni rapporto e' stata dedotta dai dati mensili
+// del booklet (si cerca quale coppia di righe primitive riproduce i valori) e sta nel campo .ratio.
+function agg(righe,idx,campo,from,to){
+  var r=righe[idx];
+  if(r.ratio){
+    var nu=somma(righe[r.ratio.n][campo],from,to), de=somma(righe[r.ratio.d][campo],from,to);
+    return (nu==null||de==null||de===0)?null:nu/de;
+  }
+  if(isPct(r.kpi)||/mer|roas|cpl|aov|ticket|cac|costo per/i.test(r.kpi))return null; // rapporto non ricostruibile
+  return somma(r[campo],from,to);
 }
 var GRUPPI=[{n:"Q1",a:0,b:2},{n:"Q2",a:3,b:5},{n:"Q3",a:6,b:8},{n:"Q4",a:9,b:11},{n:"H1",a:0,b:5},{n:"H2",a:6,b:11},{n:"Anno",a:0,b:11}];
 
@@ -111,7 +115,11 @@ function render(){
   var host=document.getElementById("contenuto");
   if(!DATI){host.innerHTML='<p class="hint">Dati non disponibili.</p>';return;}
   var html="";
-  DATI.sezioni.forEach(function(sez){
+  if(DATI.sezioni.length>1){
+    html+='<div class="seg" style="margin-bottom:16px">'+DATI.sezioni.map(function(s,i){
+      return '<button data-sez="'+s.id+'" aria-pressed="'+(s.id===sezAttiva?"true":"false")+'">'+s.titolo.replace(/^KPI /,"")+'</button>';}).join("")+'</div>';
+  }
+  DATI.sezioni.filter(function(s){return s.id===sezAttiva;}).forEach(function(sez){
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
       +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; Set&ndash;Dic <span class="tag t-live">LIVE</span></span></div>'
@@ -121,13 +129,13 @@ function render(){
     cols.forEach(function(){h+='<th class="gsep">Budget</th><th>Actual</th><th>&Delta;</th>';});
     h+='</tr></thead><tbody>';
     var cat="";
-    sez.righe.forEach(function(r){
+    sez.righe.forEach(function(r,ri){
       if(r.cat!==cat){cat=r.cat;h+='<tr class="cat"><td class="voce">'+cat+'</td><td colspan="'+(cols.length*3)+'"></td></tr>';}
       h+='<tr><td class="voce">'+r.kpi+'</td>';
       cols.forEach(function(c){
         var b,a;
         if(vista==="mesi"){b=r.bud[c.i];a=r.act[c.i];}
-        else{b=agg(r.bud,c.a,c.b,r.kpi);a=agg(r.act,c.a,c.b,r.kpi);}
+        else{b=agg(sez.righe,ri,"bud",c.a,c.b);a=agg(sez.righe,ri,"act",c.a,c.b);}
         h+='<td class="tnum bud gsep">'+fmt(b,r.kpi)+'</td><td class="tnum">'+fmt(a,r.kpi)+'</td><td class="tnum">'+delta(a,b,r.kpi)+'</td>';
       });
       h+='</tr>';
@@ -135,7 +143,7 @@ function render(){
     h+='</tbody></table></div><div class="legenda"><span><span class="tag t-book">BOOKLET</span> valore ufficiale importato</span>'
       +'<span><span class="tag t-live">LIVE</span> da Salesforce/Shopify, ancora da agganciare</span>'
       +'<span>&Delta; = Actual vs Budget</span>'
-      +(vista==="aggr"?'<span style="color:var(--warn)">&#9888; sui rapporti (CPL, %, MER, ROAS, AOV, CAC) l\'aggregato &egrave; ancora la media dei mesi, non il rapporto ricalcolato: da rifinire</span>':'')
+      +(vista==="aggr"?'<span>Rapporti aggregati come rapporto fra numeratori e denominatori del periodo, non come media dei mesi. &#8220;&mdash;&#8221; dove la coppia non &egrave; ricostruibile dai dati del foglio.</span>':'')
       +'</div></div>';
     html+=h;
   });
@@ -153,7 +161,11 @@ document.getElementById("tema").addEventListener("click",function(){
   document.documentElement.setAttribute("data-theme",next);
   try{localStorage.setItem("bk_theme",next);}catch(e){}
 });
-fetch("dati-booklet.json").then(function(r){return r.json();}).then(function(j){DATI=j;render();})
+document.getElementById("contenuto").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-sez]"); if(!b)return;
+  sezAttiva=b.getAttribute("data-sez"); render();
+});
+fetch("dati-booklet.json").then(function(r){return r.json();}).then(function(j){DATI=j;sezAttiva=j.sezioni[0].id;render();})
  .catch(function(){document.getElementById("contenuto").innerHTML='<p class="hint">Impossibile caricare dati-booklet.json</p>';});
 })();
 </script></body></html>
