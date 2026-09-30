@@ -1996,7 +1996,9 @@ function campExport(){
   var csv="\ufeff"+rows.map(function(r){return r.map(function(c){var s=String(c==null?"":c); return /[";\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";");}).join("\r\n");
   var safe=CAMP_FIELDS.filter(function(f){return (campFilters[f.key]||[]).length;}).map(function(f){return campFilters[f.key].join("-");}).join("_").replace(/[^A-Za-z0-9]+/g,"_").slice(0,50)||"tutte";
   var base="campagne-"+safe+"-2026";
-  if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){ rstatus("Download disponibile solo dentro claude.ai.","err"); return; }
+  if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){
+    if(fallbackDL(csv,base+".csv",CSVMIME))rstatus("Funnel campagne esportato (CSV).","ok"); else rstatus("Download non riuscito.","err");
+    return; }
   var save=function(ext){ return window.claude.downloads.save({filename:base+"."+ext, data:csv}); };
   save("csv").then(function(){rstatus("Funnel campagne esportato (CSV).","ok");}).catch(function(e){var c=e&&e.code;
     if(c==="extension_not_enabled"||c==="rejected_extension"){ save("txt").then(function(){rstatus("Funnel campagne esportato (.txt).","ok");}).catch(function(){rstatus("Download non riuscito.","err");}); }
@@ -2250,7 +2252,9 @@ function wonExport(){
   list.forEach(function(o){ rows.push([o.nome||"",o.email||"",o.tel||"",o.op||"",o.st||"",(o.amt||0).toFixed(2),o.src||"",_fd(o.date)]); });
   var csv="\ufeff"+rows.map(function(r){return r.map(function(c){var s=String(c==null?"":c); return /[";\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";");}).join("\r\n");
   var base="vinti-IREC-"+RF_MONTHS[m-1]+"-2026";
-  if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){ rstatus("Download disponibile solo dentro claude.ai.","err"); return; }
+  if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){
+    if(fallbackDL(csv,base+".csv",CSVMIME))rstatus("Vinti "+RF_MONTHS[m-1]+" scaricato (CSV).","ok"); else rstatus("Download non riuscito.","err");
+    return; }
   var save=function(ext){ return window.claude.downloads.save({filename:base+"."+ext, data:csv}); };
   save("csv").then(function(){rstatus("Vinti "+RF_MONTHS[m-1]+" scaricato (CSV).","ok");}).catch(function(e){var c=e&&e.code;
     if(c==="extension_not_enabled"||c==="rejected_extension"){ save("txt").then(function(){rstatus("Vinti "+RF_MONTHS[m-1]+" scaricato (.txt).","ok");}).catch(function(){rstatus("Download non riuscito.","err");}); }
@@ -2625,7 +2629,9 @@ function rfExportOrders(){
   rows.push(["","","","","","",""]); rows.push(["TOTALE PAGATO (fatturato netto)","","","",totPag.toFixed(2),"",""]); rows.push(["TOTALE IN ATTESA (fuori fatturato)","","","",totAtt.toFixed(2),"",""]);
   var csv="\ufeff"+rows.map(function(r){return r.map(function(c){var s=String(c==null?"":c); return /[";\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";");}).join("\r\n");
   var base="dettaglio-ordini-RF-"+(RF_MONTHS[i]||i)+"-2026";
-  if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){ rfStatus("Download disponibile solo dentro claude.ai."); return; }
+  if(!(window.claude&&window.claude.downloads&&window.claude.downloads.save)){
+    rfStatus(fallbackDL(csv,base+".csv",CSVMIME)?("Dettaglio ordini "+(RF_MONTHS[i]||i)+" scaricato (CSV)."):"Download non riuscito.");
+    return; }
   function save(ext){ return window.claude.downloads.save({filename:base+"."+ext, data:csv}); }
   save("csv").then(function(){rfStatus("Dettaglio ordini "+(RF_MONTHS[i]||i)+" scaricato (CSV).");}).catch(function(e){var c=e&&e.code;
     if(c==="extension_not_enabled"||c==="rejected_extension"){ save("txt").then(function(){rfStatus("Dettaglio ordini "+(RF_MONTHS[i]||i)+" scaricato (.txt).");}).catch(function(e2){rfStatus((e2&&e2.code==="declined")?"Download annullato.":"Download non riuscito.");}); }
@@ -2999,14 +3005,18 @@ function exportBudget(){
   var payload=JSON.stringify({meta:{snapshot:SNAPSHOT,exported:SNAPSHOT},budget:BUDGET},null,2);
   var fn="budget-irec-2026.json";
   if(window.claude&&window.claude.downloads&&window.claude.downloads.save){
-    window.claude.downloads.save({filename:fn,data:payload}).catch(function(){fallbackDL(payload,fn);});
-  }else{fallbackDL(payload,fn);}
+    window.claude.downloads.save({filename:fn,data:payload}).catch(function(){if(!fallbackDL(payload,fn))alert("Copia manuale del budget:\n\n"+payload.slice(0,4000));});
+  }else{ if(!fallbackDL(payload,fn))alert("Copia manuale del budget:\n\n"+payload.slice(0,4000)); }
 }
-function fallbackDL(data,fn){
-  try{var blob=new Blob([data],{type:"application/json"});var u=URL.createObjectURL(blob);
+// Download lato browser (Blob + <a download>): serve fuori da claude.ai, dove window.claude
+// non esiste - su Vercel era il motivo per cui i bottoni CSV non facevano nulla.
+// Ritorna true se il download e' partito.
+function fallbackDL(data,fn,mime){
+  try{var blob=new Blob([data],{type:mime||"application/json"});var u=URL.createObjectURL(blob);
     var a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();
-    a.remove();URL.revokeObjectURL(u);}catch(e){alert("Copia manuale del budget:\n\n"+data.slice(0,4000));}
+    a.remove();setTimeout(function(){URL.revokeObjectURL(u);},1000);return true;}catch(e){return false;}
 }
+var CSVMIME="text/csv;charset=utf-8";
 function importBudget(ev){
   var f=ev.target.files&&ev.target.files[0];if(!f)return;
   var rd=new FileReader();
