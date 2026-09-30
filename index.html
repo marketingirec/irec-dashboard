@@ -1786,6 +1786,12 @@ function renderADV(){
   var rSpR ='<tr class="sep"><td class="voce">Spesa ADV TOT '+rTag('&middot; real Meta+Google')+'</td>';
   var rSpRm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Meta</td>';
   var rSpRg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Google</td>';
+  var rDelE ='<tr class="sep"><td class="voce" title="Real meno Budget. Segno positivo = spesa superiore al previsto. Calcolato solo sui mesi trascorsi e dove esiste un budget: il Reforecast copre solo Lug-Dic.">Delta spesa ADV &middot; &euro;</td>';
+  var rDelEm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Meta</td>';
+  var rDelEg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Google</td>';
+  var rDelP ='<tr><td class="voce" title="Real meno Budget. Segno positivo = spesa superiore al previsto. Calcolato solo sui mesi trascorsi e dove esiste un budget: il Reforecast copre solo Lug-Dic.">Delta spesa ADV &middot; %</td>';
+  var rDelPm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Meta</td>';
+  var rDelPg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Google</td>';
   var rFatB='<tr class="sep"><td class="voce">Venduto '+bTag('&middot; budget')+'</td>';
   var rFatR='<tr><td class="voce">Venduto '+rTag('&middot; real SF')+'</td>';
   var rCPLb='<tr class="sep"><td class="voce">CPL '+bTag('&middot; budget')+'</td>';
@@ -1817,6 +1823,19 @@ function renderADV(){
     var mv=IREC_META_REAL[m], gv=IREC_GOOGLE_REAL[m];
     rSpRm+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(mv==null?'<span class="muted">&mdash;</span>':eur2(mv))+'</td>';
     rSpRg+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(gv==null?'<span class="muted">&mdash;</span>':eur2(gv))+'</td>';
+    // Delta Real-Budget della spesa ADV, in euro e in %. Solo mesi gia' trascorsi: sui mesi futuri
+    // il real vale 0 e produrrebbe un -100% privo di significato. Niente verde/rosso: per la spesa
+    // "sopra budget" non e' di per se' buono o cattivo, quindi il colore imporrebbe un giudizio.
+    var _past=(m<=CUR_MONTH-1);
+    function _dE(real,bud,sub){var c='<td class="tnum'+(nowc?' now':'')+'"'+(sub?' style="color:var(--muted)"':'')+'>';
+      if(!_past||real==null||bud==null||bud==='')return c+'<span class="muted">&mdash;</span></td>';
+      var d=real-(+bud); return c+(d>0?'+':'')+eur2(d)+'</td>';}
+    function _dP(real,bud,sub){var c='<td class="tnum'+(nowc?' now':'')+'"'+(sub?' style="color:var(--muted)"':'')+'>';
+      if(!_past||real==null||bud==null||bud===''||+bud===0)return c+'<span class="muted">&mdash;</span></td>';
+      var d=(real-(+bud))/(+bud)*100; return c+(d>0?'+':'')+d.toLocaleString('it-IT',{maximumFractionDigits:1})+'%</td>';}
+    rDelE +=_dE(spR,spB);            rDelP +=_dP(spR,spB);
+    rDelEm+=_dE(mv,SPESA_BUD_META[m],1);   rDelPm+=_dP(mv,SPESA_BUD_META[m],1);
+    rDelEg+=_dE(gv,SPESA_BUD_GOOGLE[m],1); rDelPg+=_dP(gv,SPESA_BUD_GOOGLE[m],1);
     rFatB+='<td class="tnum'+(nowc?' now':'')+'">'+(fatB==null?'<span class="muted">&mdash;</span>':eur(fatB))+'</td>';
     rFatR+='<td class="tnum'+(nowc?' now':'')+'">'+(fatR==null?'<span class="muted">&mdash;</span>':eur(fatR))+'</td>';
     var cplB=(spB!=null&&leadB)?spB/leadB:null;
@@ -1837,7 +1856,7 @@ function renderADV(){
     rROAm+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(roaM==null?'<span class="muted">&mdash;</span>':nf(Math.round(roaM*100))+'%')+'</td>';
     rROAg+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(roaG==null?'<span class="muted">&mdash;</span>':nf(Math.round(roaG*100))+'%')+'</td>';
   }
-  var rows=[rSpB,rSpBm,rSpBg,rSpR,rSpRm,rSpRg,rFatB,rFatR,rCPLb,rCPLr,rCPLm,rCPLg,rROAb,rROAr,rROAm,rROAg].map(function(r){return r+'</tr>';}).join("");
+  var rows=[rSpB,rSpBm,rSpBg,rSpR,rSpRm,rSpRg,rDelE,rDelEm,rDelEg,rDelP,rDelPm,rDelPg,rFatB,rFatR,rCPLb,rCPLr,rCPLm,rCPLg,rROAb,rROAr,rROAm,rROAg].map(function(r){return r+'</tr>';}).join("");
   document.getElementById("advTable").innerHTML=head+'<tbody>'+rows+'</tbody>';
   // click-to-edit sulle celle valuta formattate (budget e real editabili)
   document.querySelectorAll("#advTable .curedit").forEach(function(sp){
