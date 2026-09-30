@@ -1092,30 +1092,29 @@ var RF_MONTHS=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio",
 var RF_RTID="012Mf000000oReaIAE";  // RecordType Rintraccio Facile (Opportunity)
 // Real (seed dell'ultimo aggiornamento; ricalcolato dal vivo con il tasto Aggiorna). Tutto AL NETTO IVA.
 // FATTURATO = confermato: Shopify pagato + SF Chiuso-Vinto. IN ATTESA = Shopify pending + SF Chiuso-Pending (escluso dal totale).
-// Tutti i mesi = STIMA live (Shopify net_sales pagato + SF Chiuso-Vinto). File contabilita' IGNORATO (richiesta utente 2026-09-01). Set..Dic non ancora rilevati.
-var RF_ONLINE      =[50415.09,24214.14,26821.63,23296.24,27754.66,25933.44,23887.76,5402.48,3467.20,0,0,0];  // Online: Shopify pagato net>0 (stima). Set = MTD
-var RF_OFFLINE     =[3973.6,6113.8,3177.6,1243.95,822,1239.55,2358.5,1604.3,1831.8,0,0,0];   // Offline: SF Chiuso-Vinto non tondi, riconosciuto alla DATA DI PAGAMENTO (Data_Chiusa_Vinta__c)
-var RF_PARTNER     =[0,2000,2000,0,4000,0,1000,2000,0,0,0,0];   // Partner: SF RF Chiuso-Vinto tondi (x1000), data di pagamento
-var RF_ONLINE_PEND =[14325.7,1688.4,562.5,575.41,395.18,441.67,1000,750.80,0,0,0,0];   // Online in attesa: Shopify net_sales pending
-var RF_OFFLINE_PEND=[32,612.10,72,307.30,32,603,0,40,0,0,0,0];   // Offline in attesa: SF RF Chiuso-Pending, non tondi
+// Tutti i mesi = STIMA live (Shopify net_sales pagato + SF Chiuso-Vinto). File contabilita' IGNORATO (richiesta utente 2026-09-01). Seed allineato al live fino a Settembre (30/09); Ott..Dic non ancora rilevati.
+var RF_ONLINE      =[50415.09,24214.14,26821.63,23296.24,27754.66,25933.44,23887.76,5402.48,24759.58,0,0,0];  // Online: Shopify pagato net>0 (stima), per data di pagamento. Seed Gen-Set aggiornato al 30/09/2026
+var RF_OFFLINE     =[3973.6,6113.8,3177.6,1243.95,822,1239.55,2358.5,1604.3,6226.04,0,0,0];   // Offline: SF Chiuso-Vinto non tondi, riconosciuto alla DATA DI PAGAMENTO (Data_Chiusa_Vinta__c)
+var RF_PARTNER     =[0,2000,2000,0,4000,0,1000,2000,3000,0,0,0];   // Partner: SF RF Chiuso-Vinto tondi (x1000), data di pagamento
+var RF_ONLINE_PEND =[14325.7,1688.4,562.5,575.41,395.18,441.67,1000,750.80,755,0,0,0];   // Online in attesa: Shopify net_sales pending
+var RF_OFFLINE_PEND=[32,612.10,72,307.30,32,603,0,40,963.85,0,0,0];   // Offline in attesa: SF RF Chiuso-Pending, non tondi
 var RF_PARTNER_PEND=[2000,0,0,0,0,0,0,0,0,0,0,0];   // Partner in attesa: SF RF Chiuso-Pending, tondi (x1000)
 // Budget mensile: Gen..Giu dal Forecast originale, Lug..Dic dal Reforecast RF (scenario NORMAL)
 var RF_BUD_ONLINE =[27923.29, 33906.85, 34704.66, 35901.37, 41087.12, 35901.37, 27219, 17288, 31300, 35459, 39828, 22468];
 var RF_BUD_OFFLINE=[3926.71,  4768.15,  5299.19,  5048.63,  5777.88,  5048.63,  1897,  1200,  2158,  2296,  2841,  1530];
 var RF_BUD_PARTNER=[2240,     2720,     2784,     2880,     3296,     2880,     2500,  1500,  2500,  3000,  3000,  1500];
 // Numero ordini Real (Online = Shopify pagato con incasso>0, esclusi wallet e ordini a 0; Offline/Partner = SF Chiuso-Vinto count, tondi = Partner)
-var RF_ORD_ONLINE =[176,121,137,110,140,134,120, 40, 23,0,0,0];
-var RF_ORD_OFFLINE=[12,14,11,9,7,11,14,12,4,0,0,0];   // conteggio Chiuso-Vinto non tondi per data di pagamento
-var RF_ORD_PARTNER=[0,1,1,0,2,0,1,2,0,0,0,0];
+var RF_ORD_ONLINE =[176,121,137,110,140,134,120,40,122,0,0,0];
+var RF_ORD_OFFLINE=[12,14,11,9,7,11,14,12,16,0,0,0];   // conteggio Chiuso-Vinto non tondi per data di pagamento
+var RF_ORD_PARTNER=[0,1,1,0,2,0,1,2,1,0,0,0];
 // Dettaglio ordini per mese (idx 0..11 = Gen..Dic). n=numero/nome, net=netto IVA, st=stato pagamento, sr=fonte.
 // Rigenerato dal tasto Aggiorna. Vuoti finche' non si preme Aggiorna sul mese (il dettaglio per-ordine si popola live).
 var RF_ORDERS=[[],[],[],[],[],[],[],
   [],
-  [ {n:"#16850",nome:"STEFANIA DE LUCA",email:"stefaniadeluca@libero.it",dpag:"2026-09-01",net:538,st:"Pagato",sr:"Shopify"},{n:"#16848",nome:"LUCA VERDESI (Serpico Intelligence)",email:"Info@serpicoinvestigazioni.it",dpag:"2026-09-01",net:191.2,st:"Pagato",sr:"Shopify"},{n:"#16849",nome:"MARIA LUIGIA TRIBUZIO",email:"tribuzio@tribase.it",dpag:"2026-09-03",net:250.8,st:"Pagato",sr:"Shopify"},{n:"#16869",nome:"LUISA FRANCUCCI",email:"luisa.francucci@libero.it",dpag:"2026-09-03",net:475,st:"Pagato",sr:"Shopify"},{n:"#16855",nome:"Luca Lopez",email:"lopez.luca@gmail.com",dpag:"2026-09-01",net:300,st:"Pagato",sr:"Shopify"},{n:"#16851",nome:"Filippo Magrini",email:"studiolegale@avvocatofilippomagrini.com",dpag:"2026-09-01",net:217.8,st:"Pagato",sr:"Shopify"},{n:"#16862",nome:"CIRO D'ANIELLO",email:"ordini@mondoindagini.it",dpag:"2026-09-03",net:204.8,st:"Pagato",sr:"Shopify"},{n:"#16864",nome:"Robertino Nesci",email:"r.nesci@nerotk.com",dpag:"2026-09-03",net:194,st:"Pagato",sr:"Shopify"},{n:"#16859",nome:"Ferdinando della Corte",email:"mrcdellacorte@gmail.com",dpag:"2026-09-02",net:171,st:"Pagato",sr:"Shopify"},{n:"#16856",nome:"BENEDETTA MARTA MAGGIONI",email:"maggioni@librastudiolegale.it",dpag:"2026-09-01",net:136.8,st:"Pagato",sr:"Shopify"},{n:"#16854",nome:"Robertino Nesci",email:"r.nesci@nerotk.com",dpag:"2026-09-01",net:127.2,st:"Pagato",sr:"Shopify"},{n:"#16868",nome:"ANDREA RUMIZ",email:"andrea@rumiz.com",dpag:"2026-09-03",net:125,st:"Pagato",sr:"Shopify"},{n:"#16872",nome:"Sara Ronchi",email:"sararonchi@hotmail.com",dpag:"2026-09-04",net:118,st:"Pagato",sr:"Shopify"},{n:"#16863",nome:"Domenico Ferraresi",email:"domenicoferraresi@hotmail.com",dpag:"2026-09-03",net:59,st:"Pagato",sr:"Shopify"},{n:"#16861",nome:"Arnaldo Beccherle",email:"arnaldo.beccherle@libero.it",dpag:"2026-09-03",net:59,st:"Pagato",sr:"Shopify"},{n:"#16852",nome:"Rosanna Avv. Catalano",email:"avvrosannacatalano@libero.it",dpag:"2026-09-01",net:59,st:"Pagato",sr:"Shopify"},{n:"#16860",nome:"avvocato ester caterina baccigaluppi",email:"avv.e.baccigaluppi@tiscali.it",dpag:"2026-09-02",net:59,st:"Pagato",sr:"Shopify"},{n:"#16857",nome:"Massimo Schioppa",email:"Schioppa.massimo@libero.it",dpag:"2026-09-01",net:47.2,st:"Pagato",sr:"Shopify"},{n:"#16873",nome:"antonio drommi",email:"info@servizinformativi.it",dpag:"2026-09-04",net:28,st:"Pagato",sr:"Shopify"},{n:"#16865",nome:"antonio drommi",email:"info@servizinformativi.it",dpag:"2026-09-03",net:28,st:"Pagato",sr:"Shopify"},{n:"#16874",nome:"antonio drommi",email:"info@servizinformativi.it",dpag:"2026-09-04",net:28,st:"Pagato",sr:"Shopify"},{n:"#16858",nome:"antonio drommi",email:"info@servizinformativi.it",dpag:"2026-09-02",net:28,st:"Pagato",sr:"Shopify"},{n:"#16853",nome:"antonio drommi",email:"info@servizinformativi.it",dpag:"2026-09-01",net:22.4,st:"Pagato",sr:"Shopify"},
-    {n:"RIF - Luca Berni - Berni Luca - 10/06/2026 (pagata 02/09)",nome:"Luca Berni",email:"avvlucaberni@rsadvnet.it",dpag:"2026-09-02",net:228,st:"Pagato",sr:"Salesforce"},{n:"Indagini patrimoniali complete persona fisica (pagata 01/09)",nome:"Simone Vallini",email:"m.zaccaria@rintracciofacile.it",dpag:"2026-09-01",net:534.6,st:"Pagato",sr:"Salesforce"},{n:"RIF - Jan Jacopo Bianchetti - Indagini patrimoniali Italia (pagata 03/09)",nome:"Jan Jacopo Bianchetti",email:"avvocato@studiolegaleghislanzoni.it",dpag:"2026-09-03",net:534.6,st:"Pagato",sr:"Salesforce"},{n:"Indagini Patrimoniali M4122D5-HAMBURGHERIA (Marino/Frangiosa) (pagata 02/09)",nome:"Gianluca Acampora",email:"gianluca.a@agerolatte.it",dpag:"2026-09-02",net:534.6,st:"Pagato",sr:"Salesforce"} ],
+  [],
   [],[],[]];
 // Online GESTITO dai venditori: ordini Shopify con codice sconto = nome venditore + numero (o referral con nome). Il resto e' spontaneo.
-var RF_ONLINE_GEST=[5158.42,9374.67,12663.95,7257.51,8375.48,8214.98,6985.69, 924.44, 0,0,0,0];
+var RF_ONLINE_GEST=[5158.42,9374.67,12663.95,7257.51,8375.48,8214.98,6985.69,924.44,5976.54,0,0,0];
 // FATTURATO DA CONTABILITA' (fonte di verita', riconosciuto alla DATA DI PAGAMENTO COMPLETATO).
 // Dove presente per un mese (chiave = indice 0..11 = Gen..Dic), questi valori PREVALGONO sul calcolo live Shopify/SF
 // (che resta un'approssimazione: base net_sales/CloseDate). Agosto da file account.move: tot 6411,30.
@@ -1140,7 +1139,8 @@ var RF_OPERATORI=[
   [{op:"Massimo Zaccaria",ord:23,amt:6258.02},{op:"Lorenzo P",ord:6,amt:1019.16},{op:"Massimiliano Casoni",ord:4,amt:670.50},{op:"Elisa Passeri",ord:1,amt:267.30}],
   [{op:"Massimo Zaccaria",ord:22,amt:5702.29},{op:"Massimiliano Casoni",ord:5,amt:1150.20},{op:"Lorenzo P",ord:1,amt:133.20}],
   [{op:"Massimo Zaccaria",ord:4,amt:538.74},{op:"Massimiliano Casoni",ord:2,amt:385.70}],
-  [],[],[],[]
+  [{op:"Massimo Zaccaria",ord:15,amt:5280.84},{op:"Lorenzo P",ord:2,amt:347.40},{op:"Massimiliano Casoni",ord:1,amt:205.20},{op:"Federica Sbrega",ord:1,amt:143.10}],
+  [],[],[]
 ];
 // Andamento RF: voci economiche (come PV Fatturato) per mese Gen..Dic (idx 0..11). Real.
 var RF_AND12={
