@@ -917,15 +917,19 @@ var FORECAST_GEN = [
 var BUDGET_SRC = "Forecast NORMAL &middot; IREC Reforecast H2";
 // ADV a budget (Reforecast H2, solo lug-dic): spesa ADV totale (Meta+Google) e Venduto FE (fatturato a budget)
 var SPESA_BUD   = [null,null,null,null,null,null,16190,10100,16220,21395,20195,12820];
+// Split del budget ADV per canale (colonne "€ ADV BDG Meta" / "€ ADV BDG Google" del forecast).
+// Stessa copertura di SPESA_BUD (solo H2): per ogni mese Meta+Google = SPESA_BUD.
+var SPESA_BUD_META   = [null,null,null,null,null,null,14250,9000,14250,18840.09,17640,11520];
+var SPESA_BUD_GOOGLE = [null,null,null,null,null,null,1940,1100,1970,2555,2555,1300];
 // Spesa Meta REAL di IREC (account 608295893328900), netta della frode rimborsata di giugno (Sales Adset 1/2/3 = 77.548,80). Estratta da Meta Marketing API. Google non ancora agganciato.
 var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,13099.31,null,null,null];
 // Google Ads IREC (account Irec-Allcore 716-426-7762), live via API. Spesa ADV real IREC = Meta + Google.
 var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,1601.34,null,null,null];
 // Lead e Venduto per CANALE (da Sorgenti/Salesforce): Meta = LeadAds Facebook + Meta ADS; Google = Google Ads. Per CPL/ROAS per canale.
-var ADV_META_LEADS  = [830,582,628,380,398,563,706,634,0,0,0,0];
-var ADV_GOOGLE_LEADS= [23,19,11,11,25,19,24,7,0,0,0,0];
-var ADV_META_VEND   = [12096.6,10404.6,14010,12511.2,5676,3286,2484,804,0,0,0,0];
-var ADV_GOOGLE_VEND = [450,0,0,804,1368,1404,1080,643.2,0,0,0,0];
+var ADV_META_LEADS  = [830,582,628,380,398,563,706,634,793,null,null,null];
+var ADV_GOOGLE_LEADS= [23,19,11,11,25,19,24,7,37,null,null,null];
+var ADV_META_VEND   = [12096.6,10404.6,14010,12511.2,5676,3286,2484,804,0,null,null,null];
+var ADV_GOOGLE_VEND = [450,0,0,804,1368,1404,1080,643.2,708,null,null,null];
 var VENDUTO_BUD = [null,null,null,null,null,null,21000,11000,21000,23000,22000,14000];
 // % di funnel a budget (forecast NORMAL): quota di ogni voce sul totale lead. Ordine = voci General.
 var PCT_BUD = [100,66.66,48.99,23.57,17.49,10.36,9.51,4.72];
@@ -1777,6 +1781,8 @@ function renderADV(){
   for(var m=0;m<12;m++)head+='<th class="'+(m===CUR_MONTH-1?'colhdr-now':'')+'">'+MESI[m]+'</th>';
   head+='</tr></thead>';
   var rSpB ='<tr><td class="voce">Spesa ADV '+bTag('&middot; budget')+'</td>';
+  var rSpBm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)" title="Budget Meta dal forecast (colonna &euro; ADV BDG Meta). Non editabile: se modifichi il totale, lo split resta quello a forecast.">&#8627; di cui Meta</td>';
+  var rSpBg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)" title="Budget Google dal forecast (colonna &euro; ADV BDG Google). Non editabile: se modifichi il totale, lo split resta quello a forecast.">&#8627; di cui Google</td>';
   var rSpR ='<tr class="sep"><td class="voce">Spesa ADV TOT '+rTag('&middot; real Meta+Google')+'</td>';
   var rSpRm='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Meta</td>';
   var rSpRg='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8627; di cui Google</td>';
@@ -1799,6 +1805,9 @@ function renderADV(){
     var spR=(IREC_META_REAL[m]!=null||IREC_GOOGLE_REAL[m]!=null)?((IREC_META_REAL[m]||0)+(IREC_GOOGLE_REAL[m]||0)):BUDGET.adv[m];
     var leadB=LEAD_BUD[m], leadR=LEAD_TOT[m], fatB=VENDUTO_BUD[m], fatR=FATTURATO[m];
     rSpB +='<td'+(nowc?' class="now"':'')+'>'+curSpan(spB,'advBud',m)+'</td>';
+    var _bm=SPESA_BUD_META[m],_bg=SPESA_BUD_GOOGLE[m];
+    rSpBm+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--budget)">'+(_bm==null?'<span class="muted">&mdash;</span>':eur2(_bm))+'</td>';
+    rSpBg+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--budget)">'+(_bg==null?'<span class="muted">&mdash;</span>':eur2(_bg))+'</td>';
     if(IREC_META_REAL[m]!=null||IREC_GOOGLE_REAL[m]!=null){ // importato da Meta+Google: non editabile, al centesimo
       var _tip="Importato da API (non editabile) &middot; Meta "+eur2(IREC_META_REAL[m]||0)+" + Google "+eur2(IREC_GOOGLE_REAL[m]||0);
       rSpR +='<td class="tnum'+(nowc?' now':'')+'"><span style="color:var(--accent);font-weight:560" title="'+_tip.replace(/"/g,"")+'">'+eur2(spR)+'</span></td>';
@@ -1828,7 +1837,7 @@ function renderADV(){
     rROAm+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(roaM==null?'<span class="muted">&mdash;</span>':nf(Math.round(roaM*100))+'%')+'</td>';
     rROAg+='<td class="tnum'+(nowc?' now':'')+'" style="color:var(--muted)">'+(roaG==null?'<span class="muted">&mdash;</span>':nf(Math.round(roaG*100))+'%')+'</td>';
   }
-  var rows=[rSpB,rSpR,rSpRm,rSpRg,rFatB,rFatR,rCPLb,rCPLr,rCPLm,rCPLg,rROAb,rROAr,rROAm,rROAg].map(function(r){return r+'</tr>';}).join("");
+  var rows=[rSpB,rSpBm,rSpBg,rSpR,rSpRm,rSpRg,rFatB,rFatR,rCPLb,rCPLr,rCPLm,rCPLg,rROAb,rROAr,rROAm,rROAg].map(function(r){return r+'</tr>';}).join("");
   document.getElementById("advTable").innerHTML=head+'<tbody>'+rows+'</tbody>';
   // click-to-edit sulle celle valuta formattate (budget e real editabili)
   document.querySelectorAll("#advTable .curedit").forEach(function(sp){
@@ -3331,7 +3340,16 @@ async function doRefreshAPI(){
     if(d.daily){if(d.daily.tot)DTOT=d.daily.tot;if(d.daily.mql)DMQL=d.daily.mql;if(d.daily.won)DWON=d.daily.won;if(d.daily.fat)DFAT=d.daily.fat;}
     if(d.day0)DAY0=d.day0; if(d.dayN)DAYN=d.dayN; LAST_DAY=isoAddDays(DAY0,DAYN-1);
     if(d.snapshot)SNAPSHOT=d.snapshot; if(d.curMonth)CUR_MONTH=d.curMonth;
-    if(d.sources){BYSRC={year:d.year||Y_R,month:d.sources.month,rows:d.sources.rows||[]}; srcCache={}; srcCache[d.sources.month]=d.sources.rows||[];}
+    if(d.sources){BYSRC={year:d.year||Y_R,month:d.sources.month,rows:d.sources.rows||[]}; srcCache={}; srcCache[d.sources.month]=d.sources.rows||[];
+      // Lead e Venduto per CANALE del mese caricato: alimentano CPL e ROAS reali della tab ADV.
+      // Senza, restavano ai valori del seed (0 sul mese corrente): CPL mostrava "—" e ROAS uno 0%
+      // ingannevole. Stesso calcolo gia' fatto dal ramo MCP in doRefreshUnified.
+      var _ci=(d.sources.month||CUR_MONTH)-1;
+      if(_ci>=0&&_ci<12){var _ml=0,_mv=0,_gl=0,_gv=0;
+        (d.sources.rows||[]).forEach(function(r){var nm=r.src,v=r.v||[];
+          if(nm==="Meta ADS"||nm==="LeadAds Facebook"){_ml+=(v[0]||0);_mv+=(v[8]||0);}
+          else if(nm==="Google Ads"){_gl+=(v[0]||0);_gv+=(v[8]||0);}});
+        ADV_META_LEADS[_ci]=_ml; ADV_META_VEND[_ci]=_mv; ADV_GOOGLE_LEADS[_ci]=_gl; ADV_GOOGLE_VEND[_ci]=_gv;}}
     srcMonths=[CUR_MONTH]; fillSrcMonths(CUR_MONTH);
     var dS=document.getElementById("dStart"),dE=document.getElementById("dEnd");
     if(dS)dS.max=LAST_DAY; if(dE)dE.max=LAST_DAY;
