@@ -479,7 +479,7 @@
       <div class="card-b scroll"><table id="advTable"></table></div>
     </div>
     <div class="tiles" id="advTiles"></div>
-    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">La <b>spesa real</b> qui &egrave; <b>Meta + Google</b> di IREC: <b>Meta</b> (account 608295893328900) dalla Marketing API <b>al netto della frode di giugno</b> (ad set Sales Adset 1/2/3 = &euro; 77.548,80, rimborsata) + <b>Google Ads</b> (account Irec-Allcore 716-426-7762) dall'API. Il tooltip su ogni cella mostra lo split Meta/Google. &middot; <b>Aggiornamento automatico: ogni 4 ore</b> (task schedulato).</p>
+    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">La <b>spesa real</b> qui &egrave; <b>Meta + Google</b> di IREC: <b>Meta</b> (account 608295893328900) dalla Marketing API <b>al netto della frode di giugno</b> (ad set Sales Adset 1/2/3 = &euro; 77.548,80, rimborsata) + <b>Google Ads</b> (account Irec-Allcore 716-426-7762) dall'API. Il tooltip su ogni cella mostra lo split Meta/Google. <b>Settembre</b> &egrave; il consuntivo <b>da fattura</b> (&euro; 15.411,81: Meta 13.721,69 + Google 1.690,12), che include la fee del 2,5% e quindi supera il dato grezzo delle piattaforme. &middot; <b>Aggiornamento automatico: ogni 4 ore</b> (task schedulato).</p>
   </section>
 
   <!-- ============ SORGENTI (mese corrente) ============ -->
@@ -922,9 +922,9 @@ var SPESA_BUD   = [null,null,null,null,null,null,16190,10100,16220,21395,20195,1
 var SPESA_BUD_META   = [null,null,null,null,null,null,14250,9000,14250,18840.09,17640,11520];
 var SPESA_BUD_GOOGLE = [null,null,null,null,null,null,1940,1100,1970,2555,2555,1300];
 // Spesa Meta REAL di IREC (account 608295893328900), netta della frode rimborsata di giugno (Sales Adset 1/2/3 = 77.548,80). Estratta da Meta Marketing API. Google non ancora agganciato.
-var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,13387.09,null,null,null];
+var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,13721.69,null,null,null];
 // Google Ads IREC (account Irec-Allcore 716-426-7762), live via API. Spesa ADV real IREC = Meta + Google.
-var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,1648.9,null,null,null];
+var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,1690.12,null,null,null];
 // Lead e Venduto per CANALE (da Sorgenti/Salesforce): Meta = LeadAds Facebook + Meta ADS; Google = Google Ads. Per CPL/ROAS per canale.
 var ADV_META_LEADS  = [830,582,628,380,398,563,706,634,793,null,null,null];
 var ADV_GOOGLE_LEADS= [23,19,11,11,25,19,24,7,37,null,null,null];
@@ -1401,8 +1401,12 @@ async function chanLoadRealH2(){var btn=document.getElementById("chanLoadBtn");
 // ADV Real. Meta = importato dall'account RF act_3120594051452791 (sola lettura, al centesimo);
 // aggiornato dallo script locale update-meta.py (token in .meta-token-rf, mai nell'artefatto). Google/Altri manuali.
 // Indici 0..11 = Gen..Dic. RF_META_REAL segna i mesi importati (non-null = sola lettura). Meta RF parte da Feb; Google da Gen.
-var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2667.28,null,null,null];   // Meta RF live (account act_3120594051452791)
-var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,5882.06,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
+/* Mesi il cui consuntivo ADV viene dalla fattura dell'agenzia e non dalle API delle
+   piattaforme: la fattura include la fee del 2,5% ed e' quella che consuma il budget.
+   Stessa tabella lato server in lib/adspend.js, qui serve solo per dirlo nell'etichetta. */
+var ADV_FATT={irec:{8:1},rf:{8:1}};
+var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2733.90,null,null,null];   // Meta RF live (account act_3120594051452791)
+var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,6029.11,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
 var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2667.28,0,0,0];
 var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,5882.06,0,0,0];
 var RF_ADV_ALTRI =[0,0,0,0,0,0,0,0,0,0,0,0];
@@ -1435,7 +1439,12 @@ function load(){
   var def={general:forecastGrid(),adv:IREC_META_REAL.map(function(mv,i){var g=IREC_GOOGLE_REAL[i];return (mv==null&&g==null)?null:((mv||0)+(g||0));}),advBud:SPESA_BUD.slice()};
   try{var s=localStorage.getItem("irec_budget_v3");if(s){var p=JSON.parse(s);
     if(p.general)Object.keys(def.general).forEach(function(k){if(p.general[k])def.general[k]=p.general[k];});
-    if(p.adv){for(var ai=0;ai<12;ai++){if(p.adv[ai]!=null)def.adv[ai]=p.adv[ai];}} // merge: tieni il seed Meta dove il salvato e' nullo
+    // merge: il salvato vale solo dove non c'e' un dato importato. I mesi con Meta/Google
+    // importati (o presi dalla fattura) non sono editabili, quindi una copia locale vecchia
+    // non deve coprirli: altrimenti chi ha gia' aperto la dashboard resta sui valori di prima.
+    if(p.adv){for(var ai=0;ai<12;ai++){
+      var imp=(IREC_META_REAL[ai]!=null||IREC_GOOGLE_REAL[ai]!=null);
+      if(!imp&&p.adv[ai]!=null)def.adv[ai]=p.adv[ai];}}
     if(p.advBud)def.advBud=p.advBud;}}catch(e){}
   return def;
 }
@@ -1843,7 +1852,7 @@ function renderADV(){
       if(sp.spesa){
         bCell=curSpan(bv,'advBud',m);
         rCell=(IREC_META_REAL[m]!=null||IREC_GOOGLE_REAL[m]!=null)
-          ? '<span style="color:var(--accent);font-weight:560" title="Importato da API (non editabile) &middot; Meta '+eur2(IREC_META_REAL[m]||0)+' + Google '+eur2(IREC_GOOGLE_REAL[m]||0)+'">'+eur2(rv)+'</span>'
+          ? '<span style="color:var(--accent);font-weight:560" title="'+(ADV_FATT.irec[m]?"Consuntivo da fattura, fee 2,5% inclusa (non editabile)":"Importato da API (non editabile)")+' &middot; Meta '+eur2(IREC_META_REAL[m]||0)+' + Google '+eur2(IREC_GOOGLE_REAL[m]||0)+'">'+eur2(rv)+'</span>'
           : curSpan(rv,'adv',m);
       } else { bCell=fv(bv,sp.f); rCell=fv(rv,sp.f); }
       body+='<td class="tnum'+nw+'" style="color:var(--budget);'+SEPL+'">'+bCell+'</td>'
@@ -2386,8 +2395,8 @@ function renderRF(){
   var body='<tbody>';
   body+=sec("ADV");
   body+=line("Investimento ads",{bud:advB,real:advR,bold:true});
-  body+=line("Meta",{bud:advMetaB,real:advMetaR,indent:true,editKey:(RF_META_REAL[i]!=null?null:"meta"),metaRO:(RF_META_REAL[i]!=null),sub:(RF_META_REAL[i]!=null?"da Meta (account RF)":null)});
-  body+=line("Google",{bud:advGoogleB,real:advGoogleR,indent:true,editKey:(RF_GOOGLE_REAL[i]!=null?null:"google"),metaRO:(RF_GOOGLE_REAL[i]!=null),roLabel:"GOOGLE",sub:(RF_GOOGLE_REAL[i]!=null?"da Google Ads (account RF)":null)});
+  body+=line("Meta",{bud:advMetaB,real:advMetaR,indent:true,editKey:(RF_META_REAL[i]!=null?null:"meta"),metaRO:(RF_META_REAL[i]!=null),sub:(RF_META_REAL[i]!=null?(ADV_FATT.rf[i]?"da fattura (fee 2,5% inclusa)":"da Meta (account RF)"):null)});
+  body+=line("Google",{bud:advGoogleB,real:advGoogleR,indent:true,editKey:(RF_GOOGLE_REAL[i]!=null?null:"google"),metaRO:(RF_GOOGLE_REAL[i]!=null),roLabel:"GOOGLE",sub:(RF_GOOGLE_REAL[i]!=null?(ADV_FATT.rf[i]?"da fattura (fee 2,5% inclusa)":"da Google Ads (account RF)"):null)});
   body+=line("Altri canali",{bud:advAltriB,real:advAltriR,indent:true,editKey:"altri"});
   body+=line("Extra budget",{bud:advExtraB,real:advExtraR,editKey:"extra"});
   body+=line("Extra Investimento Eventi",{bud:eventiB,real:eventiR,editKey:"eventi"});
