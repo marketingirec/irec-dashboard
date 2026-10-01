@@ -77,7 +77,18 @@ function buildSrc(recsByVoce){ const map={}; const ens=(s)=>{ if(!map[s]) map[s]
 // stessa logica client di index.html (opGrp/buildOpRows, tmkGrpAll/buildTmkRows), per la vista senza MCP (?view=operators / ?view=tmk).
 const OP_VW = [4,5,6,7];
 const opGrp = (vi,m)=>{ const won=(vi===7); const sel = won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t'; return `SELECT Owner.Name o,${sel} FROM Opportunity WHERE ${VW[vi].w}${VW[vi].extra} AND CALENDAR_MONTH(CloseDate)=${m} GROUP BY Owner.Name`; };
-function buildOpRows(recsByCol){ const map={}; const ens=(o)=>{ if(!map[o]) map[o]=[0,0,0,0,0]; return map[o]; }; OP_VW.forEach((vi,col)=>{ const won=(vi===7); (recsByCol[col]||[]).forEach(r=>{ const row=ens((r.o==null||r.o==='')?'operatore non trovato':r.o); row[col]= r[won?'c':'t']==null?0:+r[won?'c':'t']; if(won) row[4]= r.a==null?0:+r.a; }); }); return Object.keys(map).map(o=>({ op:o, v:map[o] })); }
+/* Dettaglio per stage dentro il perimetro Trattative, per le voci che il funnel a colonne non
+   copre: valore delle trattative generate, trattative ancora aperte e trattative perse.
+   "In pending" nel booklet sono le trattative ancora in corso, cioe' lo stage 'Trattativa':
+   lo stage 'Chiuso - Pending' e' gia' conteggiato fra i vinti. */
+const opStage = (m)=>`SELECT Owner.Name o, StageName s, COUNT(Id) t, SUM(Amount) a FROM Opportunity WHERE ${VW[6].w}${VW[6].extra} AND CALENDAR_MONTH(CloseDate)=${m} GROUP BY Owner.Name, StageName`;
+function buildOpRows(recsByCol, stageRecs){ const map={}; const ens=(o)=>{ if(!map[o]) map[o]=[0,0,0,0,0,0,0,0,0]; return map[o]; }; OP_VW.forEach((vi,col)=>{ const won=(vi===7); (recsByCol[col]||[]).forEach(r=>{ const row=ens((r.o==null||r.o==='')?'operatore non trovato':r.o); row[col]= r[won?'c':'t']==null?0:+r[won?'c':'t']; if(won) row[4]= r.a==null?0:+r.a; }); });
+  (stageRecs||[]).forEach(r=>{ const row=ens((r.o==null||r.o==='')?'operatore non trovato':r.o); const t=r.t==null?0:+r.t, a=r.a==null?0:+r.a;
+    row[5]+=a;                                            // valore di tutte le trattative generate
+    if(r.s==='Trattativa'){ row[6]+=t; row[7]+=a; }       // ancora aperte
+    if(r.s==='Chiuso - Perso') row[8]+=t;                 // perse
+  });
+  return Object.keys(map).map(o=>({ op:o, v:map[o] })); }
 const tmkGrpAll = (m)=>`SELECT Owner.Name o, Status s, COUNT(Id) t FROM Lead WHERE ${VW[3].w}${VW[3].extra} AND CALENDAR_MONTH(Data_Compilazione_Questionario__c)=${m} GROUP BY Owner.Name, Status`;
 function buildTmkRows(recs){ const map={}; const ens=(o)=>{ if(!map[o]) map[o]=[0,0,0,0]; return map[o]; }; (recs||[]).forEach(r=>{ const op=(r.o==null||r.o==='')?'operatore non trovato':r.o; const row=ens(op), t=(r.t==null?0:+r.t), s=r.s; row[0]+=t; if(s==='Nuovo') row[1]+=t; else if(s==='Attivo - Working') row[2]+=t; else if(s==='Convertito') row[3]+=t; }); return Object.keys(map).map(o=>({ op:o, v:map[o] })); }
 
@@ -147,7 +158,8 @@ export default async function handler(req, res){
       const m = Math.max(1, Math.min(12, Number(req.query.month)||curM));
       const recsByCol=[];
       for(let c=0;c<OP_VW.length;c++){ recsByCol[c]=await soql(ctx, opGrp(OP_VW[c],m)); }
-      res.status(200).json({ month:m, year:YEAR, rows:buildOpRows(recsByCol) });
+      const stageRecs = await soql(ctx, opStage(m));
+      res.status(200).json({ month:m, year:YEAR, rows:buildOpRows(recsByCol, stageRecs) });
       return;
     }
 

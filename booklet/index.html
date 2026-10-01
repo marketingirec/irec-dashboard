@@ -449,7 +449,11 @@ function innestaSorgenti(perMese){
 /* Performance Sales: ?view=operators&month=M da' per ogni venditore [MQL,SQL,Trattative,vinti,
    venduto]. I blocchi del booklet sono di 11 righe e il venditore e' il nome della categoria.
    Valore e pending delle trattative non sono esposti dall'API e restano vuoti. */
-var POS_SALES=[[0,0],[1,1],[2,2],[6,3],[9,4]];
+/* riga del blocco -> colonna della vista operators:
+   0 MQL, 1 SQL, 2 Trattative, 3 vinti, 4 venduto, 5 valore trattative, 6 n aperte, 7 valore
+   aperte, 8 perse. "In pending" nel booklet sono le trattative ancora in corso (stage
+   'Trattativa'): lo stage 'Chiuso - Pending' di Salesforce e' gia' dentro i vinti. */
+var POS_SALES=[[0,0],[1,1],[2,2],[3,5],[4,6],[5,7],[6,3],[8,8],[9,4]];
 function innestaOperatori(perMese){
   var sez=sezione("perf-sales"); if(!sez)return 0;
   var blocchi=[], cat=null;
@@ -468,6 +472,48 @@ function innestaOperatori(perMese){
     });
     POS_SALES.forEach(function(ps){var r=sez.righe[b.base+ps[0]]; if(r)n+=scriviLive(r,serie[ps[0]]);});
   });
+  return n;
+}
+/* Venduto per canale (Full Funnel IREC): l'importo per sorgente e' la colonna 8 del funnel
+   per sorgente. Le sorgenti si raggruppano nelle voci del booklet; PAID e' la somma dei canali
+   a pagamento e NO PAID il resto. Restano vuote le voci a cui non corrisponde nessuna sorgente
+   (Circuiti/Fiera, Ex clienti, Cross selling con ST e Finera): quelle le puo' mappare solo chi
+   sa a quale LeadSource corrispondono. */
+var VEND_CANALE=[
+  {righe:[28,62], src:/^(leadads facebook|meta ads)$/i},
+  {righe:[29,63], src:/^google ads$/i},
+  {righe:[30,64], src:/^outbrainads$/i},
+  {righe:[32,66], src:/^organico - (chat|email|meta)$/i},
+  {righe:[33,67], src:/^webinar$/i},
+  {righe:[34,68], src:/^organico - sito web$/i},
+  {righe:[36,70], src:/^autoproduzione$/i},
+  {righe:[37,71], src:/^(passaparola|segnalazioni)$/i},
+  {righe:[38,72], src:/^cliente esistente$/i},
+  {righe:[40],    src:/^evento fisico$/i},
+  {righe:[77],    src:/^allcore$/i}
+];
+var VEND_PAID=/^(leadads facebook|meta ads|google ads|outbrainads)$/i;
+function innestaVenduto(perMese){
+  var sez=sezione("ff-irec"); if(!sez)return 0;
+  var serie={}, tot=serieVuota(), paid=serieVuota(), nopaid=serieVuota();
+  VEND_CANALE.forEach(function(c){c.righe.forEach(function(ri){serie[ri]=serieVuota();});});
+  Object.keys(perMese).forEach(function(m){
+    var i=(+m)-1; if(i<Math.max(PRIMO_LIVE,8))return;
+    var righe=perMese[m]||[]; if(!righe.length)return;
+    var t=0,p=0;
+    righe.forEach(function(r){var a=(r.v&&r.v[8])||0; t+=a; if(VEND_PAID.test(r.src||""))p+=a;});
+    tot[i]=t; paid[i]=p; nopaid[i]=t-p;
+    VEND_CANALE.forEach(function(c){
+      var somma=0;
+      righe.forEach(function(r){if(c.src.test(r.src||""))somma+=(r.v&&r.v[8])||0;});
+      c.righe.forEach(function(ri){serie[ri][i]=somma;});
+    });
+  });
+  var n=0, scrivi=function(ri,ser){var r=sez.righe[ri]; if(r)n+=scriviLive(r,ser);};
+  Object.keys(serie).forEach(function(ri){scrivi(+ri,serie[ri]);});
+  [27,61].forEach(function(ri){scrivi(ri,paid);});
+  [31,65].forEach(function(ri){scrivi(ri,nopaid);});
+  scrivi(60,tot);     // "Venduto tot" del secondo blocco
   return n;
 }
 function innestaYoY(d,Srf){
@@ -492,7 +538,7 @@ function caricaPerMese(d){
   };
   mesi.forEach(function(m){att.push(prendi("sources",src,m));att.push(prendi("operators",ops,m));});
   return Promise.all(att).then(function(){
-    innestaSorgenti(src); innestaOperatori(ops); render();
+    innestaSorgenti(src); innestaVenduto(src); innestaOperatori(ops); render();
   });
 }
 function innestaLive(d){
