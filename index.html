@@ -922,9 +922,9 @@ var SPESA_BUD   = [null,null,null,null,null,null,16190,10100,16220,21395,20195,1
 var SPESA_BUD_META   = [null,null,null,null,null,null,14250,9000,14250,18840.09,17640,11520];
 var SPESA_BUD_GOOGLE = [null,null,null,null,null,null,1940,1100,1970,2555,2555,1300];
 // Spesa Meta REAL di IREC (account 608295893328900), netta della frode rimborsata di giugno (Sales Adset 1/2/3 = 77.548,80). Estratta da Meta Marketing API. Google non ancora agganciato.
-var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,13099.31,null,null,null];
+var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,13387.09,null,null,null];
 // Google Ads IREC (account Irec-Allcore 716-426-7762), live via API. Spesa ADV real IREC = Meta + Google.
-var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,1601.34,null,null,null];
+var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,1648.9,null,null,null];
 // Lead e Venduto per CANALE (da Sorgenti/Salesforce): Meta = LeadAds Facebook + Meta ADS; Google = Google Ads. Per CPL/ROAS per canale.
 var ADV_META_LEADS  = [830,582,628,380,398,563,706,634,793,null,null,null];
 var ADV_GOOGLE_LEADS= [23,19,11,11,25,19,24,7,37,null,null,null];
@@ -1401,10 +1401,10 @@ async function chanLoadRealH2(){var btn=document.getElementById("chanLoadBtn");
 // ADV Real. Meta = importato dall'account RF act_3120594051452791 (sola lettura, al centesimo);
 // aggiornato dallo script locale update-meta.py (token in .meta-token-rf, mai nell'artefatto). Google/Altri manuali.
 // Indici 0..11 = Gen..Dic. RF_META_REAL segna i mesi importati (non-null = sola lettura). Meta RF parte da Feb; Google da Gen.
-var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2608.97,null,null,null];   // Meta RF live (account act_3120594051452791)
-var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,5747.61,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
-var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2608.97,0,0,0];
-var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,5747.61,0,0,0];
+var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2667.28,null,null,null];   // Meta RF live (account act_3120594051452791)
+var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,5882.06,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
+var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2667.28,0,0,0];
+var RF_ADV_GOOGLE = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,5882.06,0,0,0];
 var RF_ADV_ALTRI =[0,0,0,0,0,0,0,0,0,0,0,0];
 var RF_ADV_EXTRA =[0,0,0,0,0,0,0,0,0,0,0,0];
 var RF_ADV_EVENTI=[0,0,0,0,0,0,0,0,0,0,0,0];
