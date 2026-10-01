@@ -50,6 +50,7 @@ input.manuale::placeholder{color:var(--faint)}
    visibile su quello scuro, dove un nero pieno sparirebbe nello sfondo) */
 td.ovr{box-shadow:inset 0 0 0 2px var(--ink);border-radius:4px}
 td.edit{cursor:cell}
+td.live{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 #modale{display:none;position:fixed;inset:0;z-index:100;background:rgba(8,12,20,.55);align-items:center;justify-content:center;padding:20px}
 #modale .box{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);max-width:430px;width:100%;padding:22px}
 #modale h3{margin:0 0 8px;font-size:16px;font-weight:680;letter-spacing:-.01em}
@@ -97,7 +98,45 @@ a{color:var(--accent)}
 "use strict";
 try{document.documentElement.setAttribute("data-theme",localStorage.getItem("bk_theme")||"light");}catch(e){}
 var MESI=["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
-var ULTIMO_BOOKLET=7; // indice Agosto: fin qui i dati sono statici dal booklet
+/* REGOLA FONDAMENTALE DELLA PAGINA
+   Gennaio-Agosto (indici 0..7) sono la copia del booklet 2026 e NON vanno mai toccati da nulla di
+   automatico: sono il dato ufficiale gia' consolidato. Da Settembre in poi (indici 8..11) il budget
+   arriva dal Reforecast e il consuntivo dalla dashboard online.
+   PRIMO_LIVE e' l'unico punto da cambiare se un domani il confine si sposta: ogni scrittura
+   automatica parte da li' e non puo' scendere sotto. */
+var PRIMO_LIVE=8;
+
+/* Budget dal Reforecast NORMAL (stessi array della dashboard). Copre solo Lug-Dic; qui si usa da
+   Settembre in poi, perche' fino ad Agosto il budget e' quello scritto nel booklet. */
+var BUD_REFORECAST={
+  "N Lead totali":                     [null,null,null,null,null,null,623,388,624,823,777,493],
+  "N Lead In Target da Policy":        [null,null,null,null,null,null,415,259,416,549,518,329],
+  "N Lead - In target Criteri Sec TMK":[null,null,null,null,null,null,305,190,306,403,381,242],
+  "N Lead - TMK lavorabili":           [null,null,null,null,null,null,147,92,147,194,183,116],
+  "N MQL - appuntamento fissato":      [null,null,null,null,null,null,109,68,109,144,136,86],
+  "N SQL - Appuntamento erogato":      [null,null,null,null,null,null,64,40,65,85,80,51],
+  "Erogate (Trattative)":              [null,null,null,null,null,null,59,37,59,78,74,47],
+  "- di cui vinta":                    [null,null,null,null,null,null,29,18,29,39,37,23],
+  "Investimento ads":                  [null,null,null,null,null,null,16190,10100,16220,21395,20195,12820],
+  "Venduto tot (Nuovi + Reopen)":      [null,null,null,null,null,null,21000,11000,21000,23000,22000,14000]
+};
+/* Consuntivo live: quale voce della risposta di /api/dashboard alimenta quale riga del booklet.
+   Le righe che sono rapporti (CPL, %, MER...) NON stanno qui: si ricalcolano da sole, perche'
+   numeratore e denominatore sono righe primitive che vengono riempite. */
+var LIVE_FF_IREC={
+  "N Lead totali":                     function(d){return d.real[0];},
+  "N Lead In Target da Policy":        function(d){return d.real[1];},
+  "N Lead - In target Criteri Sec TMK":function(d){return d.real[2];},
+  "N Lead - TMK lavorabili":           function(d){return d.real[3];},
+  "N MQL - appuntamento fissato":      function(d){return d.real[4];},
+  "N SQL - Appuntamento erogato":      function(d){return d.real[5];},
+  "Erogate (Trattative)":              function(d){return d.real[6];},
+  "- di cui vinta":                    function(d){return d.real[7];},
+  "Venduto tot (Nuovi + Reopen)":      function(d){return d.fatturato;},
+  "Investimento ads":                  function(d){var a=d.adspend||{},m=a.meta||[],g=a.google||[];
+                                         return MESI.map(function(_x,i){return (m[i]==null&&g[i]==null)?null:((m[i]||0)+(g[i]||0));});}
+};
+var LIVE_OK=false, LIVE_ERR="";
 var DATI=null, vista="mesi", sezAttiva=null;
 /* Sovrascritture manuali. Chiave: sezione|categoria|kpi|campo|indice. Il valore originale del
    booklet non viene mai toccato: resta nel JSON e si puo' sempre ripristinare. */
@@ -105,7 +144,20 @@ var OVR={};
 try{OVR=JSON.parse(localStorage.getItem("bk_ovr")||"{}");}catch(e){OVR={};}
 function salvaOvr(){try{localStorage.setItem("bk_ovr",JSON.stringify(OVR));}catch(e){}}
 function chiave(sid,r,campo,i){return sid+"|"+r.cat+"|"+r.kpi+"|"+campo+"|"+i;}
-function valore(sid,r,campo,i){var k=chiave(sid,r,campo,i); return (k in OVR)?OVR[k]:r[campo][i];}
+/* Valore di una cella. Precedenza: modifica manuale, poi il dato che c'e' (per Gen-Ago e' SEMPRE
+   quello scritto nel booklet, che non va ricalcolato), e solo se manca - cioe' da Settembre, dove
+   il live riempie le righe primitive - si ricava il rapporto da numeratore e denominatore. */
+function valore(sid,r,campo,i,righe){
+  var k=chiave(sid,r,campo,i);
+  if(k in OVR)return OVR[k];
+  var v=r[campo][i];
+  if(v!=null)return v;
+  if(r.ratio&&righe){
+    var nu=valore(sid,righe[r.ratio.n],campo,i,righe), de=valore(sid,righe[r.ratio.d],campo,i,righe);
+    if(nu!=null&&de!=null&&de!==0)return nu/de;
+  }
+  return null;
+}
 function mutoAttivo(){try{return Date.now()<(+localStorage.getItem("bk_muto")||0);}catch(e){return false;}}
 
 function isPct(k){return /^%|\(%|% /.test(k)||/^%/.test(k.trim());}
@@ -125,7 +177,7 @@ function delta(a,b,k){
 }
 function somma(arr,from,to){var s=null;for(var i=from;i<=to;i++){if(arr[i]!=null)s=(s||0)+arr[i];}return s;}
 // serie di una riga con le sovrascritture gia' applicate: cosi' anche Q/H/Anno le riflettono
-function serie(sid,r,campo){var o=[];for(var i=0;i<12;i++)o.push(valore(sid,r,campo,i));return o;}
+function serie(sid,r,campo,righe){var o=[];for(var i=0;i<12;i++)o.push(valore(sid,r,campo,i,righe));return o;}
 // Aggregazione. Conteggi e importi: somma. Rapporti (CPL, %, MER, ROAS, AOV, CAC): NON la media dei
 // mesi, che peserebbe uguale mesi con volumi diversi, ma il rapporto fra i numeratori e i
 // denominatori aggregati - il CPL del trimestre e' la spesa del trimestre diviso i lead del
@@ -134,14 +186,31 @@ function serie(sid,r,campo){var o=[];for(var i=0;i<12;i++)o.push(valore(sid,r,ca
 function agg(sid,righe,idx,campo,from,to){
   var r=righe[idx];
   if(r.ratio){
-    var nu=somma(serie(sid,righe[r.ratio.n],campo),from,to), de=somma(serie(sid,righe[r.ratio.d],campo),from,to);
+    var nu=somma(serie(sid,righe[r.ratio.n],campo,righe),from,to), de=somma(serie(sid,righe[r.ratio.d],campo,righe),from,to);
     return (nu==null||de==null||de===0)?null:nu/de;
   }
   if(isPct(r.kpi)||/mer|roas|cpl|aov|ticket|cac|costo per/i.test(r.kpi))return null; // rapporto non ricostruibile
-  return somma(serie(sid,r,campo),from,to);
+  return somma(serie(sid,r,campo,righe),from,to);
 }
 var GRUPPI=[{n:"Q1",a:0,b:2},{n:"Q2",a:3,b:5},{n:"Q3",a:6,b:8},{n:"Q4",a:9,b:11},{n:"H1",a:0,b:5},{n:"H2",a:6,b:11},{n:"Anno",a:0,b:11}];
 
+/* Innesta budget da Reforecast e consuntivo live SOLO da PRIMO_LIVE in poi.
+   Il ciclo parte da PRIMO_LIVE e Math.max lo blinda: nessuna scrittura puo' finire su Gen-Ago,
+   nemmeno se una mappa contenesse per errore valori nei primi mesi. */
+function innestaLive(d){
+  var sez=(DATI.sezioni||[]).filter(function(x){return x.id==="ff-irec";})[0];
+  if(!sez)return 0;
+  var tocchi=0;
+  sez.righe.forEach(function(r){
+    var fb=BUD_REFORECAST[r.kpi], fa=LIVE_FF_IREC[r.kpi];
+    var serieA=fa?fa(d):null;
+    for(var i=Math.max(PRIMO_LIVE,8);i<12;i++){
+      if(fb&&fb[i]!=null){r.bud[i]=fb[i];tocchi++;}
+      if(serieA&&serieA[i]!=null){r.act[i]=serieA[i];r.live=true;tocchi++;}
+    }
+  });
+  return tocchi;
+}
 function render(){
   var host=document.getElementById("contenuto");
   if(!DATI){host.innerHTML='<p class="hint">Dati non disponibili.</p>';return;}
@@ -153,7 +222,8 @@ function render(){
   DATI.sezioni.filter(function(s){return s.id===sezAttiva;}).forEach(function(sez){
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
-      +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; Set&ndash;Dic <span class="tag t-live">LIVE</span></span></div>'
+      +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; Set&ndash;Dic <span class="tag t-live">LIVE</span>'
+      +(sez.id==="ff-irec"?(LIVE_OK?"":' <span style="color:var(--warn)">&#9888; '+(LIVE_ERR||"live in caricamento")+'</span>'):' <span class="muted">(live non ancora agganciato)</span>')+'</span></div>'
       +'<div class="scroll"><table><thead><tr><th class="voce" rowspan="2">KPI</th>';
     cols.forEach(function(c){h+='<th colspan="3" class="gsep" style="text-align:center">'+c.n+'</th>';});
     h+='</tr><tr>';
@@ -179,10 +249,11 @@ function render(){
       cols.forEach(function(c){
         var b,a;
         if(vista==="mesi"){
-          b=valore(sez.id,r,"bud",c.i); a=valore(sez.id,r,"act",c.i);
+          b=valore(sez.id,r,"bud",c.i,sez.righe); a=valore(sez.id,r,"act",c.i,sez.righe);
           var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
-          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+'" data-k="'+kb+'">'+fmt(b,r.kpi)+'</td>'
-            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+'" data-k="'+ka+'">'+fmt(a,r.kpi)+'</td>'
+          var cl=(c.i>=PRIMO_LIVE&&r.live)?" live":"";
+          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r.kpi)+'</td>'
+            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r.kpi)+'</td>'
             +'<td class="tnum">'+delta(a,b,r.kpi)+'</td>';
           return;
         }
@@ -284,7 +355,16 @@ document.getElementById("contenuto").addEventListener("click",function(e){
   var b=e.target.closest("button[data-sez]"); if(!b)return;
   sezAttiva=b.getAttribute("data-sez"); render();
 });
-fetch("dati-booklet.json").then(function(r){return r.json();}).then(function(j){DATI=j;sezAttiva=j.sezioni[0].id;render();})
- .catch(function(){document.getElementById("contenuto").innerHTML='<p class="hint">Impossibile caricare dati-booklet.json</p>';});
+fetch("dati-booklet.json").then(function(r){return r.json();}).then(function(j){
+  DATI=j; sezAttiva=j.sezioni[0].id; render();
+  // il consuntivo da Settembre arriva dalla dashboard online; se non risponde la pagina resta
+  // leggibile sui mesi del booklet, con un avviso in testa alla sezione
+  return fetch("/api/dashboard",{headers:{Accept:"application/json"}}).then(function(r){
+    if(!r.ok)throw new Error("HTTP "+r.status); return r.json();
+  }).then(function(d){
+    if(!d||d.error)throw new Error((d&&d.error)||"risposta non valida");
+    innestaLive(d); LIVE_OK=true; render();
+  }).catch(function(e){ LIVE_ERR="dati live non disponibili ("+(e&&e.message||e)+")"; render(); });
+}).catch(function(){document.getElementById("contenuto").innerHTML='<p class="hint">Impossibile caricare dati-booklet.json</p>';});
 })();
 </script></body></html>
