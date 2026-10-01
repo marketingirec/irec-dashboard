@@ -6,7 +6,7 @@
 // dell'header di accesso non e' documentato in modo stabile), percio' qui si usa l'SDK
 // ufficiale: e' l'unica dipendenza del progetto ed esiste solo per questo motivo.
 // L'accesso e' gia' filtrato dalla Password Protection del deployment: qui non c'e' altra authz.
-import { put, list } from '@vercel/blob';
+import { put, get } from '@vercel/blob';
 
 const PATH = 'booklet/modifiche.json';
 const TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
@@ -20,17 +20,16 @@ export default async function handler(req, res) {
   }
   try {
     if (req.method === 'GET') {
-      const { blobs } = await list({ prefix: PATH, limit: 1, token: TOKEN });
-      const b = (blobs || []).find((x) => x.pathname === PATH);
-      if (!b) { res.status(200).json({ mods: {}, vuoto: true }); return; }
-      // Il contenuto di uno store privato non e' scaricabile in chiaro: serve il token.
-      // ?t= evita che la CDN serva una copia precedente subito dopo una scrittura.
-      const r = await fetch(`${b.url}?t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { Authorization: `Bearer ${TOKEN}` }
-      });
-      if (!r.ok) throw new Error('download ' + r.status);
-      res.status(200).json({ mods: await r.json() });
+      // get() scarica il contenuto autenticandosi da solo: su uno store privato l'URL del blob
+      // non e' leggibile in chiaro, quindi non si puo' fare una fetch secca. Restituisce
+      // { statusCode, stream } oppure null se il file non esiste ancora.
+      let g = null;
+      try { g = await get(PATH, { token: TOKEN }); } catch (e) { g = null; }
+      if (!g || g.statusCode !== 200 || !g.stream) { res.status(200).json({ mods: {}, vuoto: true }); return; }
+      const testo = await new Response(g.stream).text();
+      let mods = {};
+      try { mods = JSON.parse(testo || '{}'); } catch (e) { mods = {}; }
+      res.status(200).json({ mods });
       return;
     }
 
