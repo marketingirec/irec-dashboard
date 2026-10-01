@@ -53,6 +53,12 @@ export default async function handler(req, res) {
     // Chiuso-Pending (in attesa) per CloseDate del mese
     const pend = await soql(ctx, `SELECT Name, Amount, ContactName__c, ContactEmail__c, CloseDate FROM Opportunity WHERE RecordTypeId='${RF_RTID}' AND StageName='Chiuso - Pending' AND CALENDAR_YEAR(CloseDate)=${Y}`);
 
+/* Ordini confermati dalla contabilita' ma assenti da Salesforce: senza di questi il
+   consuntivo RF non torna con la fattura. Mese 1-12, importo netto, canale. Niente anagrafica:
+   nel repo non finiscono nomi di clienti. */
+const RETTIFICHE = [
+  { m: 9, canale: 'offline', net: 396.00, nota: 'ordine registrato in contabilita, non presente in Salesforce' }
+];
     const offline = new Array(12).fill(0), partner = new Array(12).fill(0), ordOffline = new Array(12).fill(0), ordPartner = new Array(12).fill(0);
     const offlineP = new Array(12).fill(0), partnerP = new Array(12).fill(0);
     const orders = [];
@@ -67,6 +73,13 @@ export default async function handler(req, res) {
       if (m < 1 || m > 12) return;
       if (isRound(am)) partnerP[m - 1] += am; else offlineP[m - 1] += am;
       orders.push({ m, n: r.Name || '(opportunity RF)', nome: r.ContactName__c || '', email: r.ContactEmail__c || '', dpag: '', net: am, st: 'In attesa', sr: 'Salesforce' });
+    });
+
+    RETTIFICHE.forEach((r) => {
+      if (r.m < 1 || r.m > 12) return;
+      if (r.canale === 'partner') { partner[r.m - 1] += r.net; ordPartner[r.m - 1]++; }
+      else { offline[r.m - 1] += r.net; ordOffline[r.m - 1]++; }
+      orders.push({ m: r.m, n: 'Rettifica contabile', nome: '', email: '', dpag: '', net: r.net, st: 'Pagato', sr: r.nota });
     });
 
     // ADV RF (Meta + Google account RF) - non blocca
