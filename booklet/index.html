@@ -78,6 +78,7 @@ a{color:var(--accent)}
       <button data-v="mesi" aria-pressed="true">Mesi</button>
       <button data-v="aggr" aria-pressed="false">Trimestri e anno</button>
     </div>
+    <span id="statoSync" style="font-size:12px"></span>
     <button class="iconbtn" id="tema">&#9681;</button>
     <a class="iconbtn" href="/" style="text-decoration:none;display:inline-flex;align-items:center">&larr; Dashboard</a>
   </div>
@@ -140,9 +141,34 @@ var LIVE_OK=false, LIVE_ERR="";
 var DATI=null, vista="mesi", sezAttiva=null;
 /* Sovrascritture manuali. Chiave: sezione|categoria|kpi|campo|indice. Il valore originale del
    booklet non viene mai toccato: resta nel JSON e si puo' sempre ripristinare. */
+/* Le modifiche sono CONDIVISE: stanno in un JSON su Vercel Blob, servito da /api/booklet-mods.
+   Il localStorage resta come copia di sicurezza, cosi' se l'endpoint non risponde la pagina
+   continua a funzionare e non si perde quello che si sta scrivendo. */
 var OVR={};
 try{OVR=JSON.parse(localStorage.getItem("bk_ovr")||"{}");}catch(e){OVR={};}
-function salvaOvr(){try{localStorage.setItem("bk_ovr",JSON.stringify(OVR));}catch(e){}}
+var SYNC="";   // messaggio di stato del salvataggio condiviso
+function salvaOvr(){
+  try{localStorage.setItem("bk_ovr",JSON.stringify(OVR));}catch(e){}
+  SYNC="salvataggio\u2026"; aggiornaStato();
+  fetch("/api/booklet-mods",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({mods:OVR})})
+   .then(function(r){return r.json().then(function(j){if(!r.ok||j.error)throw new Error(j.error||("HTTP "+r.status));return j;});})
+   .then(function(){SYNC="";aggiornaStato();})
+   .catch(function(e){SYNC="\u26A0 modifica salvata solo su questo browser: "+(e&&e.message||e);aggiornaStato();});
+}
+function aggiornaStato(){var el=document.getElementById("statoSync"); if(el)el.innerHTML=SYNC?('<span style="color:var(--warn)">'+SYNC+'</span>'):"";}
+function caricaCondivise(){
+  return fetch("/api/booklet-mods",{headers:{Accept:"application/json"}})
+   .then(function(r){return r.json();})
+   .then(function(j){
+     if(j&&j.error)throw new Error(j.error);
+     if(j&&j.mods&&typeof j.mods==="object"){
+       OVR=j.mods;
+       try{localStorage.setItem("bk_ovr",JSON.stringify(OVR));}catch(e){}
+     }
+   })
+   .catch(function(e){SYNC="\u26A0 modifiche condivise non raggiungibili ("+(e&&e.message||e)+"): vedi solo le tue";});
+}
 function chiave(sid,r,campo,i){return sid+"|"+r.cat+"|"+r.kpi+"|"+campo+"|"+i;}
 /* Valore di una cella. Precedenza: modifica manuale, poi il dato che c'e' (per Gen-Ago e' SEMPRE
    quello scritto nel booklet, che non va ricalcolato), e solo se manca - cioe' da Settembre, dove
@@ -355,8 +381,12 @@ document.getElementById("contenuto").addEventListener("click",function(e){
   var b=e.target.closest("button[data-sez]"); if(!b)return;
   sezAttiva=b.getAttribute("data-sez"); render();
 });
-fetch("dati-booklet.json").then(function(r){return r.json();}).then(function(j){
-  DATI=j; sezAttiva=j.sezioni[0].id; render();
+Promise.all([
+  fetch("dati-booklet.json").then(function(r){return r.json();}),
+  caricaCondivise()
+]).then(function(res){
+  var j=res[0];
+  DATI=j; sezAttiva=j.sezioni[0].id; render(); aggiornaStato();
   // il consuntivo da Settembre arriva dalla dashboard online; se non risponde la pagina resta
   // leggibile sui mesi del booklet, con un avviso in testa alla sezione
   return fetch("/api/dashboard",{headers:{Accept:"application/json"}}).then(function(r){
