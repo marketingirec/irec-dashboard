@@ -1,21 +1,15 @@
 // Vercel Serverless Function — /api/booklet-mods
-// Modifiche manuali del booklet, condivise fra tutti. Vivono in un unico JSON su Vercel Blob:
-// GET lo restituisce, POST lo riscrive. Il progetto non ha dipendenze e non voglio aggiungerne,
-// quindi parlo con l'API REST di Blob via fetch invece di usare @vercel/blob.
-// L'accesso e' gia' protetto dalla Password Protection del deployment: qui non c'e' altra authz.
-const TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
-const PATH = 'booklet/modifiche.json';
-const API = 'https://blob.vercel-storage.com';
+// Modifiche manuali del booklet, condivise fra tutti: un unico JSON su Vercel Blob.
+// GET lo restituisce, POST lo riscrive.
+// Lo store dashboard-irec e' configurato PRIVATE, quindi ogni chiamata deve dichiarare
+// access: 'private'. Scrivere a mano le richieste REST si era rivelato fragile (il nome
+// dell'header di accesso non e' documentato in modo stabile), percio' qui si usa l'SDK
+// ufficiale: e' l'unica dipendenza del progetto ed esiste solo per questo motivo.
+// L'accesso e' gia' filtrato dalla Password Protection del deployment: qui non c'e' altra authz.
+import { put, list } from '@vercel/blob';
 
-async function trovaUrl() {
-  const r = await fetch(`${API}/?prefix=${encodeURIComponent(PATH)}&limit=1`, {
-    headers: { Authorization: `Bearer ${TOKEN}`, 'x-api-version': '7' }
-  });
-  if (!r.ok) throw new Error('list ' + r.status);
-  const j = await r.json();
-  const b = (j.blobs || []).find((x) => x.pathname === PATH);
-  return b ? b.url : null;
-}
+const PATH = 'booklet/modifiche.json';
+const TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -26,18 +20,20 @@ export default async function handler(req, res) {
   }
   try {
     if (req.method === 'GET') {
-      const url = await trovaUrl();
-      if (!url) { res.status(200).json({ mods: {}, vuoto: true }); return; }
-      // ?t= per non farsi servire una copia vecchia dalla CDN.
-      // Su uno store privato l'URL non e' leggibile in chiaro: si riprova col token.
-      let r = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
-      if (r.status === 401 || r.status === 403) {
-        r = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store', headers: { Authorization: `Bearer ${TOKEN}` } });
-      }
+      const { blobs } = await list({ prefix: PATH, limit: 1, token: TOKEN });
+      const b = (blobs || []).find((x) => x.pathname === PATH);
+      if (!b) { res.status(200).json({ mods: {}, vuoto: true }); return; }
+      // Il contenuto di uno store privato non e' scaricabile in chiaro: serve il token.
+      // ?t= evita che la CDN serva una copia precedente subito dopo una scrittura.
+      const r = await fetch(`${b.url}?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${TOKEN}` }
+      });
       if (!r.ok) throw new Error('download ' + r.status);
       res.status(200).json({ mods: await r.json() });
       return;
     }
+
     if (req.method === 'POST') {
       let body = req.body;
       if (typeof body === 'string') body = JSON.parse(body || '{}');
@@ -45,34 +41,21 @@ export default async function handler(req, res) {
         res.status(400).json({ error: 'attesa una mappa di modifiche' }); return;
       }
       const mods = body.mods && typeof body.mods === 'object' ? body.mods : body;
-      // tetto di sicurezza: e' un file di poche decine di kB, se esplode qualcosa non va
       const payload = JSON.stringify(mods);
+      // tetto di sicurezza: e' un file di poche decine di kB, se esplode qualcosa non va
       if (payload.length > 400000) { res.status(413).json({ error: 'payload troppo grande' }); return; }
-      // Lo store puo' essere configurato private o public e l'API rifiuta l'accesso sbagliato.
-      // Si prova private (il caso di questo progetto) e si ricade su public, cosi' la funzione
-      // continua a lavorare se un domani lo store viene ricreato con l'altra impostazione.
-      const carica = (accesso) => fetch(`${API}/${PATH}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          'x-api-version': '7',
-          'x-content-type': 'application/json',
-          'x-access': accesso,
-          'x-add-random-suffix': '0',   // pathname stabile, cosi' l'URL non cambia a ogni salvataggio
-          'x-allow-overwrite': '1',
-          'x-cache-control-max-age': '0'
-        },
-        body: payload
+      await put(PATH, payload, {
+        access: 'private',
+        token: TOKEN,
+        contentType: 'application/json',
+        addRandomSuffix: false,   // pathname stabile: l'URL non cambia a ogni salvataggio
+        allowOverwrite: true,
+        cacheControlMaxAge: 0
       });
-      let r = await carica('private');
-      if (r.status === 400) {
-        const t = await r.text();
-        if (/access/i.test(t)) r = await carica('public'); else throw new Error('upload 400 ' + t.slice(0, 200));
-      }
-      if (!r.ok) throw new Error('upload ' + r.status + ' ' + (await r.text()).slice(0, 200));
       res.status(200).json({ ok: true, n: Object.keys(mods).length });
       return;
     }
+
     res.status(405).json({ error: 'metodo non supportato' });
   } catch (e) {
     res.status(502).json({ error: String((e && e.message) || e) });
