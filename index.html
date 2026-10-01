@@ -1097,10 +1097,10 @@ var RF_RTID="012Mf000000oReaIAE";  // RecordType Rintraccio Facile (Opportunity)
 // Real (seed dell'ultimo aggiornamento; ricalcolato dal vivo con il tasto Aggiorna). Tutto AL NETTO IVA.
 // FATTURATO = confermato: Shopify pagato + SF Chiuso-Vinto. IN ATTESA = Shopify pending + SF Chiuso-Pending (escluso dal totale).
 // Tutti i mesi = STIMA live (Shopify net_sales pagato + SF Chiuso-Vinto). File contabilita' IGNORATO (richiesta utente 2026-09-01). Seed allineato al live fino a Settembre (30/09); Ott..Dic non ancora rilevati.
-var RF_ONLINE      =[50415.09,24214.14,26821.63,23296.24,27754.66,25933.44,23887.76,5402.48,25422.58,0,0,0];  // Online: Shopify pagato net>0 (stima), per data di pagamento. Seed Gen-Set aggiornato al 30/09/2026
-var RF_OFFLINE     =[3973.6,6113.8,3177.6,1243.95,822,1239.55,2358.5,1604.3,6226.04,0,0,0];   // Offline: SF Chiuso-Vinto non tondi, riconosciuto alla DATA DI PAGAMENTO (Data_Chiusa_Vinta__c)
+var RF_ONLINE      =[50415.09,24214.14,26821.63,23296.24,27754.66,25933.44,23887.76,5402.48,25609.32,0,0,0];  // Online: Shopify pagato net>0 (stima), per data di pagamento. Seed Gen-Set: Settembre e' il consuntivo definitivo a mese chiuso (01/10/2026)
+var RF_OFFLINE     =[3973.6,6113.8,3177.6,1243.95,822,1239.55,2358.5,1604.3,6495.14,0,0,0];   // Offline: SF Chiuso-Vinto non tondi, riconosciuto alla DATA DI PAGAMENTO (Data_Chiusa_Vinta__c)
 var RF_PARTNER     =[0,2000,2000,0,4000,0,1000,2000,3000,0,0,0];   // Partner: SF RF Chiuso-Vinto tondi (x1000), data di pagamento
-var RF_ONLINE_PEND =[14325.7,1688.4,562.5,575.41,395.18,441.67,1000,750.80,299,0,0,0];   // Online in attesa: Shopify net_sales pending
+var RF_ONLINE_PEND =[14325.7,1688.4,562.5,575.41,395.18,441.67,1000,750.80,501,0,0,0];   // Online in attesa: Shopify net_sales pending
 var RF_OFFLINE_PEND=[32,612.10,72,307.30,32,603,0,40,963.85,0,0,0];   // Offline in attesa: SF RF Chiuso-Pending, non tondi
 var RF_PARTNER_PEND=[2000,0,0,0,0,0,0,0,0,0,0,0];   // Partner in attesa: SF RF Chiuso-Pending, tondi (x1000)
 // Budget mensile: Gen..Giu dal Forecast originale, Lug..Dic dal Reforecast RF (scenario NORMAL)
@@ -1108,8 +1108,8 @@ var RF_BUD_ONLINE =[27923.29, 33906.85, 34704.66, 35901.37, 41087.12, 35901.37, 
 var RF_BUD_OFFLINE=[3926.71,  4768.15,  5299.19,  5048.63,  5777.88,  5048.63,  1897,  1200,  2158,  2296,  2841,  1530];
 var RF_BUD_PARTNER=[2240,     2720,     2784,     2880,     3296,     2880,     2500,  1500,  2500,  3000,  3000,  1500];
 // Numero ordini Real (Online = Shopify pagato con incasso>0, esclusi wallet e ordini a 0; Offline/Partner = SF Chiuso-Vinto count, tondi = Partner)
-var RF_ORD_ONLINE =[176,121,137,110,140,134,120,40,124,0,0,0];
-var RF_ORD_OFFLINE=[12,14,11,9,7,11,14,12,16,0,0,0];   // conteggio Chiuso-Vinto non tondi per data di pagamento
+var RF_ORD_ONLINE =[176,121,137,110,140,134,120,40,140,0,0,0];
+var RF_ORD_OFFLINE=[12,14,11,9,7,11,14,12,17,0,0,0];   // conteggio Chiuso-Vinto non tondi per data di pagamento
 var RF_ORD_PARTNER=[0,1,1,0,2,0,1,2,1,0,0,0];
 // Dettaglio ordini per mese (idx 0..11 = Gen..Dic). n=numero/nome, net=netto IVA, st=stato pagamento, sr=fonte.
 // Rigenerato dal tasto Aggiorna. Vuoti finche' non si preme Aggiorna sul mese (il dettaglio per-ordine si popola live).
