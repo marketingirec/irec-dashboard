@@ -76,18 +76,22 @@
 
   /* Tabs */
   .tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;align-items:flex-end}
-  .tabgroup{display:flex;align-items:flex-end;gap:2px;padding:5px 10px 0;border-radius:10px 10px 0 0}
-  .tabgroup:nth-child(1){background:linear-gradient(90deg,rgba(245,158,11,.24),rgba(245,158,11,.05))}
-  .tabgroup:nth-child(2){background:linear-gradient(90deg,rgba(234,105,20,.24),rgba(234,105,20,.05))}
-  .tabgroup:nth-child(3){background:linear-gradient(90deg,rgba(210,70,36,.24),rgba(210,70,36,.05))}
+  .tabgroup{display:flex;align-items:flex-end;gap:2px}
+  .tabgroup[hidden]{display:none}
+  /* primo livello: l'area. Sotto restano solo le tab dell'area scelta. */
+  .macro{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+  .macro button{border:1px solid var(--border);background:var(--surface);color:var(--muted);font:inherit;
+    font-size:12px;font-weight:780;letter-spacing:.08em;text-transform:uppercase;padding:7px 15px;
+    border-radius:999px;cursor:pointer}
+  .macro button:hover{color:var(--ink)}
+  .macro button[aria-selected="true"]{color:var(--ink);border-color:transparent;box-shadow:var(--shadow)}
+  .macro-irec button[aria-selected="true"]{background:linear-gradient(90deg,rgba(240,140,40,.30),rgba(240,140,40,.08))}
+  .macro-rf button[aria-selected="true"]{background:linear-gradient(90deg,rgba(34,170,90,.30),rgba(34,170,90,.08))}
   .tabs button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;font-weight:560;
     padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
   .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
   .tabgrp{align-self:center;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:0 8px 9px 0;white-space:nowrap}
   .rftabs{display:flex;gap:8px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;align-items:flex-end}
-  .rftabs .tabgroup:nth-child(1){background:linear-gradient(90deg,rgba(34,170,90,.22),rgba(34,170,90,.05))}
-  .rftabs .tabgroup:nth-child(2){background:linear-gradient(90deg,rgba(20,155,120,.22),rgba(20,155,120,.05))}
-  .rftabs .tabgroup:nth-child(3){background:linear-gradient(90deg,rgba(70,150,55,.22),rgba(70,150,55,.05))}
   .rftabs button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;font-weight:560;padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
   .rftabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
   .rfpanel{display:none}
@@ -180,7 +184,7 @@
   .card{transition:box-shadow .2s ease}
   /* stampa / esporta PDF: mostra la vista attiva, nasconde i controlli */
   @media print{
-    #printBtn,#themeBtn,#refreshBtn,#dateFilter,#refreshBar,#refreshStatus,.tabs,#budgetModal{display:none!important}
+    #printBtn,#themeBtn,#refreshBtn,#dateFilter,#refreshBar,#refreshStatus,.tabs,.macro,#budgetModal{display:none!important}
     body{background:#fff}
     .wrap{max-width:none;padding:0}
     .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid;margin-bottom:10px}
@@ -273,28 +277,30 @@
   <div id="periodCap" style="font-size:12px;color:var(--muted);margin:0 2px 12px"></div>
   <section class="tiles" id="tiles"></section>
 
-  <nav class="tabs" role="tablist">
-    <div class="tabgroup">
-      <span class="tabgrp">General</span>
+  <nav class="macro macro-irec" id="macroIrec" role="tablist" aria-label="Aree IREC">
+    <button role="tab" aria-selected="true"  data-macro="general">General</button>
+    <button role="tab" aria-selected="false" data-macro="mkt">MKT</button>
+    <button role="tab" aria-selected="false" data-macro="sales">Sales</button>
+    <button role="tab" aria-selected="false" data-macro="customer">Customer</button>
+  </nav>
+  <nav class="tabs" id="tabsIrec" role="tablist" aria-label="Sezioni dell'area">
+    <div class="tabgroup" data-macro="general">
       <button role="tab" aria-selected="true" data-tab="mom">Andamento mese su mese</button>
       <button role="tab" aria-selected="false" data-tab="pivot">Pivot Budget vs Real</button>
       <button role="tab" aria-selected="false" data-tab="motiv">Motivazioni</button>
     </div>
-    <div class="tabgroup">
-      <span class="tabgrp">MKT</span>
+    <div class="tabgroup" data-macro="mkt">
       <button role="tab" aria-selected="false" data-tab="sources">Sorgenti</button>
       <button role="tab" aria-selected="false" data-tab="adv">ADV &amp; Economics</button>
     </div>
-    <div class="tabgroup">
-      <span class="tabgrp">Sales</span>
+    <div class="tabgroup" data-macro="sales">
       <button role="tab" aria-selected="false" data-tab="reopen">Reopen</button>
       <button role="tab" aria-selected="false" data-tab="tmk">TMK</button>
       <button role="tab" aria-selected="false" data-tab="operatori">Operatori Sales</button>
       <button role="tab" aria-selected="false" data-tab="vinti">Vinti</button>
       <button role="tab" aria-selected="false" data-tab="campagne">Dettaglio Campagne</button>
     </div>
-    <div class="tabgroup">
-      <span class="tabgrp">Customer</span>
+    <div class="tabgroup" data-macro="customer">
       <button role="tab" aria-selected="false" data-tab="recensioni">Recensioni</button>
     </div>
   </nav>
@@ -566,23 +572,30 @@
     </div>
     <div id="rfStatus" style="font-size:13px;font-weight:560;margin:0 2px 12px;min-height:16px;color:var(--muted)"></div>
     <section class="tiles" id="rfTiles"></section>
-    <nav class="rftabs" role="tablist">
-      <div class="tabgroup"><span class="tabgrp">General</span>
+    <nav class="macro macro-rf" id="macroRf" role="tablist" aria-label="Aree RF">
+      <button role="tab" aria-selected="true"  data-macro="general">General</button>
+      <button role="tab" aria-selected="false" data-macro="marketing">Marketing</button>
+      <button role="tab" aria-selected="false" data-macro="sales">Sales</button>
+      <button role="tab" aria-selected="false" data-macro="customer">Customer</button>
+      <button role="tab" aria-selected="false" data-macro="dettaglio">Dettaglio</button>
+    </nav>
+    <nav class="rftabs" id="tabsRf" role="tablist" aria-label="Sezioni dell'area">
+      <div class="tabgroup" data-macro="general">
         <button role="tab" aria-selected="false" data-rftab="andamento">Andamento mese su mese</button>
         <button role="tab" aria-selected="true" data-rftab="pv">PV Fatturato RF budget vs real</button>
       </div>
-      <div class="tabgroup"><span class="tabgrp">Marketing</span>
+      <div class="tabgroup" data-macro="marketing">
         <button role="tab" aria-selected="false" data-rftab="sorgenti">Sorgenti</button>
         <button role="tab" aria-selected="false" data-rftab="adv">ADV &amp; Economics</button>
       </div>
-      <div class="tabgroup"><span class="tabgrp">Sales</span>
+      <div class="tabgroup" data-macro="sales">
         <button role="tab" aria-selected="false" data-rftab="operatori">Operatori Sales</button>
       </div>
-      <div class="tabgroup"><span class="tabgrp">Customer</span>
+      <div class="tabgroup" data-macro="customer">
         <button role="tab" aria-selected="false" data-rftab="comportamento">Comportamento</button>
         <button role="tab" aria-selected="false" data-rftab="recensioni">Recensioni</button>
       </div>
-      <div class="tabgroup"><span class="tabgrp">Dettaglio</span>
+      <div class="tabgroup" data-macro="dettaglio">
         <button role="tab" aria-selected="false" data-rftab="ordini">Dettaglio ordini</button>
       </div>
     </nav>
@@ -2992,6 +3005,34 @@ function initControls(){
   }
   var rfb=document.getElementById("rfRefreshBtn"); if(rfb)rfb.addEventListener("click",refreshRF);
   document.querySelectorAll(".rftabs button").forEach(function(b){ b.addEventListener("click",function(){rfShowTab(b.getAttribute("data-rftab"));}); });
+  /* Navigazione a due livelli: prima l'area (General, MKT, Sales...), sotto solo le tab di
+     quell'area. Prima stavano tutte su una riga sola, e con undici tab IREC la riga andava a
+     capo e il nome del gruppo si perdeva. L'area scelta resta fra una visita e l'altra. */
+  function macroSetup(idMacro, idTabs, chiave){
+    var barra=document.getElementById(idMacro), tabs=document.getElementById(idTabs);
+    if(!barra||!tabs)return;
+    function mostra(m){
+      barra.querySelectorAll("button").forEach(function(b){
+        b.setAttribute("aria-selected", b.getAttribute("data-macro")===m?"true":"false");});
+      var primo=null;
+      tabs.querySelectorAll(".tabgroup").forEach(function(g){
+        var sua=(g.getAttribute("data-macro")===m);
+        g.hidden=!sua;
+        if(sua&&!primo)primo=g.querySelector("button");
+      });
+      try{localStorage.setItem(chiave,m);}catch(e){}
+      // se la tab aperta non appartiene a quest'area, si apre la prima dell'area
+      if(!tabs.querySelector('.tabgroup:not([hidden]) button[aria-selected="true"]')&&primo)primo.click();
+    }
+    barra.querySelectorAll("button").forEach(function(b){
+      b.addEventListener("click",function(){mostra(b.getAttribute("data-macro"));});
+    });
+    var salvata=null; try{salvata=localStorage.getItem(chiave);}catch(e){}
+    if(salvata&&!barra.querySelector('button[data-macro="'+salvata+'"]'))salvata=null;
+    mostra(salvata||barra.querySelector("button").getAttribute("data-macro"));
+  }
+  macroSetup("macroIrec","tabsIrec","irec_macro");
+  macroSetup("macroRf","tabsRf","rf_macro");
   var _oc=document.getElementById("rfOrdCsv"); if(_oc)_oc.addEventListener("click",rfExportOrders);
   var _op=document.getElementById("rfOrdPrint"); if(_op)_op.addEventListener("click",function(){window.print();});
   // theme
