@@ -28,8 +28,12 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const url = await trovaUrl();
       if (!url) { res.status(200).json({ mods: {}, vuoto: true }); return; }
-      // ?t= per non farsi servire una copia vecchia dalla CDN
-      const r = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
+      // ?t= per non farsi servire una copia vecchia dalla CDN.
+      // Su uno store privato l'URL non e' leggibile in chiaro: si riprova col token.
+      let r = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store' });
+      if (r.status === 401 || r.status === 403) {
+        r = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store', headers: { Authorization: `Bearer ${TOKEN}` } });
+      }
       if (!r.ok) throw new Error('download ' + r.status);
       res.status(200).json({ mods: await r.json() });
       return;
@@ -44,18 +48,27 @@ export default async function handler(req, res) {
       // tetto di sicurezza: e' un file di poche decine di kB, se esplode qualcosa non va
       const payload = JSON.stringify(mods);
       if (payload.length > 400000) { res.status(413).json({ error: 'payload troppo grande' }); return; }
-      const r = await fetch(`${API}/${PATH}`, {
+      // Lo store puo' essere configurato private o public e l'API rifiuta l'accesso sbagliato.
+      // Si prova private (il caso di questo progetto) e si ricade su public, cosi' la funzione
+      // continua a lavorare se un domani lo store viene ricreato con l'altra impostazione.
+      const carica = (accesso) => fetch(`${API}/${PATH}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${TOKEN}`,
           'x-api-version': '7',
           'x-content-type': 'application/json',
+          'x-access': accesso,
           'x-add-random-suffix': '0',   // pathname stabile, cosi' l'URL non cambia a ogni salvataggio
           'x-allow-overwrite': '1',
           'x-cache-control-max-age': '0'
         },
         body: payload
       });
+      let r = await carica('private');
+      if (r.status === 400) {
+        const t = await r.text();
+        if (/access/i.test(t)) r = await carica('public'); else throw new Error('upload 400 ' + t.slice(0, 200));
+      }
       if (!r.ok) throw new Error('upload ' + r.status + ' ' + (await r.text()).slice(0, 200));
       res.status(200).json({ ok: true, n: Object.keys(mods).length });
       return;
