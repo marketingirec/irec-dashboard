@@ -21,11 +21,14 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       // get() scarica il contenuto autenticandosi da solo: su uno store privato l'URL del blob
-      // non e' leggibile in chiaro, quindi non si puo' fare una fetch secca. Restituisce
-      // { statusCode, stream } oppure null se il file non esiste ancora.
-      let g = null;
-      try { g = await get(PATH, { token: TOKEN }); } catch (e) { g = null; }
-      if (!g || g.statusCode !== 200 || !g.stream) { res.status(200).json({ mods: {}, vuoto: true }); return; }
+      // non e' leggibile in chiaro, quindi non si puo' fare una fetch secca.
+      // access e' OBBLIGATORIO anche in lettura, non solo in scrittura: senza, punta all'host
+      // pubblico e non trova niente. Ritorna { statusCode, stream }, oppure null se il file non
+      // esiste ancora. Gli errori veri NON vengono catturati qui: devono arrivare al chiamante,
+      // altrimenti un guasto si traveste da "nessuna modifica salvata".
+      const g = await get(PATH, { token: TOKEN, access: 'private', useCache: false });
+      if (!g) { res.status(200).json({ mods: {}, vuoto: true }); return; }
+      if (g.statusCode !== 200 || !g.stream) throw new Error('get statusCode ' + g.statusCode);
       const testo = await new Response(g.stream).text();
       let mods = {};
       try { mods = JSON.parse(testo || '{}'); } catch (e) { mods = {}; }
