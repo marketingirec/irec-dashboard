@@ -382,7 +382,9 @@ document.getElementById("contenuto").addEventListener("click",function(e){
   sezAttiva=b.getAttribute("data-sez"); render();
 });
 Promise.all([
-  fetch("dati-booklet.json").then(function(r){return r.json();}),
+  // percorso ASSOLUTO: la pagina e' servita su /booklet senza slash finale, quindi un percorso
+  // relativo si risolverebbe su /dati-booklet.json, cioe' la radice del sito.
+  fetch("/booklet/dati-booklet.json").then(function(r){return r.json();}),
   caricaCondivise()
 ]).then(function(res){
   var j=res[0];
