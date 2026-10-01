@@ -137,7 +137,48 @@ var LIVE_FF_IREC={
   "Investimento ads":                  function(d){var a=d.adspend||{},m=a.meta||[],g=a.google||[];
                                          return MESI.map(function(_x,i){return (m[i]==null&&g[i]==null)?null:((m[i]||0)+(g[i]||0));});}
 };
-var LIVE_OK=false, LIVE_ERR="";
+/* RF: le serie live si ricavano da /api/rf. Qui la mappatura NON e' per etichetta ma per indice
+   di riga, scritta nel file dati (campo .live): nella sezione RF "> Online" compare tre volte,
+   sotto ordini, AOV e fatturato, e cercare per nome prenderebbe la riga sbagliata. */
+function serieRF(d){
+  var sf=d.sf||{}, sh=d.shopify||{}, ad=d.adspend||{};
+  var v=function(a){return Array.isArray(a)?a:[];};
+  var on=v(sh.online), off=v(sf.offline), par=v(sf.partner), ge=v(sh.gest);
+  var oOn=v(sh.ordOnline), oOff=v(sf.ordOffline), oPar=v(sf.ordPartner);
+  var me=v(ad.meta), go=v(ad.google);
+  var comb=function(f){var o=[];for(var i=0;i<12;i++)o.push(f(i));return o;};
+  var nz=function(x){return x==null?null:x;};
+  return {
+    advTot:  comb(function(i){return (me[i]==null&&go[i]==null)?null:((me[i]||0)+(go[i]||0));}),
+    advMeta: comb(function(i){return nz(me[i]);}),
+    advGoogle:comb(function(i){return nz(go[i]);}),
+    online:  comb(function(i){return nz(on[i]);}),
+    offline: comb(function(i){return nz(off[i]);}),
+    partner: comb(function(i){return nz(par[i]);}),
+    gestito: comb(function(i){return nz(ge[i]);}),
+    spontaneo:comb(function(i){return (on[i]==null)?null:(on[i]-(ge[i]||0));}),
+    ordOnline:comb(function(i){return nz(oOn[i]);}),
+    ordPartner:comb(function(i){return nz(oPar[i]);}),
+    ordOffPart:comb(function(i){return (oOff[i]==null&&oPar[i]==null)?null:((oOff[i]||0)+(oPar[i]||0));}),
+    ordTot:  comb(function(i){return (oOn[i]==null&&oOff[i]==null&&oPar[i]==null)?null:((oOn[i]||0)+(oOff[i]||0)+(oPar[i]||0));}),
+    fatOnOff:comb(function(i){return (on[i]==null&&off[i]==null)?null:((on[i]||0)+(off[i]||0));}),
+    fatTot:  comb(function(i){return (on[i]==null&&off[i]==null&&par[i]==null)?null:((on[i]||0)+(off[i]||0)+(par[i]||0));}),
+    vendutoOperatori:comb(function(i){return (ge[i]==null&&off[i]==null&&par[i]==null)?null:((ge[i]||0)+(off[i]||0)+(par[i]||0));})
+  };
+}
+function innestaRF(d){
+  var sez=(DATI.sezioni||[]).filter(function(x){return x.id==="ff-rf";})[0];
+  if(!sez)return 0;
+  var S=serieRF(d), tocchi=0;
+  sez.righe.forEach(function(r){
+    if(!r.live||!S[r.live])return;
+    for(var i=Math.max(PRIMO_LIVE,8);i<12;i++){
+      if(S[r.live][i]!=null){r.act[i]=S[r.live][i];r.liveOn=true;tocchi++;}
+    }
+  });
+  return tocchi;
+}
+var LIVE_OK=false, LIVE_ERR="", LIVE_RF=false;
 var DATI=null, vista="mesi", sezAttiva=null;
 /* Sovrascritture manuali. Chiave: sezione|categoria|kpi|campo|indice. Il valore originale del
    booklet non viene mai toccato: resta nel JSON e si puo' sempre ripristinare. */
@@ -249,7 +290,9 @@ function render(){
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
       +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; Set&ndash;Dic <span class="tag t-live">LIVE</span>'
-      +(sez.id==="ff-irec"?(LIVE_OK?"":' <span style="color:var(--warn)">&#9888; '+(LIVE_ERR||"live in caricamento")+'</span>'):' <span class="muted">(live non ancora agganciato)</span>')+'</span></div>'
+      +((sez.id==="ff-irec"&&LIVE_OK)||(sez.id==="ff-rf"&&LIVE_RF)?""
+        :(sez.id==="ff-irec"||sez.id==="ff-rf")?' <span style="color:var(--warn)">&#9888; '+(LIVE_ERR||"live in caricamento")+'</span>'
+        :' <span class="muted">(live non ancora agganciato)</span>')+'</span></div>'
       +'<div class="scroll"><table><thead><tr><th class="voce" rowspan="2">KPI</th>';
     cols.forEach(function(c){h+='<th colspan="3" class="gsep" style="text-align:center">'+c.n+'</th>';});
     h+='</tr><tr>';
@@ -277,7 +320,7 @@ function render(){
         if(vista==="mesi"){
           b=valore(sez.id,r,"bud",c.i,sez.righe); a=valore(sez.id,r,"act",c.i,sez.righe);
           var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
-          var cl=(c.i>=PRIMO_LIVE&&r.live)?" live":"";
+          var cl=(c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
           h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r.kpi)+'</td>'
             +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r.kpi)+'</td>'
             +'<td class="tnum">'+delta(a,b,r.kpi)+'</td>';
@@ -396,7 +439,15 @@ Promise.all([
   }).then(function(d){
     if(!d||d.error)throw new Error((d&&d.error)||"risposta non valida");
     innestaLive(d); LIVE_OK=true; render();
-  }).catch(function(e){ LIVE_ERR="dati live non disponibili ("+(e&&e.message||e)+")"; render(); });
+  }).catch(function(e){ LIVE_ERR="dati live non disponibili ("+(e&&e.message||e)+")"; render(); })
+  .then(function(){
+    return fetch("/api/rf",{headers:{Accept:"application/json"}}).then(function(r){
+      if(!r.ok)throw new Error("HTTP "+r.status); return r.json();
+    }).then(function(d){
+      if(!d||d.error)throw new Error((d&&d.error)||"risposta non valida");
+      innestaRF(d); LIVE_RF=true; render();
+    }).catch(function(e){ if(!LIVE_ERR)LIVE_ERR="RF live non disponibile ("+(e&&e.message||e)+")"; render(); });
+  });
 }).catch(function(){document.getElementById("contenuto").innerHTML='<p class="hint">Impossibile caricare dati-booklet.json</p>';});
 })();
 </script></body></html>
