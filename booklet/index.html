@@ -121,6 +121,40 @@ var BUD_REFORECAST={
   "Investimento ads":                  [null,null,null,null,null,null,16190,10100,16220,21395,20195,12820],
   "Venduto tot (Nuovi + Reopen)":      [null,null,null,null,null,null,21000,11000,21000,23000,22000,14000]
 };
+/* Budget da Reforecast per la sezione RF (Full Funnel RF). Stesse cifre che la dashboard usa
+   nelle schede RF, qui mappate per INDICE di riga come il campo .live. La mappatura e' stata
+   verificata sui mesi di luglio e agosto, dove il booklet ha gia' il budget: 24 righe su 26
+   coincidono. Le due che non coincidono sono lacune del foglio, non della mappatura:
+   l'AOV offline di agosto (il booklet usa 208,41 invece di 1.200/6 = 200) e "Fatturato da
+   partner", lasciato vuoto ad agosto mentre la riga gemella "Offline Wallet Gestiti Sales"
+   riporta 1.500. Nessuno dei due viene toccato prima di settembre. */
+var RF_ONL=[27923.29,33906.85,34704.66,35901.37,41087.12,35901.37,27219,17288,31300,35459,39828,22468];
+var RF_OFF=[3926.71,4768.15,5299.19,5048.63,5777.88,5048.63,1897,1200,2158,2296,2841,1530];
+var RF_PAR=[2240,2720,2784,2880,3296,2880,2500,1500,2500,3000,3000,1500];
+var RF_aM=[null,null,null,null,null,null,1480,940,2380,1900,2860,1310];
+var RF_aG=[null,null,null,null,null,null,6840,4320,6840,8550,8850,5400];
+var RF_aA=[null,null,null,null,null,null,0,0,0,0,0,0];
+var RF_aX=[null,null,null,null,null,null,500,500,500,500,500,500];
+var RF_aE=[null,null,null,null,null,null,0,0,0,0,0,0];
+var RF_oO=[null,null,null,null,null,null,133,84,153,173,194,110];
+var RF_oF=[null,null,null,null,null,null,9,6,10,11,14,7];
+var RF_SP=[null,null,null,null,null,null,16331.40,10372.80,18780,21275.40,23896.80,13480.80];
+var RF_GU=[null,null,null,null,null,null,10887.60,6915.20,12520,14183.60,15931.20,8987.20];
+// somma di piu' serie mese per mese; null solo se nessuna delle serie ha un valore quel mese
+function rfSom(){var a=arguments;return a[0].map(function(_,i){
+  var vuoti=true,s=0;
+  for(var j=0;j<a.length;j++){if(a[j][i]!=null){vuoti=false;s+=a[j][i];}}
+  return vuoti?null:s;});}
+function rfDiv(n,d){return n.map(function(v,i){return (v==null||d[i]==null||!d[i])?null:v/d[i];});}
+var BUD_RF={
+  0:rfSom(RF_aM,RF_aG,RF_aA), 1:RF_aM, 2:RF_aG, 3:RF_aA, 4:RF_aX, 5:RF_aE,
+  6:rfSom(RF_oO,RF_oF), 7:RF_oO, 8:RF_oF,
+  10:rfDiv(RF_ONL,RF_oO), 11:rfDiv(RF_OFF,RF_oF),
+  12:rfSom(RF_ONL,RF_OFF), 13:RF_ONL, 14:RF_OFF,
+  16:RF_ONL, 17:RF_SP, 18:RF_GU,
+  20:RF_PAR, 21:rfSom(RF_ONL,RF_OFF,RF_PAR), 22:RF_ONL, 24:RF_PAR, 25:RF_OFF,
+  27:RF_ONL, 28:RF_SP, 29:RF_GU, 30:rfSom(RF_GU,RF_OFF,RF_PAR)
+};
 /* Consuntivo live: quale voce della risposta di /api/dashboard alimenta quale riga del booklet.
    Le righe che sono rapporti (CPL, %, MER...) NON stanno qui: si ricalcolano da sole, perche'
    numeratore e denominatore sono righe primitive che vengono riempite. */
@@ -247,12 +281,25 @@ function isPct(k){return /^%|\(%|% /.test(k)||/^%/.test(k.trim());}
 // Sigle da cercare come parola intera: "mer" come sottostringa compare dentro "Numero", e
 // faceva stampare "Numero di ordini" come percentuale (145 -> 14.500%) oltre a bloccarne la somma.
 function haParola(k,p){return new RegExp("\\b("+p+")\\b","i").test(k);}
-function isEur(k){return /investimento|venduto|vendite|€|cpl|costo|aov|ticket|cac|incasso/i.test(k)&&!isPct(k);}
-function fmt(v,k){
+function isEur(k){return /investimento|venduto|vendite|fatturato|€|cpl|costo|aov|ticket|cac|incasso/i.test(k)&&!isPct(k);}
+/* Le voci indentate ("> Online") non dicono da sole se sono importi: "> Online" sotto
+   "Fatturato mese" e' denaro, sotto "Numero di ordini" e' un conteggio. Si eredita quindi
+   dalla riga padre, cioe' l'ultima riga non indentata che le precede. */
+function preparaFormato(){
+  (DATI.sezioni||[]).forEach(function(sez){
+    var padre="";
+    sez.righe.forEach(function(r){
+      var figlia=/^\s*>/.test(r.kpi);
+      if(!figlia)padre=r.kpi;
+      r.eur=isEur(r.kpi)||(figlia&&isEur(padre)&&!isPct(r.kpi)&&!haParola(r.kpi,"mer|roas"));
+    });
+  });
+}
+function fmt(v,k,eur){
   if(v==null)return '<span class="muted">&mdash;</span>';
   if(isPct(k))return (v*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
   if(haParola(k,"mer|roas"))return (v*100).toLocaleString("it-IT",{maximumFractionDigits:0})+"%";
-  if(isEur(k))return "&euro; "+v.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(eur||isEur(k))return "&euro; "+v.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
   return v.toLocaleString("it-IT",{maximumFractionDigits:2});
 }
 function delta(a,b,k){
@@ -297,12 +344,28 @@ function innestaLive(d){
   if(!sez)return 0;
   var tocchi=0;
   sez.righe.forEach(function(r){
-    var fb=BUD_REFORECAST[r.kpi], fa=LIVE_FF_IREC[r.kpi];
-    var serieA=fa?fa(d):null;
+    var fa=LIVE_FF_IREC[r.kpi];
+    var serieA=fa?fa(d):null; if(!serieA)return;
     for(var i=Math.max(PRIMO_LIVE,8);i<12;i++){
-      if(fb&&fb[i]!=null){r.bud[i]=fb[i];tocchi++;}
-      if(serieA&&serieA[i]!=null){r.act[i]=serieA[i];r.live=true;tocchi++;}
+      if(serieA[i]!=null){r.act[i]=serieA[i];r.live=true;tocchi++;}
     }
+  });
+  return tocchi;
+}
+/* Il budget da Reforecast non dipende dalla dashboard online: sono costanti. Va quindi applicato
+   appena i dati sono caricati, non dentro l'innesto del consuntivo, altrimenti un'API che non
+   risponde farebbe sparire da Settembre anche il budget. */
+function innestaBudget(){
+  var tocchi=0;
+  (DATI.sezioni||[]).forEach(function(sez){
+    if(sez.id==="ff-irec")sez.righe.forEach(function(r){
+      var fb=BUD_REFORECAST[r.kpi]; if(!fb)return;
+      for(var i=Math.max(PRIMO_LIVE,8);i<12;i++)if(fb[i]!=null){r.bud[i]=fb[i];tocchi++;}
+    });
+    if(sez.id==="ff-rf")sez.righe.forEach(function(r,idx){
+      var fb=BUD_RF[idx]; if(!fb)return;
+      for(var i=Math.max(PRIMO_LIVE,8);i<12;i++)if(fb[i]!=null){r.bud[i]=fb[i];tocchi++;}
+    });
   });
   return tocchi;
 }
@@ -338,7 +401,7 @@ function render(){
           if(!qui){h+='<td class="muted gsep">&mdash;</td><td class="muted">&mdash;</td><td class="muted">&mdash;</td>';return;}
           var k=sez.id+"|"+r.cat+"|"+r.kpi+"|annuale|0";
           var v=(k in OVR)?OVR[k]:r.annuale;
-          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r.kpi)+'</td><td></td>';
+          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r.kpi,r.eur)+'</td><td></td>';
         });
         h+='</tr>'; return;
       }
@@ -349,13 +412,13 @@ function render(){
           b=valore(sez.id,r,"bud",c.i,sez.righe); a=valore(sez.id,r,"act",c.i,sez.righe);
           var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
           var cl=(c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
-          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r.kpi)+'</td>'
-            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r.kpi)+'</td>'
+          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r.kpi,r.eur)+'</td>'
+            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r.kpi,r.eur)+'</td>'
             +'<td class="tnum">'+delta(a,b,r.kpi)+'</td>';
           return;
         }
         b=agg(sez.id,sez.righe,ri,"bud",c.a,c.b); a=agg(sez.id,sez.righe,ri,"act",c.a,c.b);
-        h+='<td class="tnum bud gsep">'+fmt(b,r.kpi)+'</td><td class="tnum">'+fmt(a,r.kpi)+'</td><td class="tnum">'+delta(a,b,r.kpi)+'</td>';
+        h+='<td class="tnum bud gsep">'+fmt(b,r.kpi,r.eur)+'</td><td class="tnum">'+fmt(a,r.kpi,r.eur)+'</td><td class="tnum">'+delta(a,b,r.kpi)+'</td>';
       });
       h+='</tr>';
     });
@@ -459,7 +522,7 @@ Promise.all([
   caricaCondivise()
 ]).then(function(res){
   var j=res[0];
-  DATI=j; sezAttiva=j.sezioni[0].id; render(); aggiornaStato();
+  DATI=j; sezAttiva=j.sezioni[0].id; preparaFormato(); innestaBudget(); render(); aggiornaStato();
   // il consuntivo da Settembre arriva dalla dashboard online; se non risponde la pagina resta
   // leggibile sui mesi del booklet, con un avviso in testa alla sezione
   return fetch("/api/dashboard",{headers:{Accept:"application/json"}}).then(function(r){
