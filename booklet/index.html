@@ -23,6 +23,10 @@ h1{margin:0;font-size:22px;font-weight:680;letter-spacing:-.02em}
 .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px}
 .seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:560;padding:6px 14px;border-radius:7px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+/* Primo livello: l'azienda. Sotto restano solo le sezioni di quell'azienda. */
+.gruppi{margin-bottom:8px}
+.gruppi button{font-size:12px;font-weight:780;letter-spacing:.08em;text-transform:uppercase;padding:6px 16px}
+.gruppi button[aria-pressed="true"]{background:var(--accent);color:#fff}
 .iconbtn{border:1px solid var(--border);background:var(--surface);color:var(--muted);height:34px;padding:0 12px;border-radius:9px;cursor:pointer;font:inherit;font-size:13px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:18px}
 .card-h{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
@@ -217,7 +221,22 @@ function innestaRF(d){
   return tocchi;
 }
 var LIVE_OK=false, LIVE_ERR="", LIVE_RF=false;
-var DATI=null, vista="mesi", sezAttiva=null;
+var DATI=null, vista="mesi", sezAttiva=null, grpAttivo=null;
+/* Le sezioni stanno in due livelli: prima l'azienda (IREC / RF), poi le sue sezioni. Erano
+   otto bottoni in fila, con "- IREC" e "- RF" ripetuti dentro i nomi. Il gruppo e la sua
+   etichetta breve stanno nel file dati. La scelta resta fra una visita e l'altra. */
+function gruppiDisponibili(){
+  var g=[];(DATI.sezioni||[]).forEach(function(s){var k=s.gruppo||"Altro";if(g.indexOf(k)<0)g.push(k);});
+  return g;
+}
+function sezioniDi(g){return (DATI.sezioni||[]).filter(function(s){return (s.gruppo||"Altro")===g;});}
+function scegliGruppo(g){
+  grpAttivo=g;
+  try{localStorage.setItem("bk_gruppo",g);}catch(e){}
+  var dentro=sezioniDi(g);
+  // se la sezione aperta non e' di questo gruppo si apre la prima del gruppo
+  if(!dentro.some(function(s){return s.id===sezAttiva;}))sezAttiva=dentro.length?dentro[0].id:sezAttiva;
+}
 /* Sovrascritture manuali. Chiave: sezione|categoria|kpi|campo|indice. Il valore originale del
    booklet non viene mai toccato: resta nel JSON e si puo' sempre ripristinare. */
 /* Le modifiche sono CONDIVISE: stanno in un JSON su Vercel Blob, servito da /api/booklet-mods.
@@ -517,9 +536,15 @@ function render(){
   var host=document.getElementById("contenuto");
   if(!DATI){host.innerHTML='<p class="hint">Dati non disponibili.</p>';return;}
   var html="";
-  if(DATI.sezioni.length>1){
-    html+='<div class="seg" style="margin-bottom:16px">'+DATI.sezioni.map(function(s,i){
-      return '<button data-sez="'+s.id+'" aria-pressed="'+(s.id===sezAttiva?"true":"false")+'">'+s.titolo.replace(/^KPI /,"")+'</button>';}).join("")+'</div>';
+  var gruppi=gruppiDisponibili();
+  if(gruppi.length>1){
+    html+='<div><div class="seg gruppi">'+gruppi.map(function(g){
+      return '<button data-grp="'+g+'" aria-pressed="'+(g===grpAttivo?"true":"false")+'">'+g+'</button>';}).join("")+'</div></div>';
+  }
+  var dentro=sezioniDi(grpAttivo);
+  if(dentro.length>1){
+    html+='<div class="seg" style="margin-bottom:16px">'+dentro.map(function(s){
+      return '<button data-sez="'+s.id+'" aria-pressed="'+(s.id===sezAttiva?"true":"false")+'">'+(s.breve||s.titolo.replace(/^KPI /,""))+'</button>';}).join("")+'</div>';
   }
   DATI.sezioni.filter(function(s){return s.id===sezAttiva;}).forEach(function(sez){
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
@@ -668,6 +693,8 @@ document.getElementById("tema").addEventListener("click",function(){
   try{localStorage.setItem("bk_theme",next);}catch(e){}
 });
 document.getElementById("contenuto").addEventListener("click",function(e){
+  var g=e.target.closest("button[data-grp]");
+  if(g){scegliGruppo(g.getAttribute("data-grp")); render(); return;}
   var b=e.target.closest("button[data-sez]");
   if(b){sezAttiva=b.getAttribute("data-sez"); render(); return;}
   var th=e.target.closest("th.perh");
@@ -686,7 +713,10 @@ Promise.all([
   caricaCondivise()
 ]).then(function(res){
   var j=res[0];
-  DATI=j; sezAttiva=j.sezioni[0].id; preparaFormato(); innestaBudget(); render(); aggiornaStato();
+  DATI=j; sezAttiva=j.sezioni[0].id;
+  var gSalv=null; try{gSalv=localStorage.getItem("bk_gruppo");}catch(e){}
+  scegliGruppo(gruppiDisponibili().indexOf(gSalv)>=0?gSalv:gruppiDisponibili()[0]);
+  preparaFormato(); innestaBudget(); render(); aggiornaStato();
   // il consuntivo da Settembre arriva dalla dashboard online; se non risponde la pagina resta
   // leggibile sui mesi del booklet, con un avviso in testa alla sezione
   return fetch("/api/dashboard",{headers:{Accept:"application/json"}}).then(function(r){
