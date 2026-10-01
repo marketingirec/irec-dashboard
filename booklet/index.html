@@ -43,6 +43,9 @@ tr.cat td.voce{background:var(--surface-2)}
 .bud{color:var(--budget)}
 .dpos{color:var(--good)}.dneg{color:var(--bad)}
 .muted{color:var(--faint)}
+input.manuale{width:96px;text-align:right;font:inherit;font-size:12.5px;font-variant-numeric:tabular-nums;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);border-radius:6px;padding:3px 6px}
+input.manuale:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+input.manuale::placeholder{color:var(--faint)}
 .tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:1px 6px;border-radius:5px;border:1px solid;vertical-align:1px}
 .t-book{color:var(--muted);border-color:var(--border)}
 .t-live{color:var(--accent);border-color:var(--accent)}
@@ -131,6 +134,21 @@ function render(){
     var cat="";
     sez.righe.forEach(function(r,ri){
       if(r.cat!==cat){cat=r.cat;h+='<tr class="cat"><td class="voce">'+cat+'</td><td colspan="'+(cols.length*3)+'"></td></tr>';}
+      // riga a valore annuale (Customer Care): un solo numero, mostrato sotto "Anno" nella vista
+      // aggregata. Se nel booklet e' vuoto diventa una cella scrivibile, salvata nel browser.
+      if("annuale" in r){
+        h+='<tr><td class="voce">'+r.kpi+'</td>';
+        cols.forEach(function(c){
+          var qui=(vista!=="mesi"&&c.n==="Anno");
+          if(!qui){h+='<td class="muted gsep">&mdash;</td><td class="muted">&mdash;</td><td class="muted">&mdash;</td>';return;}
+          var k=sez.id+"|"+r.cat+"|"+r.kpi;
+          if(r.manuale){
+            var sv=null; try{sv=localStorage.getItem("bk_man:"+k);}catch(e){}
+            h+='<td class="gsep"></td><td class="tnum"><input class="manuale" data-k="'+k.replace(/"/g,"")+'" placeholder="&mdash;" value="'+(sv==null?"":sv)+'"></td><td></td>';
+          } else h+='<td class="gsep"></td><td class="tnum">'+fmt(r.annuale,r.kpi)+'</td><td></td>';
+        });
+        h+='</tr>'; return;
+      }
       h+='<tr><td class="voce">'+r.kpi+'</td>';
       cols.forEach(function(c){
         var b,a;
@@ -148,6 +166,11 @@ function render(){
     html+=h;
   });
   host.innerHTML=html;
+  host.querySelectorAll("input.manuale").forEach(function(inp){
+    inp.addEventListener("change",function(){
+      try{localStorage.setItem("bk_man:"+inp.getAttribute("data-k"),inp.value.trim());}catch(e){}
+    });
+  });
 }
 document.getElementById("vista").addEventListener("click",function(e){
   var b=e.target.closest("button[data-v]"); if(!b)return;
