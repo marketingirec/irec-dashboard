@@ -46,6 +46,18 @@ tr.cat td.voce{background:var(--surface-2)}
 input.manuale{width:96px;text-align:right;font:inherit;font-size:12.5px;font-variant-numeric:tabular-nums;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);border-radius:6px;padding:3px 6px}
 input.manuale:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 input.manuale::placeholder{color:var(--faint)}
+/* dato sovrascritto a mano: riquadro nero (var(--ink) e' nero sul tema chiaro e resta
+   visibile su quello scuro, dove un nero pieno sparirebbe nello sfondo) */
+td.ovr{box-shadow:inset 0 0 0 2px var(--ink);border-radius:4px}
+td.edit{cursor:cell}
+#modale{display:none;position:fixed;inset:0;z-index:100;background:rgba(8,12,20,.55);align-items:center;justify-content:center;padding:20px}
+#modale .box{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);max-width:430px;width:100%;padding:22px}
+#modale h3{margin:0 0 8px;font-size:16px;font-weight:680;letter-spacing:-.01em}
+#modale p{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 14px}
+#modale label{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:18px;cursor:pointer}
+#modale .azioni{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+#modale button{font:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:9px;cursor:pointer;border:1px solid var(--border);background:var(--surface-2);color:var(--ink)}
+#modale button.primario{border:0;background:var(--accent);color:#fff}
 .tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:1px 6px;border-radius:5px;border:1px solid;vertical-align:1px}
 .t-book{color:var(--muted);border-color:var(--border)}
 .t-live{color:var(--accent);border-color:var(--accent)}
@@ -74,6 +86,12 @@ a{color:var(--accent)}
    <div><b>Provenienza.</b> Gen&ndash;Ago: export del Google Sheet <i>KPI - Matrix - 2026 - Booklet - IREC_RF - MKT_SALES</i>. Trimestri, semestri e anno non sono importati (nel foglio non sono ancora calcolati): li ricalcolo dai mesi, sommando conteggi e importi e ricostruendo i rapporti dagli aggregati &mdash; il CPL del trimestre &egrave; spesa del trimestre diviso lead del trimestre, non la media dei tre CPL mensili.</div>
  </footer>
 </div>
+<div id="modale"><div class="box">
+  <h3 id="mTitolo">Modifica manuale</h3>
+  <p id="mTesto"></p>
+  <label id="mMutoWrap"><input type="checkbox" id="mMuto"> Non mostrare pi&ugrave; per 30 minuti</label>
+  <div class="azioni" id="mAzioni"></div>
+</div></div>
 <script>
 (function(){
 "use strict";
@@ -81,6 +99,14 @@ try{document.documentElement.setAttribute("data-theme",localStorage.getItem("bk_
 var MESI=["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
 var ULTIMO_BOOKLET=7; // indice Agosto: fin qui i dati sono statici dal booklet
 var DATI=null, vista="mesi", sezAttiva=null;
+/* Sovrascritture manuali. Chiave: sezione|categoria|kpi|campo|indice. Il valore originale del
+   booklet non viene mai toccato: resta nel JSON e si puo' sempre ripristinare. */
+var OVR={};
+try{OVR=JSON.parse(localStorage.getItem("bk_ovr")||"{}");}catch(e){OVR={};}
+function salvaOvr(){try{localStorage.setItem("bk_ovr",JSON.stringify(OVR));}catch(e){}}
+function chiave(sid,r,campo,i){return sid+"|"+r.cat+"|"+r.kpi+"|"+campo+"|"+i;}
+function valore(sid,r,campo,i){var k=chiave(sid,r,campo,i); return (k in OVR)?OVR[k]:r[campo][i];}
+function mutoAttivo(){try{return Date.now()<(+localStorage.getItem("bk_muto")||0);}catch(e){return false;}}
 
 function isPct(k){return /^%|\(%|% /.test(k)||/^%/.test(k.trim());}
 function isEur(k){return /investimento|venduto|vendite|€|cpl|costo|aov|ticket|cac|incasso/i.test(k)&&!isPct(k);}
@@ -98,19 +124,21 @@ function delta(a,b,k){
   return '<span class="'+(d>=0?"dpos":"dneg")+'">'+(d>0?"+":"")+d.toLocaleString("it-IT",{maximumFractionDigits:1})+"%</span>";
 }
 function somma(arr,from,to){var s=null;for(var i=from;i<=to;i++){if(arr[i]!=null)s=(s||0)+arr[i];}return s;}
+// serie di una riga con le sovrascritture gia' applicate: cosi' anche Q/H/Anno le riflettono
+function serie(sid,r,campo){var o=[];for(var i=0;i<12;i++)o.push(valore(sid,r,campo,i));return o;}
 // Aggregazione. Conteggi e importi: somma. Rapporti (CPL, %, MER, ROAS, AOV, CAC): NON la media dei
 // mesi, che peserebbe uguale mesi con volumi diversi, ma il rapporto fra i numeratori e i
 // denominatori aggregati - il CPL del trimestre e' la spesa del trimestre diviso i lead del
 // trimestre. La coppia numeratore/denominatore di ogni rapporto e' stata dedotta dai dati mensili
 // del booklet (si cerca quale coppia di righe primitive riproduce i valori) e sta nel campo .ratio.
-function agg(righe,idx,campo,from,to){
+function agg(sid,righe,idx,campo,from,to){
   var r=righe[idx];
   if(r.ratio){
-    var nu=somma(righe[r.ratio.n][campo],from,to), de=somma(righe[r.ratio.d][campo],from,to);
+    var nu=somma(serie(sid,righe[r.ratio.n],campo),from,to), de=somma(serie(sid,righe[r.ratio.d],campo),from,to);
     return (nu==null||de==null||de===0)?null:nu/de;
   }
   if(isPct(r.kpi)||/mer|roas|cpl|aov|ticket|cac|costo per/i.test(r.kpi))return null; // rapporto non ricostruibile
-  return somma(r[campo],from,to);
+  return somma(serie(sid,r,campo),from,to);
 }
 var GRUPPI=[{n:"Q1",a:0,b:2},{n:"Q2",a:3,b:5},{n:"Q3",a:6,b:8},{n:"Q4",a:9,b:11},{n:"H1",a:0,b:5},{n:"H2",a:6,b:11},{n:"Anno",a:0,b:11}];
 
@@ -141,19 +169,24 @@ function render(){
         cols.forEach(function(c){
           var qui=(vista!=="mesi"&&c.n==="Anno");
           if(!qui){h+='<td class="muted gsep">&mdash;</td><td class="muted">&mdash;</td><td class="muted">&mdash;</td>';return;}
-          var k=sez.id+"|"+r.cat+"|"+r.kpi;
-          if(r.manuale){
-            var sv=null; try{sv=localStorage.getItem("bk_man:"+k);}catch(e){}
-            h+='<td class="gsep"></td><td class="tnum"><input class="manuale" data-k="'+k.replace(/"/g,"")+'" placeholder="&mdash;" value="'+(sv==null?"":sv)+'"></td><td></td>';
-          } else h+='<td class="gsep"></td><td class="tnum">'+fmt(r.annuale,r.kpi)+'</td><td></td>';
+          var k=sez.id+"|"+r.cat+"|"+r.kpi+"|annuale|0";
+          var v=(k in OVR)?OVR[k]:r.annuale;
+          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r.kpi)+'</td><td></td>';
         });
         h+='</tr>'; return;
       }
       h+='<tr><td class="voce">'+r.kpi+'</td>';
       cols.forEach(function(c){
         var b,a;
-        if(vista==="mesi"){b=r.bud[c.i];a=r.act[c.i];}
-        else{b=agg(sez.righe,ri,"bud",c.a,c.b);a=agg(sez.righe,ri,"act",c.a,c.b);}
+        if(vista==="mesi"){
+          b=valore(sez.id,r,"bud",c.i); a=valore(sez.id,r,"act",c.i);
+          var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
+          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+'" data-k="'+kb+'">'+fmt(b,r.kpi)+'</td>'
+            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+'" data-k="'+ka+'">'+fmt(a,r.kpi)+'</td>'
+            +'<td class="tnum">'+delta(a,b,r.kpi)+'</td>';
+          return;
+        }
+        b=agg(sez.id,sez.righe,ri,"bud",c.a,c.b); a=agg(sez.id,sez.righe,ri,"act",c.a,c.b);
         h+='<td class="tnum bud gsep">'+fmt(b,r.kpi)+'</td><td class="tnum">'+fmt(a,r.kpi)+'</td><td class="tnum">'+delta(a,b,r.kpi)+'</td>';
       });
       h+='</tr>';
@@ -161,17 +194,80 @@ function render(){
     h+='</tbody></table></div><div class="legenda"><span><span class="tag t-book">BOOKLET</span> valore ufficiale importato</span>'
       +'<span><span class="tag t-live">LIVE</span> da Salesforce/Shopify, ancora da agganciare</span>'
       +'<span>&Delta; = Actual vs Budget</span>'
+      +'<span><span style="display:inline-block;width:12px;height:12px;box-shadow:inset 0 0 0 2px var(--ink);border-radius:3px;vertical-align:-2px"></span> modificato a mano &middot; doppio clic su una cella per cambiarla</span>'
       +(vista==="aggr"?'<span>Rapporti aggregati come rapporto fra numeratori e denominatori del periodo, non come media dei mesi. &#8220;&mdash;&#8221; dove la coppia non &egrave; ricostruibile dai dati del foglio.</span>':'')
       +'</div></div>';
     html+=h;
   });
   host.innerHTML=html;
-  host.querySelectorAll("input.manuale").forEach(function(inp){
-    inp.addEventListener("change",function(){
-      try{localStorage.setItem("bk_man:"+inp.getAttribute("data-k"),inp.value.trim());}catch(e){}
-    });
+  host.querySelectorAll("td.edit").forEach(function(td){
+    td.addEventListener("dblclick",function(){apriCella(td);});
   });
 }
+/* ---------- modifica manuale ----------
+   Doppio clic su una cella. Se non e' gia' sovrascritta chiede conferma (con la possibilita' di
+   silenziare l'avviso per 30 minuti); se lo e', offre di rimodificarla o di tornare al valore del
+   booklet. Il valore originale non viene mai perso: sta nel JSON, le sovrascritture stanno a parte. */
+var M=document.getElementById("modale");
+function chiudiModale(){M.style.display="none";}
+function mostraModale(titolo,testo,azioni,conMuto){
+  document.getElementById("mTitolo").textContent=titolo;
+  document.getElementById("mTesto").innerHTML=testo;
+  document.getElementById("mMutoWrap").style.display=conMuto?"flex":"none";
+  document.getElementById("mMuto").checked=false;
+  var box=document.getElementById("mAzioni"); box.innerHTML="";
+  azioni.forEach(function(a){
+    var b=document.createElement("button");
+    b.textContent=a.testo; if(a.primario)b.className="primario";
+    b.addEventListener("click",function(){chiudiModale();a.fn();});
+    box.appendChild(b);
+  });
+  M.style.display="flex";
+}
+function editaCella(td){
+  var k=td.getAttribute("data-k"), attuale=(k in OVR)?OVR[k]:null;
+  var inp=document.createElement("input"); inp.className="manuale"; inp.type="text";
+  inp.value=(attuale==null?"":String(attuale).replace(".",","));
+  inp.placeholder="vuoto = ripristina";
+  td.textContent=""; td.appendChild(inp); inp.focus(); inp.select();
+  var fatto=false;
+  function salva(){
+    if(fatto)return; fatto=true;
+    var t=inp.value.trim().replace(/\./g,"").replace(",",".");
+    if(t===""){delete OVR[k];}
+    else{var v=parseFloat(t); if(isNaN(v)){render();return;} OVR[k]=v;}
+    salvaOvr(); render();
+  }
+  inp.addEventListener("blur",salva);
+  inp.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){e.preventDefault();inp.blur();}
+    else if(e.key==="Escape"){fatto=true;render();}
+  });
+}
+function apriCella(td){
+  var k=td.getAttribute("data-k");
+  if(k in OVR){
+    mostraModale("Dato modificato a mano",
+      "Questa cella non mostra il valore del booklet ma uno che hai inserito tu. Puoi modificarlo di nuovo oppure tornare al valore originale.",
+      [{testo:"Annulla",fn:function(){}},
+       {testo:"Ripristina default",fn:function(){delete OVR[k];salvaOvr();render();}},
+       {testo:"Modifica di nuovo",primario:true,fn:function(){editaCella(td);}}],false);
+    return;
+  }
+  if(mutoAttivo()){editaCella(td);return;}
+  mostraModale("Stai per modificare un dato",
+    "Il valore arriva dal booklet. Se lo cambi resta solo su questo browser, segnato con un riquadro nero, e non tocca il file originale: potrai sempre ripristinarlo.",
+    [{testo:"Annulla",fn:function(){}},
+     {testo:"Continua",primario:true,fn:function(){
+        if(document.getElementById("mMuto").checked){
+          try{localStorage.setItem("bk_muto",String(Date.now()+30*60*1000));}catch(e){}
+        }
+        editaCella(td);
+     }}],true);
+}
+M.addEventListener("click",function(e){if(e.target===M)chiudiModale();});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&M.style.display==="flex")chiudiModale();});
+
 document.getElementById("vista").addEventListener("click",function(e){
   var b=e.target.closest("button[data-v]"); if(!b)return;
   vista=b.getAttribute("data-v");
