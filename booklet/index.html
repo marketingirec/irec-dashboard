@@ -396,6 +396,9 @@ function preparaFormato(){
    Per quelle righe il confronto fra i due non ha senso e lo scostamento resta un trattino. */
 function fmt(v,r,campo){
   if(v==null)return '<span class="muted">&mdash;</span>';
+  // uno zero a consuntivo non aggiunge niente e riempie la tabella di rumore: si legge meglio
+  // un trattino. Il budget invece resta, perche' uno zero a budget e' una scelta.
+  if(campo==="act"&&v===0)return '<span class="muted">&mdash;</span>';
   if(r.budPct&&campo==="bud")return (v*100).toLocaleString("it-IT",{maximumFractionDigits:2})+"%";
   if(r.pct)return (v*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
   // MER e ROAS con due decimali, come nel foglio (formato 0,00%)
@@ -493,6 +496,15 @@ function scriviLive(r,serie){
   if(!serie)return 0;
   var n=0, fine=Math.min(12,ULTIMO_LIVE);
   for(var i=Math.max(PRIMO_LIVE,8);i<fine;i++)if(serie[i]!=null){r.act[i]=serie[i];r.liveOn=true;n++;}
+  return n;
+}
+/* Le righe dei prodotti non esistono nel booklet, quindi su Gennaio-Agosto non c'e' niente da
+   proteggere: si riempiono anche a ritroso. Si scrive pero' solo dove la cella e' vuota, cosi'
+   un valore scritto nel booklet - come i due totali - non viene mai coperto. */
+function scriviRetro(r,serie){
+  if(!serie)return 0;
+  var n=0, fine=Math.min(12,ULTIMO_LIVE);
+  for(var i=0;i<fine;i++)if(serie[i]!=null&&r.act[i]==null){r.act[i]=serie[i];r.liveOn=true;n++;}
   return n;
 }
 function innestaMkt(d){
@@ -646,7 +658,7 @@ function innestaProdotti(d){
       if(!suo)return;
       for(var i=0;i<12;i++)if(s[i]!=null){ser[i]=(ser[i]||0)+s[i];tocco=true;}
     });
-    if(tocco)n+=scriviLive(r,ser);
+    if(tocco)n+=scriviRetro(r,ser);
   });
   return n;
 }
