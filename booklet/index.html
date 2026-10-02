@@ -543,8 +543,11 @@ function innestaSorgenti(perMese){
 var POS_SALES=[[0,0],[1,1],[2,2],[3,5],[4,6],[5,7],[6,3],[8,8],[9,4]];
 function innestaOperatori(perMese){
   var sez=sezione("perf-sales"); if(!sez)return 0;
-  var blocchi=[], cat=null;
-  sez.righe.forEach(function(r,i){if(r.cat!==cat){cat=r.cat;blocchi.push({base:i,op:r.cat});}});
+  // Un blocco venditore comincia sempre dalla riga degli MQL. Non si puo' usare il cambio di
+   // categoria: nella sezione ora c'e' anche il venduto per prodotto, che categoria ce l'ha ma
+   // venditore no, e verrebbe azzerato.
+  var blocchi=[];
+  sez.righe.forEach(function(r,i){ if(r.kpi==="- MQL Appuntamento Fissato")blocchi.push({base:i,op:r.cat}); });
   var n=0;
   blocchi.forEach(function(b){
     var serie={}; POS_SALES.forEach(function(ps){serie[ps[0]]=serieVuota();});
@@ -566,41 +569,57 @@ function innestaOperatori(perMese){
    a pagamento e NO PAID il resto. Restano vuote le voci a cui non corrisponde nessuna sorgente
    (Circuiti/Fiera, Ex clienti, Cross selling con ST e Finera): quelle le puo' mappare solo chi
    sa a quale LeadSource corrispondono. */
-var VEND_CANALE=[
-  {righe:[28,90],  src:/^(leadads facebook|meta ads)$/i},
-  {righe:[29,91],  src:/^google ads$/i},
-  {righe:[30,92],  src:/^outbrainads$/i},
-  {righe:[32,94],  src:/^organico - (chat|email|meta)$/i},
-  {righe:[33,95],  src:/^webinar$/i},
-  {righe:[34,96],  src:/^organico - sito web$/i},
-  {righe:[36,98],  src:/^autoproduzione$/i},
-  {righe:[37,99],  src:/^(passaparola|segnalazioni)$/i},
-  {righe:[38,100], src:/^cliente esistente$/i},
-  {righe:[40],     src:/^evento fisico$/i},
-  {righe:[105],    src:/^allcore$/i}
-];
-var VEND_PAID=/^(leadads facebook|meta ads|google ads|outbrainads)$/i;
+var SRC_CANALE={
+  meta:           /^(leadads facebook|meta ads|facebook ads)$/i,
+  google:         /^google ads$/i,
+  altripaid:      /^outbrainads$/i,
+  "org-sito":     /^(organico - sito web|sito)$/i,
+  "org-chat":     /^organico - chat$/i,
+  "org-email":    /^organico - email$/i,
+  webinar:        /^webinar$/i,
+  circuiti:       /^(circuiti\b.*|fiera)$/i,
+  autoproduzione: /^autoproduzione$/i,
+  passaparola:    /^(passaparola|segnalazioni)$/i,
+  cliente:        /^cliente esistente$/i,
+  evento:         /^evento fisico$/i,
+  st:             /^st clie/i,
+  finera:         /^finera$/i,
+  allcore:        /^allcore$/i
+};
+// canali elementari: tutto cio' che non ricade in uno di questi finisce in "altri non classificati"
+var CAN_FOGLIE=["meta","google","altripaid","org-sito","org-chat","org-email","webinar","circuiti",
+                "autoproduzione","passaparola","cliente","evento","st","finera","allcore"];
+var CAN_PAID=["meta","google","altripaid"];
+var CAN_ORGANICO=["org-sito","org-chat","org-email"];
+var CAN_CROSS=["st","finera","allcore"];
+function unoDi(elenco,src){return elenco.some(function(k){return SRC_CANALE[k].test(src);});}
+function appartiene(can,src){
+  if(can==="tot")return true;
+  if(can==="paid")return unoDi(CAN_PAID,src);
+  if(can==="nopaid")return !unoDi(CAN_PAID,src);
+  if(can==="organico")return unoDi(CAN_ORGANICO,src);
+  if(can==="cross")return unoDi(CAN_CROSS,src);
+  if(can==="altri")return !unoDi(CAN_FOGLIE,src);
+  return SRC_CANALE[can]?SRC_CANALE[can].test(src):false;
+}
+/* Venduto per canale (Full Funnel IREC). Ogni riga porta in .can il proprio canale, quindi la
+   mappatura non dipende piu' dalla posizione della riga: inserirne una non rompe piu' niente.
+   L'importo per sorgente e' la colonna 8 del funnel per sorgente. */
 function innestaVenduto(perMese){
   var sez=sezione("ff-irec"); if(!sez)return 0;
-  var serie={}, tot=serieVuota(), paid=serieVuota(), nopaid=serieVuota();
-  VEND_CANALE.forEach(function(c){c.righe.forEach(function(ri){serie[ri]=serieVuota();});});
-  Object.keys(perMese).forEach(function(m){
-    var i=(+m)-1; if(i<Math.max(PRIMO_LIVE,8))return;
-    var righe=perMese[m]||[]; if(!righe.length)return;
-    var t=0,p=0;
-    righe.forEach(function(r){var a=(r.v&&r.v[8])||0; t+=a; if(VEND_PAID.test(r.src||""))p+=a;});
-    tot[i]=t; paid[i]=p; nopaid[i]=t-p;
-    VEND_CANALE.forEach(function(c){
+  var n=0;
+  sez.righe.forEach(function(r){
+    if(!r.can)return;
+    var ser=serieVuota(), tocco=false;
+    Object.keys(perMese).forEach(function(m){
+      var i=(+m)-1; if(i<Math.max(PRIMO_LIVE,8))return;
+      var righe=perMese[m]||[]; if(!righe.length)return;
       var somma=0;
-      righe.forEach(function(r){if(c.src.test(r.src||""))somma+=(r.v&&r.v[8])||0;});
-      c.righe.forEach(function(ri){serie[ri][i]=somma;});
+      righe.forEach(function(x){ if(appartiene(r.can,x.src||""))somma+=(x.v&&x.v[8])||0; });
+      ser[i]=somma; tocco=true;
     });
+    if(tocco)n+=scriviLive(r,ser);
   });
-  var n=0, scrivi=function(ri,ser){var r=sez.righe[ri]; if(r)n+=scriviLive(r,ser);};
-  Object.keys(serie).forEach(function(ri){scrivi(+ri,serie[ri]);});
-  [27,89].forEach(function(ri){scrivi(ri,paid);});
-  [31,93].forEach(function(ri){scrivi(ri,nopaid);});
-  scrivi(88,tot);     // "Venduto tot" del secondo blocco
   return n;
 }
 /* Venduto per prodotto. I nomi sono quelli dei prodotti in Salesforce, presi dalle righe
@@ -608,11 +627,16 @@ function innestaVenduto(perMese){
    clienti netti nuovi. Ogni riga porta in .prod il secchio e il prodotto; "altri prodotti"
    raccoglie quelli che non hanno una riga, cosi' il totale resta la somma dei suoi di cui. */
 function innestaProdotti(d){
-  var sez=sezione("ff-irec"); if(!sez||!d.prodotti)return 0;
+  if(!d.prodotti)return 0;
+  // le righe del venduto per prodotto stanno in Performance Sales: si cercano per campo, non
+  // per sezione, cosi' spostarle di nuovo non richiede di toccare il codice
+  var righe=[];
+  (DATI.sezioni||[]).forEach(function(s){ s.righe.forEach(function(r){ if(r.prod)righe.push(r); }); });
+  if(!righe.length)return 0;
   var noti={nuovi:{},upsell:{}};
-  sez.righe.forEach(function(r){ if(r.prod&&r.prod.nome&&noti[r.prod.bucket])noti[r.prod.bucket][r.prod.nome]=1; });
+  righe.forEach(function(r){ if(r.prod.nome&&noti[r.prod.bucket])noti[r.prod.bucket][r.prod.nome]=1; });
   var n=0;
-  sez.righe.forEach(function(r){
+  righe.forEach(function(r){
     if(!r.prod)return;
     var b=r.prod.bucket, ser=serieVuota(), tocco=false;
     Object.keys(d.prodotti).forEach(function(nome){
