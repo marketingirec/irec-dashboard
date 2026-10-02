@@ -140,6 +140,9 @@ BUD_REFORECAST["N Lead - NON In Target da Policy"]=BUD_REFORECAST["N Lead totali
   var t=BUD_REFORECAST["N Lead In Target da Policy"][i]; return (v==null||t==null)?null:v-t;});
 BUD_REFORECAST["TOT clienti"]=BUD_REFORECAST["- di cui vinta"].slice();
 BUD_REFORECAST["Numero di contratti/clienti"]=BUD_REFORECAST["- di cui vinta"].slice();
+// Vinti FE e NO FE: stesso foglio del reforecast, colonne "Vinti FE" e "Vinti NO FE".
+BUD_REFORECAST["> di cui FE (pagamento servizio)"]=[null,null,null,null,null,null,21,11,21,23,22,14];
+BUD_REFORECAST["> di cui NO FE (0 costi)"]       =[null,null,null,null,null,null,8,7,8,16,15,9];
 /* Budget da Reforecast per Marketing IREC. Sono gli stessi numeri del Full Funnel (il foglio
    ripete gli stessi KPI) piu' lo split della spesa ADV per canale, come nella dashboard.
    Mappatura per INDICE: "Numero totale LEAD prodotti" compare cinque volte, una per canale.
@@ -158,7 +161,32 @@ var BUD_MKT={
   13:BUD_REFORECAST["N Lead - In target Criteri Sec TMK"],
   15:BUD_REFORECAST["N Lead - TMK lavorabili"],
   17:BUD_REFORECAST["N MQL - appuntamento fissato"],
-  19:diffSerie(BUD_REFORECAST["N Lead totali"],BUD_REFORECAST["N Lead In Target da Policy"])
+  19:diffSerie(BUD_REFORECAST["N Lead totali"],BUD_REFORECAST["N Lead In Target da Policy"]),
+  /* Blocchi per canale, dal foglio "IREC - ReForecast Monthly - NOR" del file ReForecast 2026:
+     META - Paid (85% dei lead), Google - Paid (9%), NO PAID (6%). "Altri canali Paid" non ha un
+     blocco nel reforecast e resta vuoto, coerente con il booklet che da Luglio lo lascia a zero.
+     Dentro ogni blocco: totale lead, in target da policy, in target da TMK, contatti a buon fine
+     e MQL; i fuori target sono il complemento di quelli in target. Verificato su Luglio e Agosto,
+     dove il booklet ha gia' il budget: 30 confronti su 30 coincidono (Meta 529/330, Google 56/35,
+     No paid 37/23). I valori sono arrotondati come fa il booklet, che conta persone. */
+  21:[null,null,null,null,null,null,529,330,530,699,660,419],
+  22:[null,null,null,null,null,null,353,220,353,466,440,279],
+  24:[null,null,null,null,null,null,259,162,260,343,323,205],
+  26:[null,null,null,null,null,null,125,78,125,165,156,99],
+  28:[null,null,null,null,null,null,93,58,93,122,115,73],
+  30:[null,null,null,null,null,null,176,110,177,233,220,140],
+  32:[null,null,null,null,null,null,56,35,56,74,70,44],
+  33:[null,null,null,null,null,null,37,23,37,49,47,30],
+  35:[null,null,null,null,null,null,27,17,28,36,34,22],
+  37:[null,null,null,null,null,null,13,8,13,17,16,10],
+  39:[null,null,null,null,null,null,10,6,10,13,12,8],
+  41:[null,null,null,null,null,null,19,12,19,25,23,15],
+  54:[null,null,null,null,null,null,37,23,37,49,47,30],
+  55:[null,null,null,null,null,null,25,16,25,33,31,20],
+  57:[null,null,null,null,null,null,18,11,18,24,23,14],
+  59:[null,null,null,null,null,null,9,5,9,12,11,7],
+  61:[null,null,null,null,null,null,7,4,7,9,8,5],
+  63:[null,null,null,null,null,null,12,8,12,16,16,10]
 };
 /* Budget da Reforecast per la sezione RF (Full Funnel RF). Stesse cifre che la dashboard usa
    nelle schede RF, qui mappate per INDICE di riga come il campo .live. La mappatura e' stata
@@ -232,8 +260,10 @@ function serieRF(d){
     spontaneo:comb(function(i){return (on[i]==null)?null:(on[i]-(ge[i]||0));}),
     ordOnline:comb(function(i){return nz(oOn[i]);}),
     ordPartner:comb(function(i){return nz(oPar[i]);}),
-    ordOffPart:comb(function(i){return (oOff[i]==null&&oPar[i]==null)?null:((oOff[i]||0)+(oPar[i]||0));}),
-    ordTot:  comb(function(i){return (oOn[i]==null&&oOff[i]==null&&oPar[i]==null)?null:((oOn[i]||0)+(oOff[i]||0)+(oPar[i]||0));}),
+    // Gli ordini offline non comprendono i partner, che si contano a parte nella loro riga:
+    // il totale ordini e' quindi online + offline, partner esclusi.
+    ordOffline:comb(function(i){return nz(oOff[i]);}),
+    ordTot:  comb(function(i){return (oOn[i]==null&&oOff[i]==null)?null:((oOn[i]||0)+(oOff[i]||0));}),
     fatOnOff:comb(function(i){return (on[i]==null&&off[i]==null)?null:((on[i]||0)+(off[i]||0));}),
     fatTot:  comb(function(i){return (on[i]==null&&off[i]==null&&par[i]==null)?null:((on[i]||0)+(off[i]||0)+(par[i]||0));}),
     vendutoOperatori:comb(function(i){return (ge[i]==null&&off[i]==null&&par[i]==null)?null:((ge[i]||0)+(off[i]||0)+(par[i]||0));})
@@ -357,7 +387,8 @@ function fmt(v,r,campo){
   if(v==null)return '<span class="muted">&mdash;</span>';
   if(r.budPct&&campo==="bud")return (v*100).toLocaleString("it-IT",{maximumFractionDigits:2})+"%";
   if(r.pct)return (v*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
-  if(haParola(r.kpi,"mer|roas"))return (v*100).toLocaleString("it-IT",{maximumFractionDigits:0})+"%";
+  // MER e ROAS con due decimali, come nel foglio (formato 0,00%)
+  if(haParola(r.kpi,"mer|roas"))return (v*100).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+"%";
   if(r.eur)return "&euro; "+v.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
   return v.toLocaleString("it-IT",{maximumFractionDigits:2});
 }
@@ -368,7 +399,8 @@ function delta(a,b,r){
   if(a==null||b==null||r.budPct)return '<span class="muted">&mdash;</span>';
   var dif=a-b, cl=(dif>=0?"dpos":"dneg"), seg=(dif>0?"+":"");
   var ass;
-  if(r.pct||haParola(r.kpi,"mer|roas"))ass=seg+(dif*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"pp";
+  if(haParola(r.kpi,"mer|roas"))ass=seg+(dif*100).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+"pp";
+  else if(r.pct)ass=seg+(dif*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"pp";
   else if(r.eur)ass=seg+"&euro;\u00A0"+dif.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
   else ass=seg+dif.toLocaleString("it-IT",{maximumFractionDigits:2});
   var rel=(b===0)?"&mdash;"
