@@ -228,6 +228,9 @@ var BUD_RF={
 var LIVE_FF_IREC={
   "N Lead totali":                     function(d){return d.real[0];},
   "N Lead In Target da Policy":        function(d){return d.real[1];},
+  // i fuori target non sono una voce a se' in Salesforce: sono i lead totali meno quelli in
+  // target. La percentuale sul totale segue da sola, essendo gia' definita come rapporto.
+  "N Lead - NON In Target da Policy":  function(d){return sottrai(d.real[0],d.real[1]);},
   "N Lead - In target Criteri Sec TMK":function(d){return d.real[2];},
   "N Lead - TMK lavorabili":           function(d){return d.real[3];},
   "N MQL - appuntamento fissato":      function(d){return d.real[4];},
