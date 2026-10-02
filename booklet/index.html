@@ -579,7 +579,8 @@ var SRC_CANALE={
   webinar:        /^webinar$/i,
   circuiti:       /^(circuiti\b.*|fiera)$/i,
   autoproduzione: /^autoproduzione$/i,
-  passaparola:    /^(passaparola|segnalazioni)$/i,
+  passaparola:    /^passaparola$/i,
+  segnalazioni:   /^segnalazioni$/i,
   cliente:        /^cliente esistente$/i,
   evento:         /^evento fisico$/i,
   st:             /^st clie/i,
@@ -588,7 +589,7 @@ var SRC_CANALE={
 };
 // canali elementari: tutto cio' che non ricade in uno di questi finisce in "altri non classificati"
 var CAN_FOGLIE=["meta","google","altripaid","org-sito","org-chat","org-email","webinar","circuiti",
-                "autoproduzione","passaparola","cliente","evento","st","finera","allcore"];
+                "autoproduzione","passaparola","segnalazioni","cliente","evento","st","finera","allcore"];
 var CAN_PAID=["meta","google","altripaid"];
 var CAN_ORGANICO=["org-sito","org-chat","org-email"];
 var CAN_CROSS=["st","finera","allcore"];
