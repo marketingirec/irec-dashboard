@@ -567,17 +567,17 @@ function innestaOperatori(perMese){
    (Circuiti/Fiera, Ex clienti, Cross selling con ST e Finera): quelle le puo' mappare solo chi
    sa a quale LeadSource corrispondono. */
 var VEND_CANALE=[
-  {righe:[28,62], src:/^(leadads facebook|meta ads)$/i},
-  {righe:[29,63], src:/^google ads$/i},
-  {righe:[30,64], src:/^outbrainads$/i},
-  {righe:[32,66], src:/^organico - (chat|email|meta)$/i},
-  {righe:[33,67], src:/^webinar$/i},
-  {righe:[34,68], src:/^organico - sito web$/i},
-  {righe:[36,70], src:/^autoproduzione$/i},
-  {righe:[37,71], src:/^(passaparola|segnalazioni)$/i},
-  {righe:[38,72], src:/^cliente esistente$/i},
-  {righe:[40],    src:/^evento fisico$/i},
-  {righe:[77],    src:/^allcore$/i}
+  {righe:[28,90],  src:/^(leadads facebook|meta ads)$/i},
+  {righe:[29,91],  src:/^google ads$/i},
+  {righe:[30,92],  src:/^outbrainads$/i},
+  {righe:[32,94],  src:/^organico - (chat|email|meta)$/i},
+  {righe:[33,95],  src:/^webinar$/i},
+  {righe:[34,96],  src:/^organico - sito web$/i},
+  {righe:[36,98],  src:/^autoproduzione$/i},
+  {righe:[37,99],  src:/^(passaparola|segnalazioni)$/i},
+  {righe:[38,100], src:/^cliente esistente$/i},
+  {righe:[40],     src:/^evento fisico$/i},
+  {righe:[105],    src:/^allcore$/i}
 ];
 var VEND_PAID=/^(leadads facebook|meta ads|google ads|outbrainads)$/i;
 function innestaVenduto(perMese){
@@ -598,9 +598,31 @@ function innestaVenduto(perMese){
   });
   var n=0, scrivi=function(ri,ser){var r=sez.righe[ri]; if(r)n+=scriviLive(r,ser);};
   Object.keys(serie).forEach(function(ri){scrivi(+ri,serie[ri]);});
-  [27,61].forEach(function(ri){scrivi(ri,paid);});
-  [31,65].forEach(function(ri){scrivi(ri,nopaid);});
-  scrivi(60,tot);     // "Venduto tot" del secondo blocco
+  [27,89].forEach(function(ri){scrivi(ri,paid);});
+  [31,93].forEach(function(ri){scrivi(ri,nopaid);});
+  scrivi(88,tot);     // "Venduto tot" del secondo blocco
+  return n;
+}
+/* Venduto per prodotto. I nomi sono quelli dei prodotti in Salesforce, presi dalle righe
+   d'ordine; /api/dashboard li divide gia' fra acquisizione e upsell con la stessa regola dei
+   clienti netti nuovi. Ogni riga porta in .prod il secchio e il prodotto; "altri prodotti"
+   raccoglie quelli che non hanno una riga, cosi' il totale resta la somma dei suoi di cui. */
+function innestaProdotti(d){
+  var sez=sezione("ff-irec"); if(!sez||!d.prodotti)return 0;
+  var noti={nuovi:{},upsell:{}};
+  sez.righe.forEach(function(r){ if(r.prod&&r.prod.nome&&noti[r.prod.bucket])noti[r.prod.bucket][r.prod.nome]=1; });
+  var n=0;
+  sez.righe.forEach(function(r){
+    if(!r.prod)return;
+    var b=r.prod.bucket, ser=serieVuota(), tocco=false;
+    Object.keys(d.prodotti).forEach(function(nome){
+      var s=(d.prodotti[nome]||{})[b]; if(!s)return;
+      var suo = r.prod.nome ? (nome===r.prod.nome) : (r.prod.altri ? !noti[b][nome] : true);
+      if(!suo)return;
+      for(var i=0;i<12;i++)if(s[i]!=null){ser[i]=(ser[i]||0)+s[i];tocco=true;}
+    });
+    if(tocco)n+=scriviLive(r,ser);
+  });
   return n;
 }
 function innestaYoY(d,Srf){
@@ -864,7 +886,7 @@ Promise.all([
     if(!r.ok)throw new Error("HTTP "+r.status); return r.json();
   }).then(function(d){
     if(!d||d.error)throw new Error((d&&d.error)||"risposta non valida");
-    innestaLive(d); innestaMkt(d); innestaYoY(d,null); LIVE_OK=true; render();
+    innestaLive(d); innestaMkt(d); innestaProdotti(d); innestaYoY(d,null); LIVE_OK=true; render();
     caricaPerMese(d);   // Marketing per canale e Performance Sales: una chiamata per mese
   }).catch(function(e){ LIVE_ERR="dati live non disponibili ("+(e&&e.message||e)+")"; render(); })
   .then(function(){

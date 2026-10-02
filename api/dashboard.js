@@ -103,8 +103,8 @@ async function wonSplit(ctx, curM){
   const nuovi=new Array(12).fill(null), upsell=new Array(12).fill(null), wonbrk={};
   for(let m=1;m<=curM;m++){ nuovi[m-1]=0; upsell[m-1]=0; }
   // tutte le opportunity vinte dell'anno (poche centinaia): mese, cliente, sorgente, operatore
-  const det = await soql(ctx, `SELECT AccountId, LeadSource, Owner.Name, CloseDate FROM Opportunity WHERE ${VW[7].w}${VW[7].extra} ORDER BY CloseDate`);
-  if(!det.length) return { nuovi, upsell, wonbrk };
+  const det = await soql(ctx, `SELECT Id, AccountId, LeadSource, Owner.Name, CloseDate FROM Opportunity WHERE ${VW[7].w}${VW[7].extra} ORDER BY CloseDate`);
+  if(!det.length) return { nuovi, upsell, wonbrk, prodotti:{} };
   // primo chiuso-vinto IN ASSOLUTO di ciascun cliente (anche di anni precedenti):
   // se cade nel mese in esame, quel cliente e' un cliente netto nuovo. Una query ogni 200 account.
   const ids=[...new Set(det.map(r=>r.AccountId).filter(Boolean))], firstWon={};
@@ -113,6 +113,25 @@ async function wonSplit(ctx, curM){
     const recs=await soql(ctx, `SELECT AccountId a, MIN(CloseDate) f FROM Opportunity WHERE ${WONBASE} AND AccountId IN (${chunk}) GROUP BY AccountId`);
     recs.forEach(r=>{ if(r.a) firstWon[r.a]=String(r.f||'').slice(0,10); });
   }
+  /* Venduto per prodotto: il nome del prodotto sta nelle righe d'ordine dell'opportunity, non
+     sull'opportunity. Una query ogni 200. Il totale per prodotto si divide poi fra acquisizione
+     e upsell con la stessa regola dei clienti netti nuovi usata qui sotto. */
+  const perOpp={};
+  const opIds=det.map(r=>r.Id).filter(Boolean);
+  for(let i=0;i<opIds.length;i+=200){
+    const chunk=opIds.slice(i,i+200).map(x=>`'${x}'`).join(',');
+    const recs=await soql(ctx, `SELECT OpportunityId o, Product2.Name p, SUM(TotalPrice) t FROM OpportunityLineItem WHERE OpportunityId IN (${chunk}) GROUP BY OpportunityId, Product2.Name`);
+    recs.forEach(r=>{ if(!perOpp[r.o]) perOpp[r.o]=[]; perOpp[r.o].push({ p:r.p||'(senza prodotto)', t:r.t==null?0:+r.t }); });
+  }
+  const prodotti={};
+  const segnaProdotti=(oppId, mi, isNew)=>{
+    (perOpp[oppId]||[]).forEach(({p,t})=>{
+      if(!prodotti[p]) prodotti[p]={ nuovi:new Array(12).fill(null), upsell:new Array(12).fill(null) };
+      const serie=prodotti[p][isNew?'nuovi':'upsell'];
+      serie[mi-1]=(serie[mi-1]||0)+t;
+    });
+  };
+
   const seen={};
   det.forEach(r=>{
     const d=String(r.CloseDate||'').slice(0,10), mi=+d.slice(5,7);
@@ -126,8 +145,9 @@ async function wonSplit(ctx, curM){
     const isNew = !!acc && firstWon[acc] && firstWon[acc].slice(0,7)===d.slice(0,7) && !seen[acc];
     if(isNew){ seen[acc]=1; nuovi[mi-1]=(nuovi[mi-1]||0)+1; B.src[src].nuovi++; B.op[op].nuovi++; }
     else { upsell[mi-1]=(upsell[mi-1]||0)+1; B.src[src].ups++; B.op[op].ups++; }
+    segnaProdotti(r.Id, mi, isNew);
   });
-  return { nuovi, upsell, wonbrk };
+  return { nuovi, upsell, wonbrk, prodotti };
 }
 
 export default async function handler(req, res){
@@ -255,6 +275,7 @@ export default async function handler(req, res){
       snapshot: today, curMonth: curM, year: YEAR, day0, dayN: n,
       real, fatturato, contratti, reopen,
       nuovi: split && split.nuovi, upsell: split && split.upsell, wonbrk: split && split.wonbrk,
+      prodotti: split && split.prodotti,
       daily: { tot:dtot, mql:dmql, won:dwon, fat:dfat },
       sources: { month: curM, rows: buildSrc(recsByVoce) },
       contatt: { nuovi: cNuo, aw: cAw, irD, irN },
