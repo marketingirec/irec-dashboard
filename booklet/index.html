@@ -716,6 +716,17 @@ function salvaChiusi(){try{localStorage.setItem("bk_chiusi",JSON.stringify(CHIUS
 function chiavePer(n){return vista+"|"+n;}          // mesi e trimestri si chiudono separatamente
 function perChiuso(c){return !!CHIUSI.per[chiavePer(c.n)];}
 function nColonne(cols){var n=0;cols.forEach(function(c){n+=perChiuso(c)?1:3;});return n;}
+/* Da dove arriva il consuntivo di una sezione: la dashboard, RF, oppure nessuna delle due
+   perche' il dato e' manuale. Sta nel file dati, cosi' agganciando una sezione nuova non
+   bisogna ricordarsi di aggiornare anche l'intestazione. */
+function statoFonte(sez){
+  var f=sez.fonte||"manuale";
+  if(f==="manuale")return 'dati manuali, nessuna fonte da agganciare';
+  var ok=(f==="rf")?LIVE_RF:LIVE_OK;
+  var et='Set&ndash;Dic <span class="tag t-live">LIVE</span>';
+  if(ok)return et;
+  return et+' <span style="color:var(--warn)">&#9888; '+(LIVE_ERR||"live in caricamento")+'</span>';
+}
 function render(){
   var host=document.getElementById("contenuto");
   if(!DATI){host.innerHTML='<p class="hint">Dati non disponibili.</p>';return;}
@@ -733,10 +744,7 @@ function render(){
   DATI.sezioni.filter(function(s){return s.id===sezAttiva;}).forEach(function(sez){
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
-      +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; Set&ndash;Dic <span class="tag t-live">LIVE</span>'
-      +((sez.id==="ff-irec"&&LIVE_OK)||(sez.id==="ff-rf"&&LIVE_RF)?""
-        :(sez.id==="ff-irec"||sez.id==="ff-rf")?' <span style="color:var(--warn)">&#9888; '+(LIVE_ERR||"live in caricamento")+'</span>'
-        :' <span class="muted">(live non ancora agganciato)</span>')+'</span></div>'
+      +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; '+statoFonte(sez)+'</span></div>'
       +'<div class="scroll"><table><thead><tr><th class="voce" rowspan="2">KPI</th>';
     cols.forEach(function(c){
       if(perChiuso(c)){h+='<th class="gsep chiusa perh" rowspan="2" data-per="'+chiavePer(c.n)+'" title="Apri '+c.n+'"><span>'+c.n+' &#9656;</span></th>';return;}
