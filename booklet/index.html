@@ -337,17 +337,25 @@ function chiave(sid,r,campo,i){return sid+"|"+r.cat+"|"+r.kpi+"|"+campo+"|"+i;}
 /* Valore di una cella. Precedenza: modifica manuale, poi il dato che c'e' (per Gen-Ago e' SEMPRE
    quello scritto nel booklet, che non va ricalcolato), e solo se manca - cioe' da Settembre, dove
    il live riempie le righe primitive - si ricava il rapporto da numeratore e denominatore. */
+/* Un lato del rapporto puo' essere una riga sola o la somma di piu' righe: il CPL medio ADV
+   e' la spesa globale divisa per i lead di tutti i canali a pagamento messi insieme. */
+function lato(sid,righe,idx,altro,campo,i){
+  var elenco=Array.isArray(idx)?idx:[idx], tot=null;
+  for(var k=0;k<elenco.length;k++){
+    var A=rif(sid,righe,elenco[k],altro); if(!A)continue;
+    var v=valore(A.sid,A.r,campo,i,A.righe);
+    if(v!=null)tot=(tot||0)+v;
+  }
+  return tot;
+}
 function valore(sid,r,campo,i,righe){
   var k=chiave(sid,r,campo,i);
   if(k in OVR)return OVR[k];
   var v=r[campo][i];
   if(v!=null)return v;
   if(r.ratio&&righe){
-    var A=rif(sid,righe,r.ratio.n,r.ratio.ns), B=rif(sid,righe,r.ratio.d,r.ratio.ds);
-    if(A&&B){
-      var nu=valore(A.sid,A.r,campo,i,A.righe), de=valore(B.sid,B.r,campo,i,B.righe);
-      if(nu!=null&&de!=null&&de!==0)return nu/de;
-    }
+    var nu=lato(sid,righe,r.ratio.n,r.ratio.ns,campo,i), de=lato(sid,righe,r.ratio.d,r.ratio.ds,campo,i);
+    if(nu!=null&&de!=null&&de!==0)return nu/de;
   }
   if(r.media&&righe){
     var vs=[];
@@ -418,9 +426,16 @@ function serie(sid,r,campo,righe){var o=[];for(var i=0;i<12;i++)o.push(valore(si
 function agg(sid,righe,idx,campo,from,to){
   var r=righe[idx];
   if(r.ratio){
-    var A=rif(sid,righe,r.ratio.n,r.ratio.ns), B=rif(sid,righe,r.ratio.d,r.ratio.ds);
-    if(!A||!B)return null;
-    var nu=somma(serie(A.sid,A.r,campo,A.righe),from,to), de=somma(serie(B.sid,B.r,campo,B.righe),from,to);
+    var latoAgg=function(idx,altro){
+      var elenco=Array.isArray(idx)?idx:[idx], tot=null;
+      elenco.forEach(function(j){
+        var A=rif(sid,righe,j,altro); if(!A)return;
+        var v=somma(serie(A.sid,A.r,campo,A.righe),from,to);
+        if(v!=null)tot=(tot||0)+v;
+      });
+      return tot;
+    };
+    var nu=latoAgg(r.ratio.n,r.ratio.ns), de=latoAgg(r.ratio.d,r.ratio.ds);
     return (nu==null||de==null||de===0)?null:nu/de;
   }
   // Media fra rapporti (es. il CPL medio del booklet e' la media fra CPL Meta e CPL Google):
@@ -684,7 +699,10 @@ function render(){
     var cat="", catChiusa=false;
     sez.righe.forEach(function(r,ri){
       if(r.cat!==cat){
-        cat=r.cat; var kc=sez.id+"|"+cat; catChiusa=!!CHIUSI.cat[kc];
+        cat=r.cat; var kc=sez.id+"|"+cat;
+        // una categoria puo' nascere chiusa (nessun investimento in corso): la scelta di chi
+        // guarda, quando c'e', ha comunque la precedenza
+        catChiusa=(kc in CHIUSI.cat)?(CHIUSI.cat[kc]===1):((sez.catChiuse||[]).indexOf(cat)>=0);
         h+='<tr class="cat" data-cat="'+kc+'"><td class="voce"><span class="marc">'+(catChiusa?"&#9656;":"&#9662;")
           +'</span>'+cat+'</td><td colspan="'+nColonne(cols)+'"></td></tr>';
       }
@@ -822,7 +840,8 @@ document.getElementById("contenuto").addEventListener("click",function(e){
     salvaChiusi(); render(); return;}
   var tr=e.target.closest("tr.cat");
   if(tr){var kc=tr.getAttribute("data-cat");
-    if(CHIUSI.cat[kc])delete CHIUSI.cat[kc]; else CHIUSI.cat[kc]=1;
+    var eraChiusa=(tr.querySelector(".marc")||{}).textContent==="\u25B8";
+    CHIUSI.cat[kc]=eraChiusa?0:1;
     salvaChiusi(); render(); return;}
 });
 Promise.all([
