@@ -132,6 +132,34 @@ var BUD_REFORECAST={
   "Investimento ads":                  [null,null,null,null,null,null,16190,10100,16220,21395,20195,12820],
   "Venduto tot (Nuovi + Reopen)":      [null,null,null,null,null,null,21000,11000,21000,23000,22000,14000]
 };
+/* Tre righe che nel booklet hanno un budget fino ad Agosto e che il Reforecast copre gia',
+   solo sotto un altro nome: i lead fuori target sono il complemento di quelli in target, e
+   "TOT clienti" e "Numero di contratti/clienti" seguono le vinte. Verificato su Luglio e
+   Agosto: 208/129 e 29/18, identici a quelli del booklet. */
+BUD_REFORECAST["N Lead - NON In Target da Policy"]=BUD_REFORECAST["N Lead totali"].map(function(v,i){
+  var t=BUD_REFORECAST["N Lead In Target da Policy"][i]; return (v==null||t==null)?null:v-t;});
+BUD_REFORECAST["TOT clienti"]=BUD_REFORECAST["- di cui vinta"].slice();
+BUD_REFORECAST["Numero di contratti/clienti"]=BUD_REFORECAST["- di cui vinta"].slice();
+/* Budget da Reforecast per Marketing IREC. Sono gli stessi numeri del Full Funnel (il foglio
+   ripete gli stessi KPI) piu' lo split della spesa ADV per canale, come nella dashboard.
+   Mappatura per INDICE: "Numero totale LEAD prodotti" compare cinque volte, una per canale.
+   Verificata su Luglio e Agosto, dove il booklet ha gia' il budget: coincide su tutte le righe. */
+var SPESA_BUD_META  =[null,null,null,null,null,null,14250,9000,14250,18840.09,17640,11520];
+var SPESA_BUD_GOOGLE=[null,null,null,null,null,null,1940,1100,1970,2555,2555,1300];
+function diffSerie(a,b){var o=[];for(var i=0;i<12;i++)o.push((a&&a[i]!=null&&b&&b[i]!=null)?a[i]-b[i]:null);return o;}
+function zeroDove(a){var o=[];for(var i=0;i<12;i++)o.push(a&&a[i]!=null?0:null);return o;}
+var BUD_MKT={
+   0:BUD_REFORECAST["Investimento ads"],
+   1:SPESA_BUD_META,
+   2:SPESA_BUD_GOOGLE,
+   3:zeroDove(SPESA_BUD_META),                       // Meta + Google esauriscono il budget ADV
+  10:BUD_REFORECAST["N Lead totali"],
+  11:BUD_REFORECAST["N Lead In Target da Policy"],
+  13:BUD_REFORECAST["N Lead - In target Criteri Sec TMK"],
+  15:BUD_REFORECAST["N Lead - TMK lavorabili"],
+  17:BUD_REFORECAST["N MQL - appuntamento fissato"],
+  19:diffSerie(BUD_REFORECAST["N Lead totali"],BUD_REFORECAST["N Lead In Target da Policy"])
+};
 /* Budget da Reforecast per la sezione RF (Full Funnel RF). Stesse cifre che la dashboard usa
    nelle schede RF, qui mappate per INDICE di riga come il campo .live. La mappatura e' stata
    verificata sui mesi di luglio e agosto, dove il booklet ha gia' il budget: 24 righe su 26
@@ -322,8 +350,12 @@ function preparaFormato(){
     });
   });
 }
-function fmt(v,r){
+/* Una riga puo' avere budget e consuntivo in unita' diverse: nel blocco "Venduto totale per
+   canale" il foglio esprime il budget come quota di mix in percentuale e il consuntivo in euro.
+   Per quelle righe il confronto fra i due non ha senso e lo scostamento resta un trattino. */
+function fmt(v,r,campo){
   if(v==null)return '<span class="muted">&mdash;</span>';
+  if(r.budPct&&campo==="bud")return (v*100).toLocaleString("it-IT",{maximumFractionDigits:2})+"%";
   if(r.pct)return (v*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
   if(haParola(r.kpi,"mer|roas"))return (v*100).toLocaleString("it-IT",{maximumFractionDigits:0})+"%";
   if(r.eur)return "&euro; "+v.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -333,7 +365,7 @@ function fmt(v,r){
    "Scostamento" sia "% Scostamento": sopra la differenza nell'unita' della riga (euro, pezzi,
    punti percentuali), sotto la stessa differenza in percentuale sul budget. */
 function delta(a,b,r){
-  if(a==null||b==null)return '<span class="muted">&mdash;</span>';
+  if(a==null||b==null||r.budPct)return '<span class="muted">&mdash;</span>';
   var dif=a-b, cl=(dif>=0?"dpos":"dneg"), seg=(dif>0?"+":"");
   var ass;
   if(r.pct||haParola(r.kpi,"mer|roas"))ass=seg+(dif*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"pp";
@@ -365,6 +397,11 @@ function agg(sid,righe,idx,campo,from,to){
     var vs=[];
     r.media.forEach(function(j){var x=agg(sid,righe,j,campo,from,to);if(x!=null)vs.push(x);});
     return vs.length===r.media.length?vs.reduce(function(a,b){return a+b;},0)/vs.length:null;
+  }
+  // il budget espresso come quota di mix non si somma: nel trimestre resta la stessa quota
+  if(r.budPct&&campo==="bud"){
+    var q=serie(sid,r,campo,righe).slice(from,to+1).filter(function(x){return x!=null;});
+    return q.length?q.reduce(function(a,b){return a+b;},0)/q.length:null;
   }
   if(isPct(r.kpi)||haParola(r.kpi,"mer|roas|cpl|aov|ticket|cac|costo per"))return null; // rapporto non ricostruibile
   return somma(serie(sid,r,campo,righe),from,to);
@@ -566,6 +603,10 @@ function innestaBudget(){
       var fb=BUD_RF[idx]; if(!fb)return;
       for(var i=Math.max(PRIMO_LIVE,8);i<12;i++)if(fb[i]!=null){r.bud[i]=fb[i];tocchi++;}
     });
+    if(sez.id==="mkt-irec")sez.righe.forEach(function(r,idx){
+      var fb=BUD_MKT[idx]; if(!fb)return;
+      for(var i=Math.max(PRIMO_LIVE,8);i<12;i++)if(fb[i]!=null){r.bud[i]=fb[i];tocchi++;}
+    });
   });
   return tocchi;
 }
@@ -626,7 +667,7 @@ function render(){
           if(!qui){h+='<td class="muted gsep">&mdash;</td><td class="muted">&mdash;</td><td class="muted">&mdash;</td>';return;}
           var k=sez.id+"|"+r.cat+"|"+r.kpi+"|annuale|0";
           var v=(k in OVR)?OVR[k]:r.annuale;
-          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r)+'</td><td></td>';
+          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r,"act")+'</td><td></td>';
         });
         h+='</tr>'; return;
       }
@@ -638,13 +679,13 @@ function render(){
           b=valore(sez.id,r,"bud",c.i,sez.righe); a=valore(sez.id,r,"act",c.i,sez.righe);
           var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
           var cl=(c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
-          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r)+'</td>'
-            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r)+'</td>'
+          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r,"bud")+'</td>'
+            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r,"act")+'</td>'
             +'<td class="tnum">'+delta(a,b,r)+'</td>';
           return;
         }
         b=agg(sez.id,sez.righe,ri,"bud",c.a,c.b); a=agg(sez.id,sez.righe,ri,"act",c.a,c.b);
-        h+='<td class="tnum bud gsep">'+fmt(b,r)+'</td><td class="tnum">'+fmt(a,r)+'</td><td class="tnum">'+delta(a,b,r)+'</td>';
+        h+='<td class="tnum bud gsep">'+fmt(b,r,"bud")+'</td><td class="tnum">'+fmt(a,r,"act")+'</td><td class="tnum">'+delta(a,b,r)+'</td>';
       });
       h+='</tr>';
     });
