@@ -71,9 +71,15 @@ td.live{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 /* Vista compatta: una colonna per mese invece di tre. Serve dove le righe sono poche ma i
    mesi tutti interessanti - il confronto anno su anno - e dodici blocchi da tre colonne
    costringerebbero a scorrere per leggere una tabella di due righe. */
-td.comp{text-align:right;white-space:nowrap;font-size:11.5px;padding:4px 6px}
-td.comp .c1{display:block}
-td.comp .c2{display:block;font-size:10px;color:var(--faint);margin-top:1px}
+td.comp{text-align:right;white-space:nowrap;font-size:11.5px;padding:4px 6px;line-height:1.35}
+td.comp span{display:block}
+td.comp .c1{font-weight:620}
+td.comp .c2{font-size:10.5px;color:var(--budget)}
+td.comp .c3{font-size:10px}
+.confbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;font-size:13px;color:var(--muted)}
+.confbar select{font:inherit;font-size:13px;padding:6px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--ink)}
+.confbar b{color:var(--ink)}
+th.voce .sotto{display:block;font-size:9.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--faint);margin-top:2px}
 table.compatta th.voce,table.compatta td.voce{min-width:132px;max-width:132px}
 table.compatta thead th{font-size:10px}
 #modale{display:none;position:fixed;inset:0;z-index:100;background:rgba(8,12,20,.55);align-items:center;justify-content:center;padding:20px}
@@ -102,6 +108,7 @@ a{color:var(--accent)}
     <div class="seg" id="vista">
       <button data-v="mesi" aria-pressed="true">Mesi</button>
       <button data-v="aggr" aria-pressed="false">Trimestri e anno</button>
+      <button data-v="confronto" aria-pressed="false">Confronto</button>
     </div>
     <span id="statoSync" style="font-size:12px"></span>
     <button class="iconbtn" id="tema">&#9681;</button>
@@ -368,7 +375,7 @@ function lato(sid,righe,idx,altro,campo,i){
 function valore(sid,r,campo,i,righe){
   var k=chiave(sid,r,campo,i);
   if(k in OVR)return OVR[k];
-  var v=r[campo][i];
+  var v=(r[campo]||[])[i];
   if(v!=null)return v;
   if(r.ratio&&righe){
     var nu=lato(sid,righe,r.ratio.n,r.ratio.ns,campo,i), de=lato(sid,righe,r.ratio.d,r.ratio.ds,campo,i);
@@ -413,7 +420,7 @@ function fmt(v,r,campo){
   // uno zero a consuntivo non aggiunge niente e riempie la tabella di rumore: si legge meglio
   // un trattino. Il budget invece resta, perche' uno zero a budget e' una scelta.
   if(campo==="act"&&v===0)return '<span class="muted">&mdash;</span>';
-  if(r.budPct&&campo==="bud")return (v*100).toLocaleString("it-IT",{maximumFractionDigits:2})+"%";
+  if(r.budPct&&campo.indexOf("bud")===0)return (v*100).toLocaleString("it-IT",{maximumFractionDigits:2})+"%";
   if(r.pct)return (v*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
   // MER e ROAS con due decimali, come nel foglio (formato 0,00%)
   if(haParola(r.kpi,"mer|roas"))return (v*100).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+"%";
@@ -423,6 +430,19 @@ function fmt(v,r,campo){
 /* Lo scostamento si legge su due righe, come nel booklet, che per ogni mese ha sia
    "Scostamento" sia "% Scostamento": sopra la differenza nell'unita' della riga (euro, pezzi,
    punti percentuali), sotto la stessa differenza in percentuale sul budget. */
+/* Lo scostamento della cella compatta: due righe come nella vista normale, l'assoluto e la
+   percentuale, ma senza centesimi per restare nella larghezza. */
+function deltaComp(a,b,r){
+  if(a==null||b==null||r.budPct)return '<span class="muted">&mdash;</span>';
+  var dif=a-b, cl=(dif>=0?"dpos":"dneg"), seg=(dif>0?"+":"");
+  var ass;
+  if(r.pct||haParola(r.kpi,"mer|roas"))ass=seg+(dif*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"pp";
+  else if(r.eur)ass=seg+"&euro;\u00A0"+dif.toLocaleString("it-IT",{maximumFractionDigits:0});
+  else ass=seg+dif.toLocaleString("it-IT",{maximumFractionDigits:1});
+  var rel=(b===0)?"":" "+((dif>0?"+":"")+(dif/Math.abs(b)*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%");
+  return '<span class="'+cl+'" style="display:block">'+ass+'</span>'
+        +(rel?'<span class="'+cl+'" style="display:block;opacity:.75">'+rel.trim()+'</span>':'');
+}
 /* Nella vista compatta gli importi vanno senza centesimi: sono ricavi mensili da decine di
    migliaia e i centesimi costringerebbero a scorrere per leggere due righe. Il valore pieno
    resta nelle altre viste e nel Full Funnel. */
@@ -431,8 +451,8 @@ function fmtComp(v,r,campo){
   if(r.eur&&!r.pct)return "&euro; "+v.toLocaleString("it-IT",{maximumFractionDigits:0});
   return fmt(v,r,campo);
 }
-function delta(a,b,r){
-  if(a==null||b==null||r.budPct)return '<span class="muted">&mdash;</span>';
+function delta(a,b,r,stessaUnita){
+  if(a==null||b==null||(r.budPct&&!stessaUnita))return '<span class="muted">&mdash;</span>';
   var dif=a-b, cl=(dif>=0?"dpos":"dneg"), seg=(dif>0?"+":"");
   var ass;
   if(haParola(r.kpi,"mer|roas"))ass=seg+(dif*100).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+"pp";
@@ -474,7 +494,7 @@ function agg(sid,righe,idx,campo,from,to){
     return vs.length===r.media.length?vs.reduce(function(a,b){return a+b;},0)/vs.length:null;
   }
   // il budget espresso come quota di mix non si somma: nel trimestre resta la stessa quota
-  if(r.budPct&&campo==="bud"){
+  if(r.budPct&&campo.indexOf("bud")===0){
     var q=serie(sid,r,campo,righe).slice(from,to+1).filter(function(x){return x!=null;});
     return q.length?q.reduce(function(a,b){return a+b;},0)/q.length:null;
   }
@@ -748,6 +768,29 @@ var CHIUSI={per:{},cat:{}};
 try{var _c=JSON.parse(localStorage.getItem("bk_chiusi")||"null"); if(_c&&_c.per&&_c.cat)CHIUSI=_c;}catch(e){}
 function salvaChiusi(){try{localStorage.setItem("bk_chiusi",JSON.stringify(CHIUSI));}catch(e){}}
 function chiavePer(n){return vista+"|"+n;}          // mesi e trimestri si chiudono separatamente
+/* ---------- confronto fra due periodi ----------
+   Un periodo e' un mese o un aggregato (trimestre, semestre, anno) di un anno. Il 2026 sta in
+   .bud/.act, il 2025 - quando il suo booklet sara' importato - in .bud25/.act25: siccome il
+   nome del campo porta con se' l'anno, valore() e agg() funzionano identici sui due anni, e
+   anche i rapporti si ricalcolano da soli sull'anno giusto. */
+var CONF={a:"2026|g|Q1",b:"2026|g|Q3"};
+try{var _cf=JSON.parse(localStorage.getItem("bk_conf")||"null"); if(_cf&&_cf.a&&_cf.b)CONF=_cf;}catch(e){}
+function annoPrec(){return (DATI.sezioni||[]).some(function(s){
+  return s.righe.some(function(r){return r.act25||r.bud25;});});}
+function periodi(){
+  var out=[], anni=[2026]; if(annoPrec())anni.push(2025);
+  anni.forEach(function(y){
+    MESI.forEach(function(m,i){out.push({k:y+"|m|"+i,et:m+" "+y,anno:y,mese:i});});
+    GRUPPI.forEach(function(g){out.push({k:y+"|g|"+g.n,et:g.n+" "+y,anno:y,gruppo:g});});
+  });
+  return out;
+}
+function periodo(k){var l=periodi();for(var i=0;i<l.length;i++)if(l[i].k===k)return l[i];return l[0];}
+function valPeriodo(sez,r,ri,p,tipo){
+  var campo=tipo+(p.anno===2025?"25":"");
+  return (p.mese!=null) ? valore(sez.id,r,campo,p.mese,sez.righe)
+                        : agg(sez.id,sez.righe,ri,campo,p.gruppo.a,p.gruppo.b);
+}
 var SEZ_RENDER=null;   // sezione che si sta disegnando: serve ai default di apertura
 /* Di default restano aperti il mese in corso e quello prima, e lo stesso vale per i trimestri;
    tutto il resto nasce chiuso. Dodici mesi aperti insieme non si leggono, e quasi sempre si
@@ -777,6 +820,38 @@ function statoFonte(sez){
   if(ok)return et;
   return et+' <span style="color:var(--warn)">&#9888; '+(LIVE_ERR||"live in caricamento")+'</span>';
 }
+/* La tabella del confronto: quattro colonne sole, quindi nessuna chiusura di periodi e
+   nessuno scorrimento. Il delta e' A meno B, con sotto la variazione in percentuale. */
+function cartaConfronto(sez){
+  var pA=periodo(CONF.a), pB=periodo(CONF.b);
+  var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
+    +'<span class="hint">Consuntivo di <b>'+pA.et+'</b> contro <b>'+pB.et+'</b></span></div>'
+    +'<div class="scroll"><table><thead><tr><th class="voce">KPI</th>'
+    +'<th class="gsep" style="text-align:right">'+pA.et+'</th>'
+    +'<th style="text-align:right">'+pB.et+'</th>'
+    +'<th style="text-align:right">&Delta; A &minus; B</th></tr></thead><tbody>';
+  var cat="", catChiusa=false, primaFiglia=false;
+  sez.righe.forEach(function(r,ri){
+    if(r.cat!==cat){
+      cat=r.cat; primaFiglia=false; var kc=sez.id+"|"+cat;
+      catChiusa=(kc in CHIUSI.cat)?(CHIUSI.cat[kc]===1):((sez.catChiuse||[]).indexOf(cat)>=0);
+      h+='<tr class="cat" data-cat="'+kc+'"><td class="voce"><span class="marc">'+(catChiusa?"&#9656;":"&#9662;")
+        +'</span>'+cat+'</td><td colspan="3"></td></tr>';
+    }
+    if(catChiusa)return;
+    var fig=figliaKPI(r.kpi), cl=(fig?"":" main")+((!fig&&primaFiglia)?" sep":"");
+    primaFiglia=fig;
+    var a=valPeriodo(sez,r,ri,pA,"act"), b=valPeriodo(sez,r,ri,pB,"act");
+    h+='<tr class="'+cl.trim()+'"><td class="voce">'+r.kpi+'</td>'
+      +'<td class="tnum gsep">'+fmt(a,r,"act")+'</td>'
+      +'<td class="tnum">'+fmt(b,r,"act")+'</td>'
+      +'<td class="tnum">'+delta(a,b,r,true)+'</td></tr>';
+  });
+  return h+'</tbody></table></div><div class="legenda">'
+    +'<span>Due periodi qualsiasi a confronto: mesi, trimestri, semestri o anno.</span>'
+    +'<span>&Delta; = '+pA.et+' meno '+pB.et+': sopra la differenza, sotto la variazione in percentuale.</span>'
+    +'<span>Clic sul nome di un gruppo per chiuderlo o riaprirlo</span></div></div>';
+}
 function render(){
   var host=document.getElementById("contenuto");
   if(!DATI){host.innerHTML='<p class="hint">Dati non disponibili.</p>';return;}
@@ -786,6 +861,14 @@ function render(){
     html+='<div><div class="seg gruppi">'+gruppi.map(function(g){
       return '<button data-grp="'+g+'" aria-pressed="'+(g===grpAttivo?"true":"false")+'">'+g+'</button>';}).join("")+'</div></div>';
   }
+  if(vista==="confronto"){
+    var lst=periodi();
+    var menu=function(id,val){return '<select id="'+id+'">'+lst.map(function(p){
+      return '<option value="'+p.k+'"'+(p.k===val?' selected':'')+'>'+p.et+'</option>';}).join("")+'</select>';};
+    html+='<div class="confbar">Confronta <b>A</b> '+menu("confA",CONF.a)+' con <b>B</b> '+menu("confB",CONF.b)
+      +(annoPrec()?'':' <span class="muted">&middot; il 2025 comparira&#768; fra le scelte quando sara&#768; importato il suo booklet</span>')
+      +'</div>';
+  }
   var dentro=sezioniDi(grpAttivo);
   if(dentro.length>1){
     html+='<div class="seg" style="margin-bottom:16px">'+dentro.map(function(s){
@@ -793,11 +876,13 @@ function render(){
   }
   DATI.sezioni.filter(function(s){return s.id===sezAttiva;}).forEach(function(sez){
     SEZ_RENDER=sez;
+    if(vista==="confronto"){html+=cartaConfronto(sez);return;}
     var compatta=!!sez.compatto&&vista==="mesi";
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
       +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; '+statoFonte(sez)+'</span></div>'
-      +'<div class="scroll"><table class="'+(compatta?"compatta":"")+'"><thead><tr><th class="voce" rowspan="2">KPI</th>';
+      +'<div class="scroll"><table class="'+(compatta?"compatta":"")+'"><thead><tr><th class="voce" rowspan="2">KPI'
+      +(compatta?'<span class="sotto">consuntivo &middot; budget &middot; scostamento</span>':'')+'</th>';
     cols.forEach(function(c){
       if(perChiuso(c)){h+='<th class="gsep chiusa perh" rowspan="2" data-per="'+chiavePer(c.n)+'" title="Apri '+c.n+'"><span>'+c.n+' &#9656;</span></th>';return;}
       if(compatta){h+='<th class="gsep perh" rowspan="2" style="text-align:right" data-per="'+chiavePer(c.n)+'" title="Chiudi '+c.n+'">'+c.n+'</th>';return;}
@@ -842,8 +927,9 @@ function render(){
           var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
           var live=(c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
           h+='<td class="tnum comp gsep'+live+'">'
-            +'<span class="c1 edit'+((ka in OVR)?" ovr":"")+'" data-k="'+ka+'">'+fmtComp(aa,r,"act")+'</span>'
-            +'<span class="c2 edit'+((kb in OVR)?" ovr":"")+'" data-k="'+kb+'" title="budget">'+fmtComp(bb,r,"bud")+'</span></td>';
+            +'<span class="c1 edit'+((ka in OVR)?" ovr":"")+'" data-k="'+ka+'" title="consuntivo">'+fmtComp(aa,r,"act")+'</span>'
+            +'<span class="c2 edit'+((kb in OVR)?" ovr":"")+'" data-k="'+kb+'" title="budget">'+fmtComp(bb,r,"bud")+'</span>'
+            +'<span class="c3" title="scostamento">'+deltaComp(aa,bb,r)+'</span></td>';
         });
         h+='</tr>'; return;
       }
@@ -876,6 +962,14 @@ function render(){
   host.innerHTML=html;
   host.querySelectorAll(".edit[data-k]").forEach(function(td){
     td.addEventListener("dblclick",function(){apriCella(td);});
+  });
+  ["confA","confB"].forEach(function(id){
+    var el=document.getElementById(id); if(!el)return;
+    el.addEventListener("change",function(){
+      CONF[id==="confA"?"a":"b"]=el.value;
+      try{localStorage.setItem("bk_conf",JSON.stringify(CONF));}catch(e){}
+      render();
+    });
   });
 }
 /* ---------- modifica manuale ----------
