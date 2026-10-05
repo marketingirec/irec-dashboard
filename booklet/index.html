@@ -42,6 +42,12 @@ tbody tr:hover td{background:var(--surface-2)}
 tbody tr:hover td.voce{background:var(--surface-2)}
 tr.cat td{background:var(--surface-2);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);padding-top:11px}
 tr.cat td.voce{background:var(--surface-2)}
+/* I KPI principali in evidenza, i loro "di cui" normali. Una riga di separazione chiude ogni
+   gruppo: compare prima di un principale solo se la riga sopra era un suo pari di cui, cosi'
+   dove i principali si susseguono senza figli non si riempie la tabella di righe inutili. */
+tr.main td.voce{font-weight:700;color:var(--ink)}
+tr.main td{font-weight:560}
+tr.sep td{border-top:1px solid var(--border)}
 .tnum{font-variant-numeric:tabular-nums}
 .gsep{border-left:2px solid var(--border)}
 .bud{color:var(--budget)}
@@ -731,6 +737,9 @@ function nColonne(cols){var n=0;cols.forEach(function(c){n+=perChiuso(c)?1:3;});
 /* Da dove arriva il consuntivo di una sezione: la dashboard, RF, oppure nessuna delle due
    perche' il dato e' manuale. Sta nel file dati, cosi' agganciando una sezione nuova non
    bisogna ricordarsi di aggiornare anche l'intestazione. */
+// Una riga e' un "di cui" se l'etichetta comincia con un marcatore di rientro: >, >>, -, --
+// oppure la numerazione a), b), c), d) usata nei blocchi per canale del Marketing.
+function figliaKPI(k){return /^\s*(>>|>|--|-|[a-d]\))/.test(k||"");}
 function statoFonte(sez){
   var f=sez.fonte||"manuale";
   if(f==="manuale")return 'dati manuali, nessuna fonte da agganciare';
@@ -766,10 +775,10 @@ function render(){
     cols.forEach(function(c){ if(perChiuso(c))return;
       h+='<th class="gsep">Budget</th><th>Actual</th><th>&Delta;</th>';});
     h+='</tr></thead><tbody>';
-    var cat="", catChiusa=false;
+    var cat="", catChiusa=false, primaFiglia=false;
     sez.righe.forEach(function(r,ri){
       if(r.cat!==cat){
-        cat=r.cat; var kc=sez.id+"|"+cat;
+        cat=r.cat; primaFiglia=false; var kc=sez.id+"|"+cat;
         // una categoria puo' nascere chiusa (nessun investimento in corso): la scelta di chi
         // guarda, quando c'e', ha comunque la precedenza
         catChiusa=(kc in CHIUSI.cat)?(CHIUSI.cat[kc]===1):((sez.catChiuse||[]).indexOf(cat)>=0);
@@ -779,8 +788,10 @@ function render(){
       if(catChiusa)return;
       // riga a valore annuale (Customer Care): un solo numero, mostrato sotto "Anno" nella vista
       // aggregata. Se nel booklet e' vuoto diventa una cella scrivibile, salvata nel browser.
+      var fig=figliaKPI(r.kpi), cl2=(fig?"":" main")+((!fig&&primaFiglia)?" sep":"");
+      primaFiglia=fig;
       if("annuale" in r){
-        h+='<tr><td class="voce">'+r.kpi+'</td>';
+        h+='<tr class="'+cl2.trim()+'"><td class="voce">'+r.kpi+'</td>';
         cols.forEach(function(c){
           if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
           var qui=(vista!=="mesi"&&c.n==="Anno");
@@ -791,7 +802,7 @@ function render(){
         });
         h+='</tr>'; return;
       }
-      h+='<tr><td class="voce">'+r.kpi+'</td>';
+      h+='<tr class="'+cl2.trim()+'"><td class="voce">'+r.kpi+'</td>';
       cols.forEach(function(c){
         if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
         var b,a;
