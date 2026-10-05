@@ -110,6 +110,10 @@ a{color:var(--accent)}
       <button data-v="aggr" aria-pressed="false">Trimestri e anno</button>
       <button data-v="confronto" aria-pressed="false">Confronto</button>
     </div>
+    <div class="seg" id="anno" style="display:none">
+      <button data-a="2026" aria-pressed="true">2026</button>
+      <button data-a="2025" aria-pressed="false">2025</button>
+    </div>
     <span id="statoSync" style="font-size:12px"></span>
     <button class="iconbtn" id="tema">&#9681;</button>
     <a class="iconbtn" href="/" style="text-decoration:none;display:inline-flex;align-items:center">&larr; Dashboard</a>
@@ -419,7 +423,7 @@ function fmt(v,r,campo){
   if(v==null)return '<span class="muted">&mdash;</span>';
   // uno zero a consuntivo non aggiunge niente e riempie la tabella di rumore: si legge meglio
   // un trattino. Il budget invece resta, perche' uno zero a budget e' una scelta.
-  if(campo==="act"&&v===0)return '<span class="muted">&mdash;</span>';
+  if(campo.indexOf("act")===0&&v===0)return '<span class="muted">&mdash;</span>';
   if(r.budPct&&campo.indexOf("bud")===0)return (v*100).toLocaleString("it-IT",{maximumFractionDigits:2})+"%";
   if(r.pct)return (v*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
   // MER e ROAS con due decimali, come nel foglio (formato 0,00%)
@@ -447,7 +451,7 @@ function deltaComp(a,b,r){
    migliaia e i centesimi costringerebbero a scorrere per leggere due righe. Il valore pieno
    resta nelle altre viste e nel Full Funnel. */
 function fmtComp(v,r,campo){
-  if(v==null||(campo==="act"&&v===0))return '<span class="muted">&mdash;</span>';
+  if(v==null||(campo.indexOf("act")===0&&v===0))return '<span class="muted">&mdash;</span>';
   if(r.eur&&!r.pct)return "&euro; "+v.toLocaleString("it-IT",{maximumFractionDigits:0});
   return fmt(v,r,campo);
 }
@@ -768,6 +772,14 @@ var CHIUSI={per:{},cat:{}};
 try{var _c=JSON.parse(localStorage.getItem("bk_chiusi")||"null"); if(_c&&_c.per&&_c.cat)CHIUSI=_c;}catch(e){}
 function salvaChiusi(){try{localStorage.setItem("bk_chiusi",JSON.stringify(CHIUSI));}catch(e){}}
 function chiavePer(n){return vista+"|"+n;}          // mesi e trimestri si chiudono separatamente
+/* Anno mostrato dalle viste Mesi e Trimestri. Il 2026 sta in .bud/.act, il 2025 in
+   .bud25/.act25: basta cambiare il nome del campo e tutto il resto - rapporti, aggregati,
+   modifiche manuali, formati - continua a funzionare senza saperne niente. */
+var ANNO=2026;
+try{var _an=+localStorage.getItem("bk_anno"); if(_an===2025||_an===2026)ANNO=_an;}catch(e){}
+function cB(){return ANNO===2025?"bud25":"bud";}
+function cA(){return ANNO===2025?"act25":"act";}
+
 /* ---------- confronto fra due periodi ----------
    Un periodo e' un mese o un aggregato (trimestre, semestre, anno) di un anno. Il 2026 sta in
    .bud/.act, il 2025 - quando il suo booklet sara' importato - in .bud25/.act25: siccome il
@@ -813,6 +825,7 @@ function nColonne(cols,sez){var n=0,largh=(sez&&sez.compatto&&vista==="mesi")?1:
 // oppure la numerazione a), b), c), d) usata nei blocchi per canale del Marketing.
 function figliaKPI(k){return /^\s*(>>|>|--|-|[a-d]\))/.test(k||"");}
 function statoFonte(sez){
+  if(ANNO===2025)return 'anno chiuso, tutto dal booklet 2025';
   var f=sez.fonte||"manuale";
   if(f==="manuale")return 'dati manuali, nessuna fonte da agganciare';
   var ok=(f==="rf")?LIVE_RF:LIVE_OK;
@@ -880,7 +893,7 @@ function render(){
     var compatta=!!sez.compatto&&vista==="mesi";
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
-      +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; '+statoFonte(sez)+'</span></div>'
+      +'<span class="hint">'+(ANNO===2025?'<span class="tag t-book">BOOKLET</span> 2025':'Gen&ndash;Ago <span class="tag t-book">BOOKLET</span>')+' &middot; '+statoFonte(sez)+'</span></div>'
       +'<div class="scroll"><table class="'+(compatta?"compatta":"")+'"><thead><tr><th class="voce" rowspan="2">KPI'
       +(compatta?'<span class="sotto">consuntivo &middot; budget &middot; scostamento</span>':'')+'</th>';
     cols.forEach(function(c){
@@ -923,12 +936,12 @@ function render(){
       if(compatta){
         cols.forEach(function(c){
           if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
-          var bb=valore(sez.id,r,"bud",c.i,sez.righe), aa=valore(sez.id,r,"act",c.i,sez.righe);
-          var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
-          var live=(c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
+          var bb=valore(sez.id,r,cB(),c.i,sez.righe), aa=valore(sez.id,r,cA(),c.i,sez.righe);
+          var kb=chiave(sez.id,r,cB(),c.i), ka=chiave(sez.id,r,cA(),c.i);
+          var live=(ANNO===2026&&c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
           h+='<td class="tnum comp gsep'+live+'">'
-            +'<span class="c1 edit'+((ka in OVR)?" ovr":"")+'" data-k="'+ka+'" title="consuntivo">'+fmtComp(aa,r,"act")+'</span>'
-            +'<span class="c2 edit'+((kb in OVR)?" ovr":"")+'" data-k="'+kb+'" title="budget">'+fmtComp(bb,r,"bud")+'</span>'
+            +'<span class="c1 edit'+((ka in OVR)?" ovr":"")+'" data-k="'+ka+'" title="consuntivo">'+fmtComp(aa,r,cA())+'</span>'
+            +'<span class="c2 edit'+((kb in OVR)?" ovr":"")+'" data-k="'+kb+'" title="budget">'+fmtComp(bb,r,cB())+'</span>'
             +'<span class="c3" title="scostamento">'+deltaComp(aa,bb,r)+'</span></td>';
         });
         h+='</tr>'; return;
@@ -937,16 +950,16 @@ function render(){
         if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
         var b,a;
         if(vista==="mesi"){
-          b=valore(sez.id,r,"bud",c.i,sez.righe); a=valore(sez.id,r,"act",c.i,sez.righe);
-          var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
-          var cl=(c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
-          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r,"bud")+'</td>'
-            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r,"act")+'</td>'
+          b=valore(sez.id,r,cB(),c.i,sez.righe); a=valore(sez.id,r,cA(),c.i,sez.righe);
+          var kb=chiave(sez.id,r,cB(),c.i), ka=chiave(sez.id,r,cA(),c.i);
+          var cl=(ANNO===2026&&c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
+          h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r,cB())+'</td>'
+            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r,cA())+'</td>'
             +'<td class="tnum">'+delta(a,b,r)+'</td>';
           return;
         }
-        b=agg(sez.id,sez.righe,ri,"bud",c.a,c.b); a=agg(sez.id,sez.righe,ri,"act",c.a,c.b);
-        h+='<td class="tnum bud gsep">'+fmt(b,r,"bud")+'</td><td class="tnum">'+fmt(a,r,"act")+'</td><td class="tnum">'+delta(a,b,r)+'</td>';
+        b=agg(sez.id,sez.righe,ri,cB(),c.a,c.b); a=agg(sez.id,sez.righe,ri,cA(),c.a,c.b);
+        h+='<td class="tnum bud gsep">'+fmt(b,r,cB())+'</td><td class="tnum">'+fmt(a,r,cA())+'</td><td class="tnum">'+delta(a,b,r)+'</td>';
       });
       h+='</tr>';
     });
@@ -963,6 +976,12 @@ function render(){
   host.querySelectorAll(".edit[data-k]").forEach(function(td){
     td.addEventListener("dblclick",function(){apriCella(td);});
   });
+  var barraAnno=document.getElementById("anno");
+  if(barraAnno){
+    barraAnno.style.display=(annoPrec()&&vista!=="confronto")?"":"none";
+    barraAnno.querySelectorAll("button").forEach(function(b){
+      b.setAttribute("aria-pressed",(+b.getAttribute("data-a")===ANNO)?"true":"false");});
+  }
   ["confA","confB"].forEach(function(id){
     var el=document.getElementById(id); if(!el)return;
     el.addEventListener("change",function(){
@@ -1036,6 +1055,12 @@ function apriCella(td){
 M.addEventListener("click",function(e){if(e.target===M)chiudiModale();});
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&M.style.display==="flex")chiudiModale();});
 
+document.getElementById("anno").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-a]"); if(!b)return;
+  ANNO=+b.getAttribute("data-a");
+  try{localStorage.setItem("bk_anno",String(ANNO));}catch(e){}
+  render();
+});
 document.getElementById("vista").addEventListener("click",function(e){
   var b=e.target.closest("button[data-v]"); if(!b)return;
   vista=b.getAttribute("data-v");
