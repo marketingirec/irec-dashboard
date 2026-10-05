@@ -79,8 +79,10 @@ td.comp .c3{font-size:10px}
 .confbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px;font-size:13px;color:var(--muted)}
 .confbar select{font:inherit;font-size:13px;padding:6px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--ink)}
 .confbar b{color:var(--ink)}
-th.voce .sotto{display:block;font-size:9.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--faint);margin-top:2px}
+td.voce .chiave{display:block;font-size:9.5px;font-weight:500;color:var(--faint);margin-top:1px}
+thead th .sotto{display:block;font-size:9.5px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--faint);margin-top:2px}
 table.compatta th.voce,table.compatta td.voce{min-width:132px;max-width:132px}
+table.stag th.voce,table.stag td.voce{min-width:112px;max-width:112px}
 table.compatta thead th{font-size:10px}
 #modale{display:none;position:fixed;inset:0;z-index:100;background:rgba(8,12,20,.55);align-items:center;justify-content:center;padding:20px}
 #modale .box{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);max-width:430px;width:100%;padding:22px}
@@ -776,6 +778,8 @@ function chiavePer(n){return vista+"|"+n;}          // mesi e trimestri si chiud
 /* Anno mostrato dalle viste Mesi e Trimestri. Il 2026 sta in .bud/.act, il 2025 in
    .bud25/.act25: basta cambiare il nome del campo e tutto il resto - rapporti, aggregati,
    modifiche manuali, formati - continua a funzionare senza saperne niente. */
+var SUBANA="periodo";
+try{var _sa=localStorage.getItem("bk_subana"); if(_sa==="mese"||_sa==="periodo")SUBANA=_sa;}catch(e){}
 var ANNO=2026;
 try{var _an=+localStorage.getItem("bk_anno"); if(_an===2025||_an===2026)ANNO=_an;}catch(e){}
 function cB(){return ANNO===2025?"bud25":"bud";}
@@ -854,15 +858,71 @@ function media(sez,r,ri,campo,a,b){
   var n=mesiConDato(sez,r,campo,a,b);
   return n?tot/n:null;
 }
+/* Gli anni disponibili, come nomi di campo. Aggiungerne uno domani vuol dire aggiungere una
+   voce qui e i campi .bud27/.act27 nel file dati: il resto continua a funzionare. */
+function campiAnni(){
+  var out=[{anno:2026,act:"act",bud:"bud"}];
+  if(annoPrec())out.push({anno:2025,act:"act25",bud:"bud25"});
+  return out;
+}
+/* La media di tutti i gennaio, di tutti i febbraio e cosi' via: serve a vedere la
+   stagionalita' prima di proiettare un anno nuovo. Per le voci che si sommano e' la media
+   fra gli anni; per i rapporti si sommano prima numeratore e denominatore di tutti gli anni
+   e poi si divide, altrimenti un anno piccolo peserebbe quanto uno grande. */
+function mediaFraAnni(sez,r,i){
+  var anni=campiAnni();
+  if(r.ratio){
+    var nu=0,de=0,ok=false;
+    anni.forEach(function(a){
+      var n=lato(sez.id,sez.righe,r.ratio.n,r.ratio.ns,a.act,i),
+          d=lato(sez.id,sez.righe,r.ratio.d,r.ratio.ds,a.act,i);
+      if(n!=null&&d!=null){nu+=n;de+=d;ok=true;}
+    });
+    return (ok&&de!==0)?{v:nu/de,n:0}:null;
+  }
+  var s=0,n=0;
+  anni.forEach(function(a){var v=valore(sez.id,r,a.act,i,sez.righe); if(v!=null){s+=v;n++;}});
+  return n?{v:s/n,n:n}:null;
+}
+function cartaStagionalita(sez){
+  var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
+    +'<span class="hint">Media di ogni mese su '+campiAnni().map(function(a){return a.anno;}).join(" e ")+'</span></div>'
+    +'<div class="scroll"><table class="compatta stag"><thead><tr><th class="voce">KPI</th>';
+  MESI.forEach(function(m){h+='<th class="gsep" style="text-align:right">'+m+'</th>';});
+  h+='</tr></thead><tbody>';
+  var cat="", catChiusa=false, primaFiglia=false;
+  sez.righe.forEach(function(r){
+    if(r.cat!==cat){
+      cat=r.cat; primaFiglia=false; var kc=sez.id+"|"+cat;
+      catChiusa=(kc in CHIUSI.cat)?(CHIUSI.cat[kc]===1):((sez.catChiuse||[]).indexOf(cat)>=0);
+      h+='<tr class="cat" data-cat="'+kc+'"><td class="voce"><span class="marc">'+(catChiusa?"&#9656;":"&#9662;")
+        +'</span>'+cat+'</td><td colspan="12"></td></tr>';
+    }
+    if(catChiusa)return;
+    var fig=figliaKPI(r.kpi), cl=(fig?"":" main")+((!fig&&primaFiglia)?" sep":"");
+    primaFiglia=fig;
+    h+='<tr class="'+cl.trim()+'"><td class="voce">'+r.kpi+'</td>';
+    for(var i=0;i<12;i++){
+      var m=mediaFraAnni(sez,r,i);
+      h+='<td class="tnum comp gsep"><span class="c1">'+(m?fmtComp(m.v,r,"act"):'<span class="muted">&mdash;</span>')+'</span>'
+        +(m&&m.n>1?'<span class="c2">'+m.n+' anni</span>':'')+'</td>';
+    }
+    h+='</tr>';
+  });
+  return h+'</tbody></table></div><div class="legenda">'
+    +'<span>Ogni colonna e\' la media di quel mese su tutti gli anni che hanno un valore: "su 2 anni" dice quanti ne pesano.</span>'
+    +'<span>Per i rapporti si sommano numeratore e denominatore di tutti gli anni e poi si divide, cosi\' un anno piccolo non pesa quanto uno grande.</span>'
+    +'<span>Importi arrotondati all\'euro per stare in larghezza.</span></div></div>';
+}
 function cartaAnalytics(sez){
   var Q=[{n:"Q1",a:0,b:2},{n:"Q2",a:3,b:5},{n:"Q3",a:6,b:8},{n:"Q4",a:9,b:11}];
   var campo=cA();
   var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
     +'<span class="hint">Consuntivo '+ANNO+' &middot; quanto vale in media un mese</span></div>'
-    +'<div class="scroll"><table><thead><tr><th class="voce">KPI<span class="sotto">media per mese</span></th>';
-  Q.forEach(function(q){h+='<th class="gsep" style="text-align:right">'+q.n+'</th>';});
-  h+='<th class="gsep" style="text-align:right">MEDIA ANNO</th>'
-    +'<th style="text-align:right">TOTALE ANNO</th></tr></thead><tbody>';
+    +'<div class="scroll"><table><thead><tr><th class="voce">KPI</th>';
+  Q.forEach(function(q){h+='<th class="gsep" style="text-align:right">'+q.n+'<span class="sotto">media mese</span></th>';});
+  h+='<th class="gsep" style="text-align:right">ANNO<span class="sotto">media mese</span></th>'
+    +'<th style="text-align:right">ANNO<span class="sotto">totale</span></th></tr></thead><tbody>';
   var cat="", catChiusa=false, primaFiglia=false;
   sez.righe.forEach(function(r,ri){
     if(r.cat!==cat){
@@ -928,6 +988,11 @@ function render(){
     html+='<div><div class="seg gruppi">'+gruppi.map(function(g){
       return '<button data-grp="'+g+'" aria-pressed="'+(g===grpAttivo?"true":"false")+'">'+g+'</button>';}).join("")+'</div></div>';
   }
+  if(vista==="analytics"){
+    html+='<div class="seg" id="subana" style="margin-bottom:14px">'
+      +'<button data-s="periodo" aria-pressed="'+(SUBANA==="periodo"?"true":"false")+'">Per trimestre</button>'
+      +'<button data-s="mese" aria-pressed="'+(SUBANA==="mese"?"true":"false")+'">Per mese, media fra anni</button></div>';
+  }
   if(vista==="confronto"){
     var lst=periodi();
     var menu=function(id,val){return '<select id="'+id+'">'+lst.map(function(p){
@@ -944,13 +1009,13 @@ function render(){
   DATI.sezioni.filter(function(s){return s.id===sezAttiva;}).forEach(function(sez){
     SEZ_RENDER=sez;
     if(vista==="confronto"){html+=cartaConfronto(sez);return;}
-    if(vista==="analytics"){html+=cartaAnalytics(sez);return;}
+    if(vista==="analytics"){html+=(SUBANA==="mese"?cartaStagionalita(sez):cartaAnalytics(sez));return;}
     var compatta=!!sez.compatto&&vista==="mesi";
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
       +'<span class="hint">'+(ANNO===2025?'<span class="tag t-book">BOOKLET</span> 2025':'Gen&ndash;Ago <span class="tag t-book">BOOKLET</span>')+' &middot; '+statoFonte(sez)+'</span></div>'
       +'<div class="scroll"><table class="'+(compatta?"compatta":"")+'"><thead><tr><th class="voce" rowspan="2">KPI'
-      +(compatta?'<span class="sotto">consuntivo &middot; budget &middot; scostamento</span>':'')+'</th>';
+      +'</th>';
     cols.forEach(function(c){
       if(perChiuso(c)){h+='<th class="gsep chiusa perh" rowspan="2" data-per="'+chiavePer(c.n)+'" title="Apri '+c.n+'"><span>'+c.n+' &#9656;</span></th>';return;}
       if(compatta){h+='<th class="gsep perh" rowspan="2" style="text-align:right" data-per="'+chiavePer(c.n)+'" title="Chiudi '+c.n+'">'+c.n+'</th>';return;}
@@ -987,7 +1052,8 @@ function render(){
         });
         h+='</tr>'; return;
       }
-      h+='<tr class="'+cl2.trim()+'"><td class="voce">'+r.kpi+'</td>';
+      h+='<tr class="'+cl2.trim()+'"><td class="voce">'+r.kpi
+        +(compatta?'<span class="chiave">consuntivo &middot; budget &middot; &Delta;</span>':'')+'</td>';
       if(compatta){
         cols.forEach(function(c){
           if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
@@ -1031,9 +1097,16 @@ function render(){
   host.querySelectorAll(".edit[data-k]").forEach(function(td){
     td.addEventListener("dblclick",function(){apriCella(td);});
   });
+  var sb=document.getElementById("subana");
+  if(sb)sb.addEventListener("click",function(e){
+    var b=e.target.closest("button[data-s]"); if(!b)return;
+    SUBANA=b.getAttribute("data-s");
+    try{localStorage.setItem("bk_subana",SUBANA);}catch(e){}
+    render();
+  });
   var barraAnno=document.getElementById("anno");
   if(barraAnno){
-    barraAnno.style.display=(annoPrec()&&vista!=="confronto")?"":"none";
+    barraAnno.style.display=(annoPrec()&&vista!=="confronto"&&!(vista==="analytics"&&SUBANA==="mese"))?"":"none";
     barraAnno.querySelectorAll("button").forEach(function(b){
       b.setAttribute("aria-pressed",(+b.getAttribute("data-a")===ANNO)?"true":"false");});
   }
