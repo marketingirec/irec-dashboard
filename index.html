@@ -198,6 +198,14 @@
   .mm-group{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:11px}
   .mm-irec{background:linear-gradient(90deg,rgba(240,140,40,.20),rgba(240,140,40,.05))}
   .mm-rf{background:linear-gradient(90deg,rgba(34,170,90,.20),rgba(34,170,90,.05))}
+  /* collegamento al booklet: sta a destra, bianco, perche' non e' una sezione della dashboard
+     ma un'altra pagina */
+  .mm-link{margin-left:auto;display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+    background:var(--surface);border:1px solid var(--border);border-radius:11px;
+    color:var(--ink);font:inherit;font-size:13px;font-weight:620;padding:8px 14px;box-shadow:var(--shadow)}
+  .mm-link:hover{border-color:var(--accent);color:var(--accent)}
+  .mm-link .frec{color:var(--faint);font-weight:700}
+  @media(max-width:700px){.mm-link{margin-left:0}}
   .mm-title{font-size:11px;font-weight:780;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding-right:10px;margin-right:4px;border-right:1px solid var(--border)}
   .mm-item{font:inherit;font-size:13px;font-weight:620;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:8px;padding:6px 13px;cursor:pointer;transition:background .12s,color .12s;text-decoration:none;display:inline-block}
   .mm-item:hover{color:var(--ink);background:var(--ground)}
@@ -257,6 +265,7 @@
       <button class="mm-item" data-view="rf-dash">Dashboard</button>
       <button class="mm-item" data-view="rf-tax">Tassonomia RF</button>
     </div>
+    <a class="mm-link" href="/booklet" title="Apri il KPI Booklet 2026">KPI Booklet 2026 <span class="frec">&rarr;</span></a>
   </nav>
 
   <div id="refreshBar" style="display:none;height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:0 0 10px"><div id="refreshBarFill" style="height:100%;width:0;background:var(--accent);transition:width .25s"></div></div>

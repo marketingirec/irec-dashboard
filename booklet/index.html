@@ -65,9 +65,17 @@ input.manuale:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 input.manuale::placeholder{color:var(--faint)}
 /* dato sovrascritto a mano: riquadro nero (var(--ink) e' nero sul tema chiaro e resta
    visibile su quello scuro, dove un nero pieno sparirebbe nello sfondo) */
-td.ovr{box-shadow:inset 0 0 0 2px var(--ink);border-radius:4px}
-td.edit{cursor:cell}
+.ovr{box-shadow:inset 0 0 0 2px var(--ink);border-radius:4px}
+.edit{cursor:cell}
 td.live{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+/* Vista compatta: una colonna per mese invece di tre. Serve dove le righe sono poche ma i
+   mesi tutti interessanti - il confronto anno su anno - e dodici blocchi da tre colonne
+   costringerebbero a scorrere per leggere una tabella di due righe. */
+td.comp{text-align:right;white-space:nowrap;font-size:11.5px;padding:4px 6px}
+td.comp .c1{display:block}
+td.comp .c2{display:block;font-size:10px;color:var(--faint);margin-top:1px}
+table.compatta th.voce,table.compatta td.voce{min-width:132px;max-width:132px}
+table.compatta thead th{font-size:10px}
 #modale{display:none;position:fixed;inset:0;z-index:100;background:rgba(8,12,20,.55);align-items:center;justify-content:center;padding:20px}
 #modale .box{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);max-width:430px;width:100%;padding:22px}
 #modale h3{margin:0 0 8px;font-size:16px;font-weight:680;letter-spacing:-.01em}
@@ -415,6 +423,14 @@ function fmt(v,r,campo){
 /* Lo scostamento si legge su due righe, come nel booklet, che per ogni mese ha sia
    "Scostamento" sia "% Scostamento": sopra la differenza nell'unita' della riga (euro, pezzi,
    punti percentuali), sotto la stessa differenza in percentuale sul budget. */
+/* Nella vista compatta gli importi vanno senza centesimi: sono ricavi mensili da decine di
+   migliaia e i centesimi costringerebbero a scorrere per leggere due righe. Il valore pieno
+   resta nelle altre viste e nel Full Funnel. */
+function fmtComp(v,r,campo){
+  if(v==null||(campo==="act"&&v===0))return '<span class="muted">&mdash;</span>';
+  if(r.eur&&!r.pct)return "&euro; "+v.toLocaleString("it-IT",{maximumFractionDigits:0});
+  return fmt(v,r,campo);
+}
 function delta(a,b,r){
   if(a==null||b==null||r.budPct)return '<span class="muted">&mdash;</span>';
   var dif=a-b, cl=(dif>=0?"dpos":"dneg"), seg=(dif>0?"+":"");
@@ -732,8 +748,21 @@ var CHIUSI={per:{},cat:{}};
 try{var _c=JSON.parse(localStorage.getItem("bk_chiusi")||"null"); if(_c&&_c.per&&_c.cat)CHIUSI=_c;}catch(e){}
 function salvaChiusi(){try{localStorage.setItem("bk_chiusi",JSON.stringify(CHIUSI));}catch(e){}}
 function chiavePer(n){return vista+"|"+n;}          // mesi e trimestri si chiudono separatamente
-function perChiuso(c){return !!CHIUSI.per[chiavePer(c.n)];}
-function nColonne(cols){var n=0;cols.forEach(function(c){n+=perChiuso(c)?1:3;});return n;}
+var SEZ_RENDER=null;   // sezione che si sta disegnando: serve ai default di apertura
+/* Di default restano aperti il mese in corso e quello prima, e lo stesso vale per i trimestri;
+   tutto il resto nasce chiuso. Dodici mesi aperti insieme non si leggono, e quasi sempre si
+   guarda il mese appena chiuso accanto a quello in corso. La scelta di chi guarda ha comunque
+   la precedenza. Le sezioni compatte non si chiudono: ci stanno gia' in larghezza. */
+function perDefaultChiuso(c){
+  if(SEZ_RENDER&&SEZ_RENDER.compatto)return false;
+  var m=Math.min(12,Math.max(1,ULTIMO_LIVE));
+  if(vista==="mesi")return !(c.i+1===m||c.i+1===m-1);
+  var q=Math.ceil(m/3);
+  return !(c.n==="Q"+q||c.n==="Q"+(q-1));
+}
+function perChiuso(c){var k=chiavePer(c.n);return (k in CHIUSI.per)?(CHIUSI.per[k]===1):perDefaultChiuso(c);}
+function nColonne(cols,sez){var n=0,largh=(sez&&sez.compatto&&vista==="mesi")?1:3;
+  cols.forEach(function(c){n+=perChiuso(c)?1:largh;});return n;}
 /* Da dove arriva il consuntivo di una sezione: la dashboard, RF, oppure nessuna delle due
    perche' il dato e' manuale. Sta nel file dati, cosi' agganciando una sezione nuova non
    bisogna ricordarsi di aggiornare anche l'intestazione. */
@@ -763,16 +792,19 @@ function render(){
       return '<button data-sez="'+s.id+'" aria-pressed="'+(s.id===sezAttiva?"true":"false")+'">'+(s.breve||s.titolo.replace(/^KPI /,""))+'</button>';}).join("")+'</div>';
   }
   DATI.sezioni.filter(function(s){return s.id===sezAttiva;}).forEach(function(sez){
+    SEZ_RENDER=sez;
+    var compatta=!!sez.compatto&&vista==="mesi";
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
       +'<span class="hint">Gen&ndash;Ago <span class="tag t-book">BOOKLET</span> &middot; '+statoFonte(sez)+'</span></div>'
-      +'<div class="scroll"><table><thead><tr><th class="voce" rowspan="2">KPI</th>';
+      +'<div class="scroll"><table class="'+(compatta?"compatta":"")+'"><thead><tr><th class="voce" rowspan="2">KPI</th>';
     cols.forEach(function(c){
       if(perChiuso(c)){h+='<th class="gsep chiusa perh" rowspan="2" data-per="'+chiavePer(c.n)+'" title="Apri '+c.n+'"><span>'+c.n+' &#9656;</span></th>';return;}
+      if(compatta){h+='<th class="gsep perh" rowspan="2" style="text-align:right" data-per="'+chiavePer(c.n)+'" title="Chiudi '+c.n+'">'+c.n+'</th>';return;}
       h+='<th colspan="3" class="gsep perh" style="text-align:center" data-per="'+chiavePer(c.n)+'" title="Chiudi '+c.n+'">'+c.n+' &#9662;</th>';
     });
     h+='</tr><tr>';
-    cols.forEach(function(c){ if(perChiuso(c))return;
+    cols.forEach(function(c){ if(perChiuso(c)||compatta)return;
       h+='<th class="gsep">Budget</th><th>Actual</th><th>&Delta;</th>';});
     h+='</tr></thead><tbody>';
     var cat="", catChiusa=false, primaFiglia=false;
@@ -783,7 +815,7 @@ function render(){
         // guarda, quando c'e', ha comunque la precedenza
         catChiusa=(kc in CHIUSI.cat)?(CHIUSI.cat[kc]===1):((sez.catChiuse||[]).indexOf(cat)>=0);
         h+='<tr class="cat" data-cat="'+kc+'"><td class="voce"><span class="marc">'+(catChiusa?"&#9656;":"&#9662;")
-          +'</span>'+cat+'</td><td colspan="'+nColonne(cols)+'"></td></tr>';
+          +'</span>'+cat+'</td><td colspan="'+nColonne(cols,sez)+'"></td></tr>';
       }
       if(catChiusa)return;
       // riga a valore annuale (Customer Care): un solo numero, mostrato sotto "Anno" nella vista
@@ -803,6 +835,18 @@ function render(){
         h+='</tr>'; return;
       }
       h+='<tr class="'+cl2.trim()+'"><td class="voce">'+r.kpi+'</td>';
+      if(compatta){
+        cols.forEach(function(c){
+          if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
+          var bb=valore(sez.id,r,"bud",c.i,sez.righe), aa=valore(sez.id,r,"act",c.i,sez.righe);
+          var kb=chiave(sez.id,r,"bud",c.i), ka=chiave(sez.id,r,"act",c.i);
+          var live=(c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
+          h+='<td class="tnum comp gsep'+live+'">'
+            +'<span class="c1 edit'+((ka in OVR)?" ovr":"")+'" data-k="'+ka+'">'+fmtComp(aa,r,"act")+'</span>'
+            +'<span class="c2 edit'+((kb in OVR)?" ovr":"")+'" data-k="'+kb+'" title="budget">'+fmtComp(bb,r,"bud")+'</span></td>';
+        });
+        h+='</tr>'; return;
+      }
       cols.forEach(function(c){
         if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
         var b,a;
@@ -830,7 +874,7 @@ function render(){
     html+=h;
   });
   host.innerHTML=html;
-  host.querySelectorAll("td.edit").forEach(function(td){
+  host.querySelectorAll(".edit[data-k]").forEach(function(td){
     td.addEventListener("dblclick",function(){apriCella(td);});
   });
 }
@@ -917,7 +961,7 @@ document.getElementById("contenuto").addEventListener("click",function(e){
   if(b){sezAttiva=b.getAttribute("data-sez"); render(); return;}
   var th=e.target.closest("th.perh");
   if(th){var k=th.getAttribute("data-per");
-    if(CHIUSI.per[k])delete CHIUSI.per[k]; else CHIUSI.per[k]=1;
+    CHIUSI.per[k]=th.classList.contains("chiusa")?0:1;
     salvaChiusi(); render(); return;}
   var tr=e.target.closest("tr.cat");
   if(tr){var kc=tr.getAttribute("data-cat");
