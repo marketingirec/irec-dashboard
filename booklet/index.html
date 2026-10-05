@@ -109,6 +109,7 @@ a{color:var(--accent)}
       <button data-v="mesi" aria-pressed="true">Mesi</button>
       <button data-v="aggr" aria-pressed="false">Trimestri e anno</button>
       <button data-v="confronto" aria-pressed="false">Confronto</button>
+      <button data-v="analytics" aria-pressed="false">Analytics</button>
     </div>
     <div class="seg" id="anno" style="display:none">
       <button data-a="2026" aria-pressed="true">2026</button>
@@ -833,6 +834,59 @@ function statoFonte(sez){
   if(ok)return et;
   return et+' <span style="color:var(--warn)">&#9888; '+(LIVE_ERR||"live in caricamento")+'</span>';
 }
+/* ---------- Analytics ----------
+   Quanto vale in media un mese, dentro ogni trimestre e sull'anno. Serve a costruire un
+   forecast: si parte da quello che un mese medio ha prodotto, non dal totale di un periodo
+   lungo quanto capita. Per le voci che si sommano - spesa, lead, ordini, venduto - la media
+   e' il totale diviso i mesi che un valore ce l'hanno davvero, non diviso dodici: a Ottobre
+   2026 i mesi sono dieci, e dividere per dodici darebbe una media falsa. Per i rapporti
+   (CPL, percentuali, MER, AOV) la media non si fa sommando: vale il rapporto del periodo,
+   che e' gia' la media pesata giusta. */
+function eRapporto(r){return !!(r.ratio||r.media)||!!r.pct||haParola(r.kpi,"mer|roas");}
+function mesiConDato(sez,r,campo,a,b){
+  var n=0; for(var i=a;i<=b;i++) if(valore(sez.id,r,campo,i,sez.righe)!=null)n++;
+  return n;
+}
+function media(sez,r,ri,campo,a,b){
+  var tot=agg(sez.id,sez.righe,ri,campo,a,b);
+  if(tot==null)return null;
+  if(eRapporto(r))return tot;
+  var n=mesiConDato(sez,r,campo,a,b);
+  return n?tot/n:null;
+}
+function cartaAnalytics(sez){
+  var Q=[{n:"Q1",a:0,b:2},{n:"Q2",a:3,b:5},{n:"Q3",a:6,b:8},{n:"Q4",a:9,b:11}];
+  var campo=cA();
+  var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
+    +'<span class="hint">Consuntivo '+ANNO+' &middot; quanto vale in media un mese</span></div>'
+    +'<div class="scroll"><table><thead><tr><th class="voce">KPI<span class="sotto">media per mese</span></th>';
+  Q.forEach(function(q){h+='<th class="gsep" style="text-align:right">'+q.n+'</th>';});
+  h+='<th class="gsep" style="text-align:right">MEDIA ANNO</th>'
+    +'<th style="text-align:right">TOTALE ANNO</th></tr></thead><tbody>';
+  var cat="", catChiusa=false, primaFiglia=false;
+  sez.righe.forEach(function(r,ri){
+    if(r.cat!==cat){
+      cat=r.cat; primaFiglia=false; var kc=sez.id+"|"+cat;
+      catChiusa=(kc in CHIUSI.cat)?(CHIUSI.cat[kc]===1):((sez.catChiuse||[]).indexOf(cat)>=0);
+      h+='<tr class="cat" data-cat="'+kc+'"><td class="voce"><span class="marc">'+(catChiusa?"&#9656;":"&#9662;")
+        +'</span>'+cat+'</td><td colspan="6"></td></tr>';
+    }
+    if(catChiusa)return;
+    var fig=figliaKPI(r.kpi), cl=(fig?"":" main")+((!fig&&primaFiglia)?" sep":"");
+    primaFiglia=fig;
+    h+='<tr class="'+cl.trim()+'"><td class="voce">'+r.kpi+'</td>';
+    Q.forEach(function(q){h+='<td class="tnum gsep">'+fmt(media(sez,r,ri,campo,q.a,q.b),r,campo)+'</td>';});
+    var n=mesiConDato(sez,r,campo,0,11);
+    h+='<td class="tnum gsep">'+fmt(media(sez,r,ri,campo,0,11),r,campo)
+      +(n&&!eRapporto(r)?'<span class="c3" style="display:block;font-size:10px;color:var(--faint)">su '+n+' mes'+(n===1?'e':'i')+'</span>':'')
+      +'</td>'
+      +'<td class="tnum">'+(eRapporto(r)?'<span class="muted">&mdash;</span>':fmt(agg(sez.id,sez.righe,ri,campo,0,11),r,campo))+'</td></tr>';
+  });
+  return h+'</tbody></table></div><div class="legenda">'
+    +'<span>Media per mese: il totale del periodo diviso i mesi che hanno un valore, non diviso dodici.</span>'
+    +'<span>Per i rapporti (CPL, percentuali, MER, AOV) non si fa la media dei mesi ma il rapporto del periodo, che pesa i mesi per il loro volume. Per questo il totale anno resta vuoto.</span>'
+    +'<span>L\'anno si sceglie in alto. Clic sul nome di un gruppo per chiuderlo o riaprirlo.</span></div></div>';
+}
 /* La tabella del confronto: quattro colonne sole, quindi nessuna chiusura di periodi e
    nessuno scorrimento. Il delta e' A meno B, con sotto la variazione in percentuale. */
 function cartaConfronto(sez){
@@ -890,6 +944,7 @@ function render(){
   DATI.sezioni.filter(function(s){return s.id===sezAttiva;}).forEach(function(sez){
     SEZ_RENDER=sez;
     if(vista==="confronto"){html+=cartaConfronto(sez);return;}
+    if(vista==="analytics"){html+=cartaAnalytics(sez);return;}
     var compatta=!!sez.compatto&&vista==="mesi";
     var cols = vista==="mesi" ? MESI.map(function(m,i){return {n:m,i:i};}) : GRUPPI;
     var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
