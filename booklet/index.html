@@ -847,13 +847,22 @@ function statoFonte(sez){
    (CPL, percentuali, MER, AOV) la media non si fa sommando: vale il rapporto del periodo,
    che e' gia' la media pesata giusta. */
 function eRapporto(r){return !!(r.ratio||r.media)||!!r.pct||haParola(r.kpi,"mer|roas");}
+/* Analytics lavora solo sui mesi CONCLUSI. Il mese in corso ha dentro pochi giorni: messo in
+   una media la abbassa e farebbe partire un forecast da una base falsa. Per gli anni passati
+   sono conclusi tutti e dodici; per l'anno in corso fino al mese prima di quello corrente. */
+function ultimoMeseConcluso(anno){
+  var vivo=campiAnni()[0].anno;
+  return (anno<vivo) ? 11 : Math.min(11,ULTIMO_LIVE-2);
+}
 function mesiConDato(sez,r,campo,a,b){
   var n=0; for(var i=a;i<=b;i++) if(valore(sez.id,r,campo,i,sez.righe)!=null)n++;
   return n;
 }
-function media(sez,r,ri,campo,a,b){
+function media(sez,r,ri,campo,a,b,soloTotale){
+  b=Math.min(b,ultimoMeseConcluso(ANNO));
+  if(b<a)return null;
   var tot=agg(sez.id,sez.righe,ri,campo,a,b);
-  if(tot==null)return null;
+  if(tot==null||soloTotale)return tot;
   if(eRapporto(r))return tot;
   var n=mesiConDato(sez,r,campo,a,b);
   return n?tot/n:null;
@@ -871,14 +880,16 @@ function campiAnni(){
    e poi si divide, altrimenti un anno piccolo peserebbe quanto uno grande. */
 function mediaFraAnni(sez,r,i){
   var anni=campiAnni();
+  anni=anni.filter(function(a){return i<=ultimoMeseConcluso(a.anno);});
+  if(!anni.length)return null;
   if(r.ratio){
-    var nu=0,de=0,ok=false;
+    var nu=0,de=0,q=0;
     anni.forEach(function(a){
       var n=lato(sez.id,sez.righe,r.ratio.n,r.ratio.ns,a.act,i),
           d=lato(sez.id,sez.righe,r.ratio.d,r.ratio.ds,a.act,i);
-      if(n!=null&&d!=null){nu+=n;de+=d;ok=true;}
+      if(n!=null&&d!=null){nu+=n;de+=d;q++;}
     });
-    return (ok&&de!==0)?{v:nu/de,n:0}:null;
+    return (q&&de!==0)?{v:nu/de,n:q}:null;
   }
   var s=0,n=0;
   anni.forEach(function(a){var v=valore(sez.id,r,a.act,i,sez.righe); if(v!=null){s+=v;n++;}});
@@ -886,7 +897,7 @@ function mediaFraAnni(sez,r,i){
 }
 function cartaStagionalita(sez){
   var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
-    +'<span class="hint">Media di ogni mese su '+campiAnni().map(function(a){return a.anno;}).join(" e ")+'</span></div>'
+    +'<span class="hint">Media di ogni mese su '+campiAnni().map(function(a){return a.anno;}).join(" e ")+' &middot; solo mesi conclusi</span></div>'
     +'<div class="scroll"><table class="compatta stag"><thead><tr><th class="voce">KPI</th>';
   MESI.forEach(function(m){h+='<th class="gsep" style="text-align:right">'+m+'</th>';});
   h+='</tr></thead><tbody>';
@@ -905,12 +916,12 @@ function cartaStagionalita(sez){
     for(var i=0;i<12;i++){
       var m=mediaFraAnni(sez,r,i);
       h+='<td class="tnum comp gsep"><span class="c1">'+(m?fmtComp(m.v,r,"act"):'<span class="muted">&mdash;</span>')+'</span>'
-        +(m&&m.n>1?'<span class="c2">'+m.n+' anni</span>':'')+'</td>';
+        +(m&&m.n&&campiAnni().length>1?'<span class="c2">'+m.n+(m.n===1?' anno':' anni')+'</span>':'')+'</td>';
     }
     h+='</tr>';
   });
   return h+'</tbody></table></div><div class="legenda">'
-    +'<span>Ogni colonna e\' la media di quel mese su tutti gli anni che hanno un valore: "su 2 anni" dice quanti ne pesano.</span>'
+    +'<span>Ogni colonna e\' la media di quel mese sugli anni che lo hanno gia\' concluso: il numero sotto dice quanti ne pesano. Il mese in corso conta solo per gli anni passati.</span>'
     +'<span>Per i rapporti si sommano numeratore e denominatore di tutti gli anni e poi si divide, cosi\' un anno piccolo non pesa quanto uno grande.</span>'
     +'<span>Importi arrotondati all\'euro per stare in larghezza.</span></div></div>';
 }
@@ -918,7 +929,7 @@ function cartaAnalytics(sez){
   var Q=[{n:"Q1",a:0,b:2},{n:"Q2",a:3,b:5},{n:"Q3",a:6,b:8},{n:"Q4",a:9,b:11}];
   var campo=cA();
   var h='<div class="card"><div class="card-h"><h2>'+sez.titolo+'</h2>'
-    +'<span class="hint">Consuntivo '+ANNO+' &middot; quanto vale in media un mese</span></div>'
+    +'<span class="hint">Consuntivo '+ANNO+(ultimoMeseConcluso(ANNO)<0?', nessun mese ancora concluso':' fino a '+MESI[ultimoMeseConcluso(ANNO)])+' &middot; quanto vale in media un mese</span></div>'
     +'<div class="scroll"><table><thead><tr><th class="voce">KPI</th>';
   Q.forEach(function(q){h+='<th class="gsep" style="text-align:right">'+q.n+'<span class="sotto">media mese</span></th>';});
   h+='<th class="gsep" style="text-align:right">ANNO<span class="sotto">media mese</span></th>'
@@ -936,13 +947,14 @@ function cartaAnalytics(sez){
     primaFiglia=fig;
     h+='<tr class="'+cl.trim()+'"><td class="voce">'+r.kpi+'</td>';
     Q.forEach(function(q){h+='<td class="tnum gsep">'+fmt(media(sez,r,ri,campo,q.a,q.b),r,campo)+'</td>';});
-    var n=mesiConDato(sez,r,campo,0,11);
+    var n=mesiConDato(sez,r,campo,0,ultimoMeseConcluso(ANNO));
     h+='<td class="tnum gsep">'+fmt(media(sez,r,ri,campo,0,11),r,campo)
       +(n&&!eRapporto(r)?'<span class="c3" style="display:block;font-size:10px;color:var(--faint)">su '+n+' mes'+(n===1?'e':'i')+'</span>':'')
       +'</td>'
-      +'<td class="tnum">'+(eRapporto(r)?'<span class="muted">&mdash;</span>':fmt(agg(sez.id,sez.righe,ri,campo,0,11),r,campo))+'</td></tr>';
+      +'<td class="tnum">'+(eRapporto(r)?'<span class="muted">&mdash;</span>':fmt(media(sez,r,ri,campo,0,11,true),r,campo))+'</td></tr>';
   });
   return h+'</tbody></table></div><div class="legenda">'
+    +'<span>Solo mesi conclusi: quello in corso resta fuori, con pochi giorni dentro abbasserebbe la media.</span>'
     +'<span>Media per mese: il totale del periodo diviso i mesi che hanno un valore, non diviso dodici.</span>'
     +'<span>Per i rapporti (CPL, percentuali, MER, AOV) non si fa la media dei mesi ma il rapporto del periodo, che pesa i mesi per il loro volume. Per questo il totale anno resta vuoto.</span>'
     +'<span>L\'anno si sceglie in alto. Clic sul nome di un gruppo per chiuderlo o riaprirlo.</span></div></div>';
