@@ -457,7 +457,7 @@
       </div>
       <div class="card-b scroll"><table id="utmTable"></table></div>
     </div>
-    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">KPI sulle righe, provenienza sulle colonne, annidata: <code>canale</code> &rsaquo; <code>LeadSource</code> &rsaquo; <code>utm_source</code> &rsaquo; <code>utm_medium</code> &rsaquo; <code>utm_campaign</code> &rsaquo; <code>utm_content</code>. <b>Clic su un&rsquo;intestazione</b> per aprirla o richiuderla; una colonna chiusa porta il totale di tutto quello che contiene, quindi il <b>Totale</b> a destra torna sempre. Il <b>canale</b> non e&rsquo; un campo di Salesforce: lo ricaviamo dal <code>LeadSource</code> (dall&rsquo;<code>utm_source</code> solo quando manca), perch&eacute; la stessa piattaforma arriva scritta in molti modi: <code>LeadAds Facebook</code> e <code>Meta ADS</code> sono tutti <b>Meta</b>, <code>Google_Ads</code> e <code>google_ads</code> sono <b>Google</b>, tutto il resto sta in <b>Organico e altro</b>. Le prove di tracciamento finiscono tutte in <b>Prove e test</b>, che resta chiuso anche con &ldquo;Espandi tutto&rdquo;; i record senza parametro in <b>Non tracciato</b>. Entrambi in coda. I filtri sopra non si applicano: questa tabella mostra tutto.</p>
+    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">KPI sulle righe, provenienza sulle colonne, annidata: <code>canale</code> &rsaquo; <code>LeadSource</code> &rsaquo; <code>utm_source</code> &rsaquo; <code>utm_medium</code> &rsaquo; <code>utm_campaign</code> &rsaquo; <code>utm_content</code>. <b>Clic su un&rsquo;intestazione</b> per aprirla o richiuderla; una colonna chiusa porta il totale di tutto quello che contiene, quindi il <b>Totale</b> a destra torna sempre. Il <b>canale</b> non e&rsquo; un campo di Salesforce: lo ricaviamo dal <code>LeadSource</code> (dall&rsquo;<code>utm_source</code> solo quando manca), perch&eacute; la stessa piattaforma arriva scritta in molti modi: <code>LeadAds Facebook</code> e <code>Meta ADS</code> sono tutti <b>Meta</b>, <code>Google_Ads</code> e <code>google_ads</code> sono <b>Google</b>, tutto il resto sta in <b>Organico e altro</b>. Chi compila il <b>Form Tally</b> ha una colonna sua: aprendola si vede da dove arriva. Le prove di tracciamento finiscono tutte in <b>Prove e test</b>, che resta chiuso anche con &ldquo;Espandi tutto&rdquo;; i record senza parametro in <b>Non tracciato</b>. Entrambi in coda. I filtri sopra non si applicano: questa tabella mostra tutto.</p>
     <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Il solito funnel commerciale (KPI sulle righe, mesi sulle colonne) <b>filtrabile</b> per <code>LeadSource</code>, <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code> (i filtri si combinano in <b>AND</b>; &ldquo;(tutte)&rdquo; = nessun filtro su quel campo). Stesse regole delle altre viste: voci <b>Lead</b> per <code>Data_Compilazione_Questionario__c</code>, voci <b>Opportunity</b> per <code>CloseDate</code>. Il dato si carica dal vivo da Salesforce (o con Aggiorna IREC).</p>
   </section>
 
@@ -2077,7 +2077,7 @@ var UTM_LIV=["LeadSource","utm_source__c","utm_medium__c","utm_campaign__c","utm
 var UTM_LIV_LBL=["canale","LeadSource","utm_source","utm_medium","utm_campaign","utm_content"];
 var UTM_NLIV=6;
 var UTM_VUOTO="(non tracciato)";
-var UTM_PROVE="Prove e test", UTM_NT="Non tracciato", UTM_ALTRO="Organico e altro";
+var UTM_PROVE="Prove e test", UTM_NT="Non tracciato", UTM_ALTRO="Organico e altro", UTM_TALLY="Form Tally";
 /* Meta arriva come meta_lead_ads, meta_ads, "meta_ads meta_ads", facebook, ig, Instagram_Reels,
    "Meta Lead Form PMI"...; Google come Google_Ads, google_ads, google. Le prove sono poche e si
    riconoscono dall'inizio del valore: "test"/"prova" come parola, mai dentro un'altra - altrimenti
@@ -2085,6 +2085,8 @@ var UTM_PROVE="Prove e test", UTM_NT="Non tracciato", UTM_ALTRO="Organico e altr
 function utmCanale(lead,src){
   var u=String(src==null?"":src).trim().toLowerCase();
   if(/^(prova|test)([-_. ]|\d|$)/.test(u))return UTM_PROVE;
+  // il form Tally sta in un secchiello suo: aprendolo si vede da dove arriva chi lo compila
+  if(/tally/.test(u))return UTM_TALLY;
   // il canale si legge dal LeadSource, che e' il campo curato; l'utm serve solo se manca
   var v=String(lead==null?"":lead).trim().toLowerCase()||u;
   if(!v)return UTM_NT;
@@ -2092,7 +2094,7 @@ function utmCanale(lead,src){
   if(/google/.test(v))return "Google";
   return UTM_ALTRO;
 }
-function utmPeso(lab){ return lab===UTM_PROVE?2:((lab===UTM_NT||lab===""||lab===UTM_VUOTO)?3:0); }
+function utmPeso(lab){ return lab===UTM_TALLY?1:(lab===UTM_PROVE?2:((lab===UTM_NT||lab===""||lab===UTM_VUOTO)?3:0)); }
 var utmMonths=[CUR_MONTH], utmMaxM=CUR_MONTH, utmCache={}, utmLoading=false, utmErr="";
 var utmAperti={}, utmTuttoAperto=false;
 function utmGrp(i,m){
