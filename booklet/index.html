@@ -32,12 +32,16 @@ h1{margin:0;font-size:22px;font-weight:680;letter-spacing:-.02em}
 .card-h{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
 .card-h h2{margin:0;font-size:15px;font-weight:640}
 .hint{font-size:12px;color:var(--muted)}
-.scroll{overflow-x:auto}
+/* Vedi la nota uguale nella dashboard: perche' l'intestazione resti visibile scendendo fra le
+   righe, il riquadro della tabella deve essere lui a scorrere, non la pagina. */
+.scroll{overflow:auto;max-height:calc(100vh - 96px)}
+@media print{.scroll{max-height:none;overflow:visible}thead th{position:static}}
 table{border-collapse:collapse;width:100%;font-size:12.5px}
 th,td{padding:7px 9px;text-align:right;white-space:nowrap}
 th.voce,td.voce{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;min-width:250px;max-width:250px;white-space:normal}
-thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);font-weight:600;background:var(--surface-2);border-bottom:1px solid var(--border)}
-thead th.voce{background:var(--surface-2);z-index:3}
+thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);font-weight:600;background:var(--surface-2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
+thead tr:nth-child(2) th{top:var(--h1,26px)}
+thead th.voce{background:var(--surface-2);z-index:4}
 tbody tr:hover td{background:var(--surface-2)}
 tbody tr:hover td.voce{background:var(--surface-2)}
 tr.cat td{background:var(--surface-2);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);padding-top:11px}
@@ -1106,6 +1110,18 @@ function render(){
     html+=h;
   });
   host.innerHTML=html;
+  /* La seconda riga d'intestazione si appiccica sotto la prima: l'altezza della prima dipende dal
+     testo, quindi la si misura a schermo invece di fissarla a mano. */
+  host.querySelectorAll("table").forEach(function(t){
+    var rs=t.querySelectorAll("thead tr");
+    if(rs.length<2)return;
+    /* Serve l'altezza della sola prima riga. Le celle con rowspan=2 ne dichiarano una che
+       copre entrambe, quindi si misura una cella che sta davvero su una riga sola. */
+    var cella=null;
+    [].slice.call(rs[0].children).some(function(th){ if((th.rowSpan||1)<=1){cella=th;return true;} return false; });
+    var h=cella?Math.round(cella.getBoundingClientRect().height):0;
+    if(h>0)t.style.setProperty("--h1",h+"px");
+  });
   host.querySelectorAll(".edit[data-k]").forEach(function(td){
     td.addEventListener("dblclick",function(){apriCella(td);});
   });

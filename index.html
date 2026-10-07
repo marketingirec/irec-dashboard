@@ -117,7 +117,11 @@
   .card-b{padding:4px 0}
 
   /* Tables */
-  .scroll{overflow-x:auto}
+  /* La tabella scorre dentro il proprio riquadro, alto al massimo quanto lo schermo: e' l'unico
+     modo perche' l'intestazione resti visibile mentre si scende fra le righe. Un contenitore che
+     scorre in orizzontale non puo' ancorare le sue intestazioni alla pagina, quindi il riquadro
+     deve scorrere anche in verticale. Le tabelle corte non se ne accorgono. */
+  .scroll{overflow:auto;max-height:calc(100vh - 96px)}
   table{border-collapse:collapse;width:100%;font-size:13px}
   th,td{padding:9px 12px;text-align:right;white-space:nowrap}
   th.voce,td.voce{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;font-weight:560;min-width:140px}
@@ -126,7 +130,7 @@
   thead th.voce{background:var(--surface-2);z-index:3}
   /* Vista sorgenti a due livelli: la riga degli utm_source si appiccica sotto quella delle
      sorgenti (l'altezza della prima riga la misura il render), e un filo separa i gruppi. */
-  #srcTable thead tr:nth-child(2) th{top:var(--srch1,32px)}
+  thead tr:nth-child(2) th{top:var(--h1,32px)}
   th.grpstart,td.grpstart{border-left:2px solid var(--border)}
   tbody tr:hover td{background:var(--surface-2)}
   tbody tr:hover td.voce{background:var(--surface-2)}
@@ -193,6 +197,9 @@
     .wrap{max-width:none;padding:0}
     .card{box-shadow:none;border:1px solid #ddd;break-inside:avoid;margin-bottom:10px}
     input.bud{border:none;background:transparent;-webkit-appearance:none;appearance:none}
+    /* in stampa il riquadro non scorre: deve uscire la tabella intera, non una schermata */
+    .scroll{max-height:none;overflow:visible}
+    thead th{position:static}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}.spin{animation:none}.fbar{transition:none}}
   @media(max-width:560px){.brand h1{font-size:19px}.tile .val{font-size:22px}}
@@ -2236,6 +2243,21 @@ function campExport(){
     else if(c==="declined"){ rstatus("Download annullato.","err"); }
     else { rstatus("Download non disponibile in questa vista.","err"); } });
 }
+/* Intestazioni su due righe: la seconda si appiccica sotto la prima, la cui altezza dipende dal
+   testo e va quindi misurata a schermo invece che fissata a mano. */
+function ancoraTeste(root){
+  var box=root||document;
+  (box.matches&&box.matches("table")?[box]:[].slice.call(box.querySelectorAll("table"))).forEach(function(t){
+    var rs=t.querySelectorAll("thead tr");
+    if(rs.length<2)return;
+    /* Serve l'altezza della sola prima riga. Le celle con rowspan=2 ne dichiarano una che
+       copre entrambe, quindi si misura una cella che sta davvero su una riga sola. */
+    var cella=null;
+    [].slice.call(rs[0].children).some(function(th){ if((th.rowSpan||1)<=1){cella=th;return true;} return false; });
+    var h=cella?Math.round(cella.getBoundingClientRect().height):0;
+    if(h>0)t.style.setProperty("--h1",h+"px");
+  });
+}
 function renderSources(){
   var el=document.getElementById("srcTable"); if(!el)return;
   var store=srcStore();
@@ -2301,7 +2323,7 @@ function renderSources(){
   }
   body+='</tbody>';
   el.innerHTML=head+body;
-  if(doppio){var h1=el.querySelector("thead tr:first-child th"); if(h1)el.style.setProperty("--srch1", Math.round(h1.getBoundingClientRect().height)+"px");}
+  ancoraTeste(el);
   renderChan();
 }
 
