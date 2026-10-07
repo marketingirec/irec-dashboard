@@ -457,7 +457,7 @@
       </div>
       <div class="card-b scroll"><table id="utmTable"></table></div>
     </div>
-    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">KPI sulle righe, provenienza sulle colonne, annidata: <code>canale</code> &rsaquo; <code>LeadSource</code> &rsaquo; <code>utm_source</code> &rsaquo; <code>utm_medium</code> &rsaquo; <code>utm_campaign</code> &rsaquo; <code>utm_content</code>. <b>Clic su un&rsquo;intestazione</b> per aprirla o richiuderla; una colonna chiusa porta il totale di tutto quello che contiene, quindi il <b>Totale</b> a destra torna sempre. Il <b>canale</b> non e&rsquo; un campo di Salesforce: lo ricaviamo dal <code>LeadSource</code> (dall&rsquo;<code>utm_source</code> solo quando manca), perch&eacute; la stessa piattaforma arriva scritta in molti modi: <code>LeadAds Facebook</code> e <code>Meta ADS</code> sono tutti <b>Meta</b>, <code>Google_Ads</code> e <code>google_ads</code> sono <b>Google</b>, tutto il resto sta in <b>Organico e altro</b>. Le prove di tracciamento finiscono tutte in <b>Prove e test</b>, i record senza parametro in <b>Non tracciato</b>, entrambi in coda. I filtri sopra non si applicano: questa tabella mostra tutto.</p>
+    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">KPI sulle righe, provenienza sulle colonne, annidata: <code>canale</code> &rsaquo; <code>LeadSource</code> &rsaquo; <code>utm_source</code> &rsaquo; <code>utm_medium</code> &rsaquo; <code>utm_campaign</code> &rsaquo; <code>utm_content</code>. <b>Clic su un&rsquo;intestazione</b> per aprirla o richiuderla; una colonna chiusa porta il totale di tutto quello che contiene, quindi il <b>Totale</b> a destra torna sempre. Il <b>canale</b> non e&rsquo; un campo di Salesforce: lo ricaviamo dal <code>LeadSource</code> (dall&rsquo;<code>utm_source</code> solo quando manca), perch&eacute; la stessa piattaforma arriva scritta in molti modi: <code>LeadAds Facebook</code> e <code>Meta ADS</code> sono tutti <b>Meta</b>, <code>Google_Ads</code> e <code>google_ads</code> sono <b>Google</b>, tutto il resto sta in <b>Organico e altro</b>. Le prove di tracciamento finiscono tutte in <b>Prove e test</b>, che resta chiuso anche con &ldquo;Espandi tutto&rdquo;; i record senza parametro in <b>Non tracciato</b>. Entrambi in coda. I filtri sopra non si applicano: questa tabella mostra tutto.</p>
     <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Il solito funnel commerciale (KPI sulle righe, mesi sulle colonne) <b>filtrabile</b> per <code>LeadSource</code>, <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code> (i filtri si combinano in <b>AND</b>; &ldquo;(tutte)&rdquo; = nessun filtro su quel campo). Stesse regole delle altre viste: voci <b>Lead</b> per <code>Data_Compilazione_Questionario__c</code>, voci <b>Opportunity</b> per <code>CloseDate</code>. Il dato si carica dal vivo da Salesforce (o con Aggiorna IREC).</p>
   </section>
 
@@ -2165,7 +2165,14 @@ function utmFigli(n){
   n.ord.forEach(function(f){ if(f.lab===""&&n.ord.length===1) out=out.concat(utmFigli(f)); else out.push(f); });
   return out;
 }
-function utmAperto(n){return utmTuttoAperto?true:(utmAperti[n.chiave]===1);}
+/* Le prove restano chiuse anche con "Espandi tutto": sono scarti di tracciamento, non un ramo
+   da leggere. Si aprono solo cliccandole, e quella scelta poi vale. */
+function utmInProve(n){return n.chiave.indexOf(SRC_SEP+UTM_PROVE)===0;}
+function utmAperto(n){
+  if(utmAperti[n.chiave]===1)return true;
+  if(utmAperti[n.chiave]===0)return false;
+  return utmTuttoAperto&&!utmInProve(n);
+}
 function renderUtm(){
   var el=document.getElementById("utmTable"); if(!el)return;
   var hint=document.getElementById("utmHint");
@@ -2224,7 +2231,7 @@ function renderUtm(){
   ancoraTeste(el);
   el.querySelectorAll("th[data-k]").forEach(function(th){ th.addEventListener("click",function(){
     var k=th.getAttribute("data-k");
-    if(utmTuttoAperto){ utmTuttoAperto=false; (function tutti(n){utmFigli(n).forEach(function(f){utmAperti[f.chiave]=1;tutti(f);});})(utmAlbero()); }
+    if(utmTuttoAperto){ utmTuttoAperto=false; (function tutti(n){utmFigli(n).forEach(function(f){ if(!utmInProve(f)){utmAperti[f.chiave]=1;tutti(f);} });})(utmAlbero()); }
     utmAperti[k]=(utmAperti[k]===1)?0:1; renderUtm();
   }); });
 }
