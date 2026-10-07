@@ -51,6 +51,28 @@ const srcGrp   = (i,m,by)=>{
   const from = VW[i].o==='Lead'?'Lead':'Opportunity';
   return `SELECT ${campi},${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} AND CALENDAR_MONTH(${dcol})=${m} GROUP BY ${grp}`;
 };
+/* Albero UTM: una riga per combinazione dei quattro parametri. Le voci Lead sono ancorate alla
+   data di compilazione, quelle Opportunity alla CloseDate, come in tutte le altre viste. */
+const UTM_LIV = ['utm_source__c','utm_campaign__c','utm_medium__c','utm_content__c'];
+const utmGrp = (i,m)=>{
+  const dcol = VW[i].o==='Lead'?'Data_Compilazione_Questionario__c':'CloseDate';
+  const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t';
+  const from = VW[i].o==='Lead'?'Lead':'Opportunity';
+  const campi = UTM_LIV.map((f,k)=>`${f} l${k}`).join(',');
+  return `SELECT ${campi},${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} AND CALENDAR_MONTH(${dcol})=${m} GROUP BY ${UTM_LIV.join(', ')}`;
+};
+function buildUtm(recsByVoce){
+  const map={};
+  for(let i=0;i<8;i++){ (recsByVoce[i]||[]).forEach(r=>{
+    const liv = UTM_LIV.map((_f,k)=> (r['l'+k]==null||r['l'+k]==='') ? '' : String(r['l'+k]));
+    const k = liv.join(SRC_SEP);
+    if(!map[k]) map[k]={ liv, v:[0,0,0,0,0,0,0,0,0] };
+    const row=map[k].v;
+    row[i]+= (r[VW[i].won?'c':'t']==null?0:+r[VW[i].won?'c':'t']);
+    if(VW[i].won) row[8]+= (r.a==null?0:+r.a);
+  }); }
+  return Object.keys(map).map(k=>({ liv:map[k].liv, v:map[k].v }));
+}
 const QD_TOT = `SELECT ${DD} d,COUNT(Id) t FROM Lead WHERE ${LB} GROUP BY ${DD} ORDER BY ${DD}`;
 const QD_MQL = `SELECT CloseDate d,COUNT(Id) t FROM Opportunity WHERE ${OB} AND (LeadSource!='Reopen' OR LeadSource=null) GROUP BY CloseDate ORDER BY CloseDate`;
 const QD_WON = `SELECT CloseDate d,COUNT(Id) c,SUM(Amount) a FROM Opportunity WHERE ${OB} AND StageName IN ('Chiuso - Vinto','Chiuso - Pending') GROUP BY CloseDate ORDER BY CloseDate`;
@@ -198,6 +220,17 @@ export default async function handler(req, res){
       const recsByVoce = [];
       for(let i=0;i<8;i++){ recsByVoce[i] = await soql(ctx, srcGrp(i,m,by)); }
       res.status(200).json({ month:m, year:YEAR, by, rows:buildSrc(recsByVoce, by) });
+      return;
+    }
+
+    /* vista "utmtree" (?view=utmtree&month=10): lo stesso funnel a 8 voci spaccato sui quattro
+       parametri del link, dal piu' largo al piu' stretto - piattaforma, campagna, pubblico,
+       creativita'. Il client ne disegna un albero richiudibile. */
+    if((req.query.view||'')==='utmtree'){
+      const m = Math.max(1, Math.min(12, Number(req.query.month)||curM));
+      const recsByVoce = [];
+      for(let i=0;i<8;i++){ recsByVoce[i] = await soql(ctx, utmGrp(i,m)); }
+      res.status(200).json({ month:m, year:YEAR, rows:buildUtm(recsByVoce) });
       return;
     }
 
