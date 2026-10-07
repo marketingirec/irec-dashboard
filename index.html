@@ -305,13 +305,13 @@
     <div class="tabgroup" data-macro="mkt">
       <button role="tab" aria-selected="false" data-tab="sources">Sorgenti</button>
       <button role="tab" aria-selected="false" data-tab="adv">ADV &amp; Economics</button>
+      <button role="tab" aria-selected="false" data-tab="campagne">Dettaglio Campagne</button>
     </div>
     <div class="tabgroup" data-macro="sales">
       <button role="tab" aria-selected="false" data-tab="reopen">Reopen</button>
       <button role="tab" aria-selected="false" data-tab="tmk">TMK</button>
       <button role="tab" aria-selected="false" data-tab="operatori">Operatori Sales</button>
       <button role="tab" aria-selected="false" data-tab="vinti">Vinti</button>
-      <button role="tab" aria-selected="false" data-tab="campagne">Dettaglio Campagne</button>
     </div>
     <div class="tabgroup" data-macro="customer">
       <button role="tab" aria-selected="false" data-tab="recensioni">Recensioni</button>
@@ -2898,7 +2898,7 @@ function renderRFAdv(){
   wireRfCurEdit("rfAdvTable",renderRFActive);
 }
 /* ---------- refresh a fasi: overlay barra di caricamento per gruppo di tab ---------- */
-var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",vinti:"sales",campagne:"sales",recensioni:"customer"};
+var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",vinti:"sales",campagne:"marketing",recensioni:"customer"};
 var RF_TAB_GROUP={andamento:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",comportamento:"customer",recensioni:"customer"};
 var groupReady={general:true,marketing:true,tmk:true,sales:true};
 var currentView="irec-dash";
