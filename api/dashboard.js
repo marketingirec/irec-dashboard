@@ -53,7 +53,7 @@ const srcGrp   = (i,m,by)=>{
 };
 /* Albero UTM: una riga per combinazione dei quattro parametri. Le voci Lead sono ancorate alla
    data di compilazione, quelle Opportunity alla CloseDate, come in tutte le altre viste. */
-const UTM_LIV = ['utm_source__c','utm_campaign__c','utm_medium__c','utm_content__c'];
+const UTM_LIV = ['LeadSource','utm_source__c','utm_medium__c','utm_campaign__c','utm_content__c'];
 const utmGrp = (i,m)=>{
   const dcol = VW[i].o==='Lead'?'Data_Compilazione_Questionario__c':'CloseDate';
   const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t';
