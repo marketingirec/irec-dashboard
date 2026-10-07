@@ -307,6 +307,7 @@
       <button role="tab" aria-selected="true" data-tab="mom">Andamento mese su mese</button>
       <button role="tab" aria-selected="false" data-tab="pivot">Pivot Budget vs Real</button>
       <button role="tab" aria-selected="false" data-tab="motiv">Motivazioni</button>
+      <button role="tab" aria-selected="false" data-tab="confronto">Confronto periodi</button>
     </div>
     <div class="tabgroup" data-macro="mkt">
       <button role="tab" aria-selected="false" data-tab="sources">Sorgenti</button>
@@ -459,6 +460,35 @@
     </div>
     <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">KPI sulle righe, provenienza sulle colonne, annidata: <code>canale</code> &rsaquo; <code>LeadSource</code> &rsaquo; <code>utm_source</code> &rsaquo; <code>utm_medium</code> &rsaquo; <code>utm_campaign</code> &rsaquo; <code>utm_content</code>. <b>Clic su un&rsquo;intestazione</b> per aprirla o richiuderla; una colonna chiusa porta il totale di tutto quello che contiene, quindi il <b>Totale</b> a destra torna sempre. Il <b>canale</b> non e&rsquo; un campo di Salesforce: lo ricaviamo dal <code>LeadSource</code> (dall&rsquo;<code>utm_source</code> solo quando manca), perch&eacute; la stessa piattaforma arriva scritta in molti modi: <code>LeadAds Facebook</code> e <code>Meta ADS</code> sono tutti <b>Meta</b>, <code>Google_Ads</code> e <code>google_ads</code> sono <b>Google</b>, tutto il resto sta in <b>Organico e altro</b>. Chi compila il <b>Form Tally</b> ha una colonna sua: aprendola si vede da dove arriva. Le prove di tracciamento finiscono tutte in <b>Prove e test</b>, che resta chiuso anche con &ldquo;Espandi tutto&rdquo;; i record senza parametro in <b>Non tracciato</b>. Entrambi in coda. I filtri sopra non si applicano: questa tabella mostra tutto.</p>
     <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Il solito funnel commerciale (KPI sulle righe, mesi sulle colonne) <b>filtrabile</b> per <code>LeadSource</code>, <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code> (i filtri si combinano in <b>AND</b>; &ldquo;(tutte)&rdquo; = nessun filtro su quel campo). Stesse regole delle altre viste: voci <b>Lead</b> per <code>Data_Compilazione_Questionario__c</code>, voci <b>Opportunity</b> per <code>CloseDate</code>. Il dato si carica dal vivo da Salesforce (o con Aggiorna IREC).</p>
+  </section>
+
+  <!-- ============ GENERAL : CONFRONTO FRA PERIODI ============ -->
+  <section class="panel" id="panel-confronto">
+    <div class="card">
+      <div class="card-h" style="flex-wrap:wrap;gap:10px">
+        <h2>Confronto fra periodi</h2>
+        <span class="hint" id="cfHint" style="color:var(--muted)"></span>
+      </div>
+      <div style="display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;padding:12px 16px 4px">
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 5px 2px">Periodo A</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="cfTipoA" style="font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink)"></select>
+            <span id="cfValA" style="display:inline-flex;gap:6px;align-items:center"></span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 5px 2px">Periodo B &mdash; confronto</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <select id="cfTipoB" style="font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink)"></select>
+            <span id="cfValB" style="display:inline-flex;gap:6px;align-items:center"></span>
+          </div>
+        </div>
+        <button type="button" id="cfPrec" title="Imposta B sul periodo immediatamente precedente ad A, della stessa lunghezza" style="font:inherit;font-size:12px;font-weight:600;padding:7px 12px;border:1px solid var(--accent);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer">&#8592; Periodo precedente</button>
+      </div>
+      <div class="card-b scroll"><table id="cfTable"></table></div>
+    </div>
+    <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Conteggi e importi si <b>sommano</b> sul periodo; i rapporti (AOV, CPL, MER, le conversioni) si <b>ricalcolano</b> sul periodo intero, non si fa la media dei mesi &mdash; altrimenti un mese piccolo peserebbe quanto uno grande. Il &Delta; e&rsquo; <b>A meno B</b>, con sotto la variazione percentuale. I mesi senza dato non entrano nella somma.</p>
   </section>
 
   <!-- ============ CUSTOMER : RECENSIONI (IREC) ============ -->
@@ -2504,6 +2534,114 @@ function renderTMKScarto(){
 // legge l'array mensile di una motivazione: __MKT__ da MOTIV_MKT, altrimenti da SCARTO2 per key
 function mvArr(key){ if(key==="__MKT__")return MOTIV_MKT; var r=SCARTO2.filter(function(x){return x.key===key;})[0]; return r?r.data:[0,0,0,0,0,0,0,0,0,0,0,0]; }
 // Vista MOTIVAZIONI: funnel Totali entrati -> In target da Policy -> In target criteri sec. -> Irraggiungibili/Contattabili
+/* ================= CONFRONTO FRA PERIODI =================
+   Due periodi scelti a mano e messi a fianco. Le serie sono quelle che la dashboard ha gia' in
+   memoria, quindi non serve nessuna chiamata in piu': il confronto vale su quello che si sta
+   guardando. I rapporti si ricalcolano sul periodo, mai come media dei mesi. */
+var CF_TIPI=[{k:"mese",n:"Mese"},{k:"trim",n:"Trimestre"},{k:"sem",n:"Semestre"},{k:"anno",n:"Anno"},{k:"pers",n:"Personalizzato"}];
+var CF={a:{tipo:"mese",i:Math.max(0,CUR_MONTH-1),da:Math.max(0,CUR_MONTH-1),a:Math.max(0,CUR_MONTH-1)},
+        b:{tipo:"mese",i:Math.max(0,CUR_MONTH-2),da:Math.max(0,CUR_MONTH-2),a:Math.max(0,CUR_MONTH-2)}};
+// da scelta a intervallo di mesi [da,a] con indici 0..11
+function cfRange(p){
+  if(p.tipo==="mese")return {da:p.i,a:p.i,et:MESI_LUNGHI[p.i]};
+  if(p.tipo==="trim")return {da:p.i*3,a:p.i*3+2,et:"Q"+(p.i+1)};
+  if(p.tipo==="sem") return {da:p.i*6,a:p.i*6+5,et:(p.i===0?"H1":"H2")};
+  if(p.tipo==="anno")return {da:0,a:11,et:"Anno "+Y_R};
+  var d=Math.min(p.da,p.a), f=Math.max(p.da,p.a);
+  return {da:d,a:f,et:(d===f)?MESI_LUNGHI[d]:(MESI[d]+"&ndash;"+MESI[f])};
+}
+function cfSomma(arr,r){var s=null; for(var i=r.da;i<=r.a;i++){var v=arr&&arr[i]; if(v!=null){s=(s||0)+(+v);}} return s;}
+function cfRapp(num,den,r){var n=cfSomma(num,r), d=cfSomma(den,r); return (n==null||d==null||d===0)?null:n/d;}
+function cfSpesa(){ // investimento ADV mensile: Meta + Google consuntivo
+  return MESI.map(function(_x,i){var m=IREC_META_REAL[i],g=IREC_GOOGLE_REAL[i];
+    return (m==null&&g==null)?null:((m||0)+(g||0));});
+}
+/* Le voci del confronto. tipo: int, eur, pct, rapporto. Chi ha "num"/"den" si ricalcola. */
+function cfVoci(){
+  var R=REAL.general, adv=cfSpesa();
+  return [
+    {n:"Lead totali entrati", f:"int", s:R[0].data},
+    {n:"In target da Policy", f:"int", s:R[1].data},
+    {n:"- % sui lead", f:"pct", num:R[1].data, den:R[0].data},
+    {n:"Contattabili TMK", f:"int", s:R[3].data},
+    {n:"MQL", f:"int", s:R[4].data},
+    {n:"- % MQL sui lead", f:"pct", num:R[4].data, den:R[0].data},
+    {n:"SQL", f:"int", s:R[5].data},
+    {n:"Trattative", f:"int", s:R[6].data},
+    {n:"Chiusi vinti", f:"int", s:R[7].data, grassetto:true},
+    {n:"- % vinti su trattative", f:"pct", num:R[7].data, den:R[6].data},
+    {n:"di cui Nuovi", f:"int", s:NUOVI},
+    {n:"di cui Upsell", f:"int", s:UPSELL},
+    {n:"Venduto", f:"eur", s:FATTURATO, grassetto:true},
+    {n:"AOV / ticket medio", f:"eur", num:FATTURATO, den:CONTRATTI},
+    {n:"Investimento ADV", f:"eur", s:adv},
+    {n:"CPL medio", f:"eur", num:adv, den:R[0].data},
+    {n:"Costo per MQL", f:"eur", num:adv, den:R[4].data},
+    {n:"CAC - costo per cliente", f:"eur", num:adv, den:CONTRATTI},
+    {n:"MER", f:"pct", num:FATTURATO, den:adv, grassetto:true}
+  ];
+}
+function cfVal(v,r){ return v.s ? cfSomma(v.s,r) : cfRapp(v.num,v.den,r); }
+function cfFmt(x,f){
+  if(x==null)return '<span class="muted">&mdash;</span>';
+  if(f==="eur")return eur(x);
+  if(f==="pct")return (x*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";
+  return nf(Math.round(x));
+}
+function cfDelta(a,b,f){
+  if(a==null||b==null)return '<span class="muted">&mdash;</span>';
+  var d=a-b, segno=(d>0?"+":""), pz=(b===0)?null:(d/Math.abs(b)*100);
+  var col=(d===0)?"var(--muted)":(d>0?"var(--ok,#1a7f4b)":"var(--warn,#b3261e)");
+  var abs=(f==="pct")?(segno+(d*100).toLocaleString("it-IT",{maximumFractionDigits:1})+" pt")
+                     :(f==="eur"?(segno+eur(d).replace("&euro; ","&euro; ")):(segno+nf(Math.round(d))));
+  return '<span style="color:'+col+'">'+abs+'</span>'
+    +(pz==null?'':'<span style="display:block;font-size:10.5px;color:var(--faint)">'+(pz>0?"+":"")+pz.toLocaleString("it-IT",{maximumFractionDigits:1})+'%</span>');
+}
+function cfSelTipo(id,p){
+  var el=document.getElementById(id); if(!el)return;
+  el.innerHTML=CF_TIPI.map(function(t){return '<option value="'+t.k+'"'+(p.tipo===t.k?" selected":"")+'>'+t.n+'</option>';}).join("");
+}
+function cfSelVal(id,p){
+  var el=document.getElementById(id); if(!el)return;
+  var st='font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink)';
+  function opz(lista,sel,chiave){return '<select data-c="'+chiave+'" style="'+st+'">'+lista.map(function(o,k){
+    return '<option value="'+k+'"'+(k===sel?" selected":"")+'>'+o+'</option>';}).join("")+'</select>';}
+  if(p.tipo==="mese")      el.innerHTML=opz(MESI_LUNGHI,p.i,"i");
+  else if(p.tipo==="trim") el.innerHTML=opz(["Q1","Q2","Q3","Q4"],p.i,"i");
+  else if(p.tipo==="sem")  el.innerHTML=opz(["H1 (Gen&ndash;Giu)","H2 (Lug&ndash;Dic)"],p.i,"i");
+  else if(p.tipo==="anno") el.innerHTML='<span class="hint" style="color:var(--muted)">'+Y_R+'</span>';
+  else el.innerHTML=opz(MESI_LUNGHI,p.da,"da")+'<span class="hint" style="color:var(--muted)">&rarr;</span>'+opz(MESI_LUNGHI,p.a,"a");
+}
+function renderConfronto(){
+  var el=document.getElementById("cfTable"); if(!el)return;
+  cfSelTipo("cfTipoA",CF.a); cfSelTipo("cfTipoB",CF.b);
+  cfSelVal("cfValA",CF.a);   cfSelVal("cfValB",CF.b);
+  var ra=cfRange(CF.a), rb=cfRange(CF.b);
+  var hint=document.getElementById("cfHint");
+  if(hint)hint.innerHTML='<b>'+ra.et+'</b> contro <b>'+rb.et+'</b> &middot; consuntivo '+Y_R;
+  var head='<thead><tr><th class="voce">Voce</th><th class="grpstart">'+ra.et+'</th><th>'+rb.et+'</th><th>&Delta; A &minus; B</th></tr></thead><tbody>';
+  var body="";
+  cfVoci().forEach(function(v){
+    var a=cfVal(v,ra), b=cfVal(v,rb);
+    body+='<tr'+(v.grassetto?' style="font-weight:640"':'')+'><td class="voce"'+(/^[-d]/.test(v.n)?' style="padding-left:22px;color:var(--muted);font-weight:420"':'')+'>'+v.n+'</td>'
+      +'<td class="tnum grpstart">'+cfFmt(a,v.f)+'</td><td class="tnum">'+cfFmt(b,v.f)+'</td>'
+      +'<td class="tnum">'+cfDelta(a,b,v.f)+'</td></tr>';
+  });
+  el.innerHTML=head+body+'</tbody>';
+}
+/* B = il periodo immediatamente prima di A, della stessa lunghezza. Se A comincia a gennaio non
+   c'e' un "prima" dentro l'anno: in quel caso B resta dov'e' e si avvisa. */
+function cfPeriodoPrec(){
+  var ra=cfRange(CF.a), n=ra.a-ra.da+1, fine=ra.da-1, inizio=fine-n+1;
+  if(inizio<0){ var h=document.getElementById("cfHint");
+    if(h)h.innerHTML='<span style="color:var(--warn)">Prima di '+ra.et+' non c&rsquo;e&rsquo; spazio dentro il '+Y_R+'.</span>';
+    return; }
+  CF.b={tipo:"pers", i:inizio, da:inizio, a:fine};
+  if(n===1)CF.b.tipo="mese", CF.b.i=inizio;
+  else if(n===3&&inizio%3===0)CF.b.tipo="trim", CF.b.i=inizio/3;
+  else if(n===6&&inizio%6===0)CF.b.tipo="sem", CF.b.i=inizio/6;
+  renderConfronto();
+}
 function renderMotiv(){
   var el=document.getElementById("motivTable"); if(!el)return;
   function sumA(m){var s=0;MOTIV_A.forEach(function(o){s+=mvArr(o.key)[m]||0;});return s;}
@@ -3157,7 +3295,7 @@ function renderRFAdv(){
   wireRfCurEdit("rfAdvTable",renderRFActive);
 }
 /* ---------- refresh a fasi: overlay barra di caricamento per gruppo di tab ---------- */
-var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",vinti:"sales",campagne:"marketing",recensioni:"customer"};
+var IREC_TAB_GROUP={mom:"general",pivot:"general",motiv:"general",confronto:"general",sources:"marketing",adv:"marketing",tmk:"tmk",reopen:"sales",operatori:"sales",vinti:"sales",campagne:"marketing",recensioni:"customer"};
 var RF_TAB_GROUP={andamento:"general",pv:"general",sorgenti:"marketing",adv:"marketing",operatori:"sales",ordini:"sales",comportamento:"customer",recensioni:"customer"};
 var groupReady={general:true,marketing:true,tmk:true,sales:true};
 var currentView="irec-dash";
@@ -3197,7 +3335,7 @@ function showView(v){
   updateOverlay();
   try{localStorage.setItem("irec_view",v);}catch(e){}
 }
-function renderAll(){renderTiles();renderFunnel();renderMoM();renderOperators();renderOppScarto();renderTMK();renderWon();renderCampaign();renderPivot();renderMotiv();renderADV();renderReopen();renderSources();renderRecIrec();renderChan();topVis(currentTab);}
+function renderAll(){renderTiles();renderFunnel();renderMoM();renderOperators();renderOppScarto();renderTMK();renderWon();renderCampaign();renderPivot();renderMotiv();renderConfronto();renderADV();renderReopen();renderSources();renderRecIrec();renderChan();topVis(currentTab);}
 
 /* --- avviso "modifica manuale" sugli input budget (con silenzia 10 min) --- */
 var budgetWarnUntil=0, budgetTarget=null, budgetModalOpen=false, skipGuardOnce=false;
@@ -3337,6 +3475,19 @@ function initControls(){
   });
   var utmE=document.getElementById("utmEspandi");
   if(utmE)utmE.addEventListener("click",function(){utmTuttoAperto=!utmTuttoAperto; if(!utmTuttoAperto)utmAperti={}; renderUtm();});
+  // confronto fra periodi: i due selettori e il tasto "periodo precedente"
+  [["cfTipoA","a"],["cfTipoB","b"]].forEach(function(x){
+    var el=document.getElementById(x[0]);
+    if(el)el.addEventListener("change",function(){ CF[x[1]].tipo=el.value; if(CF[x[1]].i==null)CF[x[1]].i=0; renderConfronto(); });
+  });
+  [["cfValA","a"],["cfValB","b"]].forEach(function(x){
+    var el=document.getElementById(x[0]);
+    if(el)el.addEventListener("change",function(ev){
+      var sel=ev.target.closest("select[data-c]"); if(!sel)return;
+      CF[x[1]][sel.getAttribute("data-c")]=+sel.value; renderConfronto();
+    });
+  });
+  var _cfp=document.getElementById("cfPrec"); if(_cfp)_cfp.addEventListener("click",cfPeriodoPrec);
   var _crst=document.getElementById("campReset"); if(_crst)_crst.addEventListener("click",function(){campFilters={lead:[],src:[],med:[],camp:[]};fillCampFilters();ensureCampData();});
   var _cc=document.getElementById("campCsv"); if(_cc)_cc.addEventListener("click",campExport);
   // tabs
@@ -3353,6 +3504,7 @@ function initControls(){
       if(currentTab==="tmk")renderTMK();
       if(currentTab==="vinti"){fillWonMonths();ensureWonMonth();}
       if(currentTab==="campagne"){ensureCampOpts();ensureUtmMonths();}
+      if(currentTab==="confronto")renderConfronto();
       if(currentTab==="recensioni")renderRecIrec();
       updateOverlay();
     });
