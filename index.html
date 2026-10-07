@@ -124,6 +124,10 @@
   thead th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;
     border-bottom:1px solid var(--border);background:var(--surface-2);position:sticky;top:0}
   thead th.voce{background:var(--surface-2);z-index:3}
+  /* Vista sorgenti a due livelli: la riga degli utm_source si appiccica sotto quella delle
+     sorgenti (l'altezza della prima riga la misura il render), e un filo separa i gruppi. */
+  #srcTable thead tr:nth-child(2) th{top:var(--srch1,32px)}
+  th.grpstart,td.grpstart{border-left:2px solid var(--border)}
   tbody tr:hover td{background:var(--surface-2)}
   tbody tr:hover td.voce{background:var(--surface-2)}
   td.now{box-shadow:inset 0 0 0 1px var(--accent-soft)}
@@ -1073,20 +1077,46 @@ var srcLoading = false;
    utm_source (il parametro con cui il contatto e' arrivato). Due cache separate, perche' il resto
    della pagina - "Budget vs Real per canale" - ragiona per canale e quindi solo su LeadSource. */
 var SRC_FIELD = {lead:"LeadSource", utm:"utm_source__c"};
+var SRC_SEP = "\u241F";       // separatore interno della chiave LeadSource+utm_source
 var SRC_BY = "lead";
+var srcCacheB = {};           // cache della lettura incrociata: righe {src,utm,v}
+// LeadAds e Meta restano un'unica voce: sono due etichette dello stesso canale
+var SRC_UNI = {"LeadAds Facebook":1,"Meta ADS":1}, SRC_UNI_LBL = "LeadAds Facebook + Meta ADS";
+function srcNorm(s){return SRC_UNI[s]?SRC_UNI_LBL:s;}
+function srcRaws(lab){return lab===SRC_UNI_LBL?["LeadAds Facebook","Meta ADS"]:[lab];}
+// i non tracciati stanno sempre in coda, per non spezzare la lettura delle colonne che contano
+function srcCoda(lab){return (lab===srcVuoto("utm")||lab===srcVuoto("lead"))?1:0;}
 function srcVuoto(by){return (by||SRC_BY)==="utm" ? "utm non tracciato" : "sorgente non trovata";}
-function srcStore(by){return (by||SRC_BY)==="utm" ? srcCacheU : srcCache;}
+function srcStore(by){var b=by||SRC_BY; return b==="utm"?srcCacheU:(b==="both"?srcCacheB:srcCache);}
 // somma le righe sorgente sui mesi selezionati (solo quelli gia' in cache), prima del merge LeadAds+Meta
 function srcMerge(){
-  var mp={}, store=srcStore();
+  var mp={}, doppio=(SRC_BY==="both"), store=srcStore();
   srcMonths.forEach(function(m){
     var rows=store[m]; if(!rows)return;
     rows.forEach(function(r){
-      if(!mp[r.src])mp[r.src]=new Array(SRC_COLS.length).fill(0);
-      for(var i=0;i<SRC_COLS.length;i++)mp[r.src][i]+=(r.v[i]||0);
+      var k=doppio?(r.src+SRC_SEP+r.utm):r.src;
+      if(!mp[k])mp[k]=new Array(SRC_COLS.length).fill(0);
+      for(var i=0;i<SRC_COLS.length;i++)mp[k][i]+=(r.v[i]||0);
     });
   });
-  return Object.keys(mp).map(function(s){return {src:s,v:mp[s]};});
+  return Object.keys(mp).map(function(k){var p=k.split(SRC_SEP);return doppio?{src:p[0],utm:p[1],v:mp[k]}:{src:k,v:mp[k]};});
+}
+/* Vista incrociata: LeadSource sopra come intestazione unica, i suoi utm_source sotto.
+   Le colonne figlie sono ordinate per volume, con i non tracciati sempre in coda; il gruppo
+   porta una colonna di totale solo quando ha piu' di un utm, altrimenti ripeterebbe il figlio. */
+function srcGruppi(righe){
+  var g={}, ord=[];
+  righe.forEach(function(r){
+    var lab=srcNorm(r.src);
+    if(!g[lab]){g[lab]={src:lab,figli:[],v:new Array(SRC_COLS.length).fill(0)};ord.push(g[lab]);}
+    var G=g[lab], f=null;
+    for(var j=0;j<G.figli.length;j++){if(G.figli[j].utm===r.utm){f=G.figli[j];break;}}
+    if(!f){f={utm:r.utm,v:new Array(SRC_COLS.length).fill(0)};G.figli.push(f);}
+    for(var i=0;i<SRC_COLS.length;i++){f.v[i]+=(r.v[i]||0);G.v[i]+=(r.v[i]||0);}
+  });
+  ord.sort(function(a,b){return srcCoda(a.src)-srcCoda(b.src)||(b.v[0]||0)-(a.v[0]||0);});
+  ord.forEach(function(G){G.figli.sort(function(a,b){return srcCoda(a.utm)-srcCoda(b.utm)||(b.v[0]||0)-(a.v[0]||0);});});
+  return ord;
 }
 var opMonths = [CUR_MONTH];    // mesi selezionati nella vista Operatori (multi-selezione, 1-12)
 var opMaxM = CUR_MONTH;        // mese massimo selezionabile (ultimo con dati)
@@ -1921,9 +1951,9 @@ function renderADV(){
 /* ================= VISTE REOPEN + SORGENTI ================= */
 // unisce alcune sorgenti in un'unica riga (LeadAds Facebook + Meta ADS)
 function mergeSrc(rows){
-  var M={"LeadAds Facebook":1,"Meta ADS":1}, LBL="LeadAds Facebook + Meta ADS", out=[], acc=null;
+  var out=[], acc=null;
   rows.forEach(function(r){
-    if(M[r.src]){ if(!acc){acc={src:LBL,v:r.v.slice()};out.push(acc);} else {for(var i=0;i<acc.v.length;i++){acc.v[i]=(acc.v[i]||0)+(r.v[i]||0);}} }
+    if(SRC_UNI[r.src]){ if(!acc){acc={src:SRC_UNI_LBL,v:r.v.slice()};out.push(acc);} else {for(var i=0;i<acc.v.length;i++){acc.v[i]=(acc.v[i]||0)+(r.v[i]||0);}} }
     else out.push({src:r.src,v:r.v.slice()});
   });
   return out;
@@ -2060,26 +2090,60 @@ function renderSources(){
   // colonne = sorgenti (ordinate per Totali desc); righe = voci funnel (KPI a sx)
   /* L'accorpamento LeadAds+Meta vale per i valori di LeadSource: su utm_source le etichette sono
      quelle scritte nei link, e accorparle vorrebbe dire inventare una regola. Restano come stanno. */
-  var srcs=(SRC_BY==="lead"?mergeSrc(srcMerge()):srcMerge()).sort(function(a,b){return (b.v[0]||0)-(a.v[0]||0);});
-  var head='<thead><tr><th class="voce">Voce funnel</th>';
-  srcs.forEach(function(s){head+='<th>'+s.src+'</th>';});
-  head+='<th>Totale</th></tr></thead>';
+  var doppio=(SRC_BY==="both"), gruppi=null, srcs, head;
+  if(doppio){
+    gruppi=srcGruppi(srcMerge());
+    srcs=[];
+    gruppi.forEach(function(G){
+      G.figli.forEach(function(f,j){ srcs.push({src:G.src, utm:f.utm, v:f.v, apre:(j===0)}); });
+      if(G.figli.length>1) srcs.push({src:G.src, utm:null, v:G.v, grpTot:true, figli:G.figli});
+    });
+    // due livelli di intestazione: la sorgente dichiarata sopra, l'utm con cui e' arrivata sotto
+    head='<thead><tr><th class="voce" rowspan="2">Voce funnel</th>';
+    gruppi.forEach(function(G){ head+='<th class="grpstart" colspan="'+(G.figli.length+(G.figli.length>1?1:0))+'" style="text-align:center">'+G.src+'</th>'; });
+    head+='<th class="grpstart" rowspan="2">Totale</th></tr><tr>';
+    srcs.forEach(function(c){ head+='<th'+(c.apre?' class="grpstart"':'')+(c.grpTot?' style="color:var(--muted);font-weight:600"':'')+'>'+(c.grpTot?"tot":c.utm)+'</th>'; });
+    head+='</tr></thead>';
+  }else{
+    srcs=(SRC_BY==="lead"?mergeSrc(srcMerge()):srcMerge()).sort(function(a,b){return srcCoda(a.src)-srcCoda(b.src)||(b.v[0]||0)-(a.v[0]||0);});
+    head='<thead><tr><th class="voce">Voce funnel</th>';
+    srcs.forEach(function(s){head+='<th>'+s.src+'</th>';});
+    head+='<th>Totale</th></tr></thead>';
+  }
   var body='<tbody>';
   if(!srcs.length){body+='<tr><td class="voce muted" colspan="2">Nessun dato per i mesi selezionati.</td></tr>';}
   else{
-    function srcW(dispName,field){var raws=(dispName==="LeadAds Facebook + Meta ADS")?["LeadAds Facebook","Meta ADS"]:[dispName];var t=0;srcMonths.forEach(function(m){var w=WONBRK[m]&&(SRC_BY==="utm"?WONBRK[m].utm:WONBRK[m].src);if(!w)return;raws.forEach(function(rn){if(w[rn])t+=(w[rn][field]||0);});});return t;}
+    /* Nuovi/Upsell dei vinti: il breakdown e' per LeadSource, per utm_source o per la coppia,
+       a seconda di come e' letta la tabella. Il totale di gruppo somma i suoi figli. */
+    function srcW(col,field){
+      var t=0;
+      srcMonths.forEach(function(m){
+        var B=WONBRK[m]; if(!B)return;
+        if(doppio){
+          var pr=B.par; if(!pr)return;
+          var coppie=col.grpTot ? col.figli.map(function(f){return f.utm;}) : [col.utm];
+          srcRaws(col.src).forEach(function(rn){ coppie.forEach(function(u){ var k=rn+SRC_SEP+u; if(pr[k])t+=(pr[k][field]||0); }); });
+        }else{
+          var w=(SRC_BY==="utm")?B.utm:B.src; if(!w)return;
+          srcRaws(col.src).forEach(function(rn){ if(w[rn])t+=(w[rn][field]||0); });
+        }
+      });
+      return t;
+    }
     for(var i=0;i<SRC_COLS.length;i++){
       var isEur=(i===SRC_COLS.length-1), rowTot=0, vlab=(i===7)?"Chiusi Vinti TOT":SRC_COLS[i];
       body+='<tr><td class="voce">'+vlab+'</td>';
-      srcs.forEach(function(s){var v=s.v[i]||0; rowTot+=v; body+='<td class="tnum">'+(isEur?eur(v):nf(v))+'</td>';});
-      body+='<td class="tnum"><b>'+(isEur?eur(rowTot):nf(rowTot))+'</b></td></tr>';
+      srcs.forEach(function(s){var v=s.v[i]||0; if(!s.grpTot)rowTot+=v;   // il totale di gruppo e' gia' nei figli
+        body+='<td class="tnum'+(s.apre?' grpstart':'')+'"'+(s.grpTot?' style="color:var(--muted);font-weight:600"':'')+'>'+(isEur?eur(v):nf(v))+'</td>';});
+      body+='<td class="tnum grpstart"><b>'+(isEur?eur(rowTot):nf(rowTot))+'</b></td></tr>';
       // di cui Nuovi / Upsell: ancorati al TOT della colonna (Nuovi = TOT - Upsell) cosi' la somma torna sempre
-      if(i===7){ var spl=srcs.map(function(s){var ct=s.v[7]||0,u=srcW(s.src,"ups"); if(u<0)u=0; if(u>ct)u=ct; return {nuovi:ct-u,ups:u};});
-        [["di cui Nuovi","nuovi"],["di cui Upsell","ups"]].forEach(function(pair){var rt=0;body+='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8226; '+pair[0]+'</td>';spl.forEach(function(p){var v=p[pair[1]];rt+=v;body+='<td class="tnum" style="color:var(--muted)">'+nf(v)+'</td>';});body+='<td class="tnum" style="color:var(--muted)"><b>'+nf(rt)+'</b></td></tr>';}); }
+      if(i===7){ var spl=srcs.map(function(s){var ct=s.v[7]||0,u=srcW(s,"ups"); if(u<0)u=0; if(u>ct)u=ct; return {nuovi:ct-u,ups:u,grpTot:!!s.grpTot,apre:!!s.apre};});
+        [["di cui Nuovi","nuovi"],["di cui Upsell","ups"]].forEach(function(pair){var rt=0;body+='<tr><td class="voce" style="padding-left:24px;font-style:italic;color:var(--muted)">&#8226; '+pair[0]+'</td>';spl.forEach(function(p){var v=p[pair[1]];if(!p.grpTot)rt+=v;body+='<td class="tnum'+(p.apre?' grpstart':'')+'" style="color:var(--muted)">'+nf(v)+'</td>';});body+='<td class="tnum grpstart" style="color:var(--muted)"><b>'+nf(rt)+'</b></td></tr>';}); }
     }
   }
   body+='</tbody>';
   el.innerHTML=head+body;
+  if(doppio){var h1=el.querySelector("thead tr:first-child th"); if(h1)el.style.setProperty("--srch1", Math.round(h1.getBoundingClientRect().height)+"px");}
   renderChan();
 }
 
@@ -3186,7 +3250,10 @@ var VW=[
  {o:"Opp", w:_OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')", won:true}
 ];
 function monthGrp(i){var g=(VW[i].o==="Lead")?_CM:_CMC; var sel=VW[i].won?("COUNT(Id) c,SUM(Amount) a"):"COUNT(Id) t"; var from=(VW[i].o==="Lead")?"Lead":"Opportunity"; return "SELECT "+g+" m,"+sel+" FROM "+from+" WHERE "+VW[i].w+VW[i].extra+" GROUP BY "+g;}
-function srcGrp(i,curM,by){var f=SRC_FIELD[by||SRC_BY]||SRC_FIELD.lead; var dcol=(VW[i].o==="Lead")?"Data_Compilazione_Questionario__c":"CloseDate"; var sel=VW[i].won?("COUNT(Id) c,SUM(Amount) a"):"COUNT(Id) t"; var from=(VW[i].o==="Lead")?"Lead":"Opportunity"; return "SELECT "+f+" s,"+sel+" FROM "+from+" WHERE "+VW[i].w+VW[i].extra+" AND CALENDAR_MONTH("+dcol+")="+curM+" GROUP BY "+f;}
+function srcGrp(i,curM,by){var b=by||SRC_BY; var f=SRC_FIELD[b]||SRC_FIELD.lead;
+ var campi=(b==="both")?"LeadSource s,utm_source__c u":(f+" s"), grp=(b==="both")?"LeadSource, utm_source__c":f;
+ var dcol=(VW[i].o==="Lead")?"Data_Compilazione_Questionario__c":"CloseDate"; var sel=VW[i].won?("COUNT(Id) c,SUM(Amount) a"):"COUNT(Id) t"; var from=(VW[i].o==="Lead")?"Lead":"Opportunity";
+ return "SELECT "+campi+","+sel+" FROM "+from+" WHERE "+VW[i].w+VW[i].extra+" AND CALENDAR_MONTH("+dcol+")="+curM+" GROUP BY "+grp;}
 var QD_TOT="SELECT "+_DD+" d,COUNT(Id) t FROM Lead WHERE "+_LB+" GROUP BY "+_DD+" ORDER BY "+_DD;
 var QD_MQL="SELECT CloseDate d,COUNT(Id) t FROM Opportunity WHERE "+_OB+" AND (LeadSource!='Reopen' OR LeadSource=null) GROUP BY CloseDate ORDER BY CloseDate";
 var QD_WON="SELECT CloseDate d,COUNT(Id) c,SUM(Amount) a FROM Opportunity WHERE "+_OB+" AND StageName IN ('Chiuso - Vinto','Chiuso - Pending') GROUP BY CloseDate ORDER BY CloseDate";
@@ -3234,10 +3301,13 @@ function firstVal(recs,key){return (recs&&recs[0]&&recs[0][key]!=null)?+recs[0][
 // guardIdx (0-based, opzionale): per quel mese prende il MAX tra vecchio e nuovo (anti-regressione sul mese in corso)
 function mergeMonthlyRange(arr,recs,key,mStart,mEnd,guardIdx){var out=(arr||[]).slice();while(out.length<12)out.push(null);var mp={};(recs||[]).forEach(function(r){mp[+r.m]=(r[key]==null?0:+r[key]);});for(var m=mStart;m<=mEnd;m++){var nv=(mp[m]!=null)?mp[m]:0;if(guardIdx!=null&&(m-1)===guardIdx)out[m-1]=Math.max((+out[m-1]||0),nv);else out[m-1]=nv;}return out;}
 function buildSrcRows(recsByVoce,by){
-  var srcMap={}, vuoto=srcVuoto(by);
-  function ens(s){if(!srcMap[s])srcMap[s]=[0,0,0,0,0,0,0,0,0];return srcMap[s];}
-  for(var i=0;i<8;i++){(recsByVoce[i]||[]).forEach(function(r){var row=ens((r.s==null||r.s==="")?vuoto:r.s);row[i]=(r[VW[i].won?"c":"t"]==null?0:+r[VW[i].won?"c":"t"]);if(VW[i].won){row[8]=(r.a==null?0:+r.a);}});}
-  return Object.keys(srcMap).map(function(s){return {src:s,v:srcMap[s]};});
+  var srcMap={}, doppio=(by==="both"), vLead=srcVuoto(doppio?"lead":by), vUtm=srcVuoto("utm");
+  function ens(k){if(!srcMap[k])srcMap[k]=[0,0,0,0,0,0,0,0,0];return srcMap[k];}
+  for(var i=0;i<8;i++){(recsByVoce[i]||[]).forEach(function(r){
+    var sv=(r.s==null||r.s==="")?vLead:r.s;
+    var k=doppio?(sv+SRC_SEP+((r.u==null||r.u==="")?vUtm:r.u)):sv;
+    var row=ens(k);row[i]=(r[VW[i].won?"c":"t"]==null?0:+r[VW[i].won?"c":"t"]);if(VW[i].won){row[8]=(r.a==null?0:+r.a);}});}
+  return Object.keys(srcMap).map(function(k){var p=k.split(SRC_SEP);return doppio?{src:p[0],utm:p[1],v:srcMap[k]}:{src:k,v:srcMap[k]};});
 }
 /* Il selettore della lettura. L'avviso sotto cambia con la lettura perche' cambia anche cosa
    significa una colonna vuota: su LeadSource il valore manca in Salesforce, su utm_source le voci
@@ -3245,17 +3315,18 @@ function buildSrcRows(recsByVoce,by){
 function fillSrcBy(){
   var el=document.getElementById("srcByChips");
   if(el){
-    var opt=[["lead","LeadSource"],["utm","utm_source"]], h="";
+    var opt=[["lead","LeadSource"],["utm","utm_source"],["both","LeadSource &rsaquo; utm_source"]], h="";
     opt.forEach(function(o){
       var on=(SRC_BY===o[0]);
       var st=on?'background:var(--accent);color:#fff;border-color:var(--accent)':'background:var(--surface);color:var(--ink);border-color:var(--border)';
-      h+='<button type="button" data-by="'+o[0]+'" aria-pressed="'+on+'" title="Raggruppa le colonne per '+o[1]+'" style="font:inherit;font-size:11.5px;line-height:1;padding:5px 9px;border:1px solid;border-radius:8px;cursor:pointer;'+st+'">'+o[1]+'</button>';
+      h+='<button type="button" data-by="'+o[0]+'" aria-pressed="'+on+'" title="'+(o[0]==="both"?"Colonne annidate: LeadSource sopra, utm_source sotto":"Raggruppa le colonne per "+o[1].replace(/&rsaquo;/g,">"))+'" style="font:inherit;font-size:11.5px;line-height:1;padding:5px 9px;border:1px solid;border-radius:8px;cursor:pointer;'+st+'">'+o[1]+'</button>';
     });
     el.innerHTML=h;
   }
   var hint=document.getElementById("srcHint");
-  if(hint)hint.innerHTML='Solo <b style="color:var(--accent)">Real</b> &middot; per <code>'+(SRC_BY==="utm"?"utm_source__c":"LeadSource")+'</code>'
-    +(SRC_BY==="utm"?' &middot; <span style="color:var(--muted)">colonna <code>utm non tracciato</code> = Opportunity senza parametro</span>':'');
+  var campo=(SRC_BY==="utm")?"<code>utm_source__c</code>":(SRC_BY==="both"?"<code>LeadSource</code> &times; <code>utm_source__c</code>":"<code>LeadSource</code>");
+  var nota=(SRC_BY==="lead")?"":' &middot; <span style="color:var(--muted)">le Opportunity senza parametro stanno tutte in <code>utm non tracciato</code>, in coda</span>';
+  if(hint)hint.innerHTML='Solo <b style="color:var(--accent)">Real</b> &middot; per '+campo+nota;
 }
 function fillSrcMonths(maxM){
   srcMaxM=maxM;
@@ -3538,7 +3609,7 @@ async function doRefreshMCP(){
     for(var i2=0;i2<8;i2++){var rr=await q(srcGrp(i2,curM,"lead"));recsByVoce[i2]=(rr==null)?[]:rr;}
     var srows=buildSrcRows(recsByVoce,"lead");
     BYSRC={year:now.getFullYear(), month:curM, rows:srows};
-    srcCache={}; srcCache[curM]=srows; srcCacheU={}; srcMonths=srcMonths.filter(function(m){return m<=curM;}); if(!srcMonths.length)srcMonths=[curM]; fillSrcMonths(curM);
+    srcCache={}; srcCache[curM]=srows; srcCacheU={}; srcCacheB={}; srcMonths=srcMonths.filter(function(m){return m<=curM;}); if(!srcMonths.length)srcMonths=[curM]; fillSrcMonths(curM);
     renderSources(); renderADV();
     groupDone("marketing");
 
@@ -3723,18 +3794,19 @@ async function doRefreshUnified(scope){
           REAL.general[7].data[mo2-1]=tot; CONTRATTI[mo2-1]=tot; FATTURATO[mo2-1]=bm.amt;
           while(NUOVI.length<mo2)NUOVI.push(0); NUOVI[mo2-1]=nn; while(UPSELL.length<mo2)UPSELL.push(0); UPSELL[mo2-1]=ups;
           // attribuzione per sorgente/operatore (opzione B): il "Nuovo" va al gruppo del PRIMO contratto del cliente
-          var srcB={}, opB={}, utmB={}, firstDone={};
+          var srcB={}, opB={}, utmB={}, parB={}, firstDone={};
           (wonDet||[]).forEach(function(r){ if((+(String(r.CloseDate).slice(5,7)))!==mo2)return;
             var acc=r.AccountId, src=r.LeadSource||"(non tracciato)", op=(r.Owner&&r.Owner.Name)||"(nessuno)";
             var utm=r.utm_source__c||srcVuoto("utm");
             if(!srcB[src])srcB[src]={tot:0,nuovi:0,ups:0}; if(!opB[op])opB[op]={tot:0,nuovi:0,ups:0};
             if(!utmB[utm])utmB[utm]={tot:0,nuovi:0,ups:0};
-            srcB[src].tot++; opB[op].tot++; utmB[utm].tot++;
+            var par=src+SRC_SEP+utm; if(!parB[par])parB[par]={tot:0,nuovi:0,ups:0};
+            srcB[src].tot++; opB[op].tot++; utmB[utm].tot++; parB[par].tot++;
             var isNew=acc && !exSet[acc] && !firstDone[acc];
-            if(isNew){ srcB[src].nuovi++; opB[op].nuovi++; utmB[utm].nuovi++; firstDone[acc]=1; }
-            else { srcB[src].ups++; opB[op].ups++; utmB[utm].ups++; }
+            if(isNew){ srcB[src].nuovi++; opB[op].nuovi++; utmB[utm].nuovi++; parB[par].nuovi++; firstDone[acc]=1; }
+            else { srcB[src].ups++; opB[op].ups++; utmB[utm].ups++; parB[par].ups++; }
           });
-          WONBRK[mo2]={src:srcB, op:opB, utm:utmB};
+          WONBRK[mo2]={src:srcB, op:opB, utm:utmB, par:parB};
         }
         syncWonSplit();   // garanzia finale: Nuovi + Upsell = Chiusi Vinti TOT su ogni mese
       }
