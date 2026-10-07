@@ -503,7 +503,7 @@
         <span class="hint">Lead IREC per mese di compilazione &middot; Totali entrati &rarr; In target da Policy &rarr; In target criteri sec. &rarr; Irraggiungibili / Contattabili TMK</span>
       </div>
       <div class="card-b scroll"><table id="motivTable"></table></div>
-      <div class="card-b" style="padding-top:0"><p class="hint" style="margin:0">Ogni blocco in grassetto = totale; le righe <b>&rsaquo; di cui</b> si sottraggono per arrivare al blocco successivo. <b>In target da Policy</b> = Totali entrati &minus; motivazioni di scarto marketing. <b>In target criteri sec.</b> = In target da Policy &minus; NON IN TARGET (criteri secondari). <b>Contattati</b> = Contattabili &minus; Nuovi &minus; Attivo-Working. <b>Tipologia lead</b> (Privati / Aziende / Liberi professionisti) dal campo <code>Tipologia_Lead__c</code>: NB &egrave; valorizzato <b>solo da Maggio a Luglio 2026</b> (~615 lead), quindi gli altri mesi (incl. Ago&ndash;Set) risultano a &ldquo;&mdash;&rdquo;. Non &egrave; un sotto-insieme del funnel: &egrave; una scomposizione trasversale dei soli lead classificati.</p></div>
+      <div class="card-b" style="padding-top:0"><p class="hint" style="margin:0">Ogni blocco in grassetto = totale; le righe <b>&rsaquo; di cui</b> si sottraggono per arrivare al blocco successivo. <b>In target da Policy</b> = Totali entrati &minus; motivazioni di scarto marketing. <b>In target criteri sec.</b> = In target da Policy &minus; NON IN TARGET (criteri secondari). <b>Contattati</b> = Contattabili &minus; Nuovi &minus; Attivo-Working. <b>Tipologia lead</b> (Privati / Aziende / Liberi professionisti) dal campo <code>Tipologia_Lead__c</code>, <b>dal vivo come il resto della vista</b>. Attenzione: il campo &egrave; compilato solo su una parte dei lead &mdash; da Maggio a Luglio quasi sempre, negli altri mesi su pochi record &mdash; quindi i numeri sono i <b>soli lead classificati</b>, non tutti. Non &egrave; un sotto-insieme del funnel: &egrave; una scomposizione trasversale.</p></div>
     </div>
   </section>
 
@@ -1045,6 +1045,44 @@ var SCARTO2=[
   {label:"NON VUOLE ANTICIPARE SPESE",key:"NON VUOLE ANTICIPARE SPESE",data:[9,3,17,6,3,1,3,0,0,0,0,0]},
   {label:"NON IN TARGET PER CREDITO PRESCRITTO",key:"NON IN TARGET PER CREDITO PRESCRITTO",data:[0,0,0,0,0,0,1,0,0,0,0,0]}
 ];
+/* Le serie qui sopra sono il seme: la vista Motivazioni si aggiorna dal vivo come le altre.
+   Le chiavi dei sub-stage viaggiano senza accenti (vedi "key"), percio' il confronto si fa
+   sulla forma ASCII. Si sovrascrivono solo i mesi che il vivo conosce davvero. */
+/* Dalle risposte SOQL alla stessa forma che manda il backend, cosi' i due percorsi - con e
+   senza connettore - finiscono nello stesso applicaMotiv. */
+function motivDaRecord(tot,sub,mkt,tipo,curM){
+  function ascii(x){return String(x==null?"":x).replace(/[^\x00-\x7F]/g,"");}
+  function serie(recs,campo){
+    var out=new Array(12).fill(null);
+    for(var i=0;i<Math.min(12,curM);i++)out[i]=0;
+    (recs||[]).forEach(function(r){var m=+r.m; if(m>=1&&m<=12)out[m-1]=(out[m-1]||0)+(+(r[campo]||0));});
+    return out;
+  }
+  function perChiave(recs){
+    var o={}; (recs||[]).forEach(function(r){var k=ascii(r.k); if(!o[k])o[k]=new Array(12).fill(0);
+      var m=+r.m; if(m>=1&&m<=12)o[k][m-1]+=(+(r.t||0));});
+    return o;
+  }
+  var T=serie(tot,"t"), S=serie(tot,"s"), tp=perChiave(tipo);
+  return { tot:T, nonScart:T.map(function(v,i){return v==null?null:v-(S[i]||0);}),
+           sub:perChiave(sub), mkt:serie(mkt,"t"),
+           tipo:{priv:tp["Privati"]||null, az:tp["Aziende"]||null, lp:tp["Liberi professionisti"]||null} };
+}
+function applicaMotiv(m){
+  if(!m)return;
+  function ascii(x){return String(x==null?"":x).replace(/[^\x00-\x7F]/g,"");}
+  function versa(dest,src){ if(!src)return; for(var i=0;i<12;i++){ if(src[i]!=null)dest[i]=src[i]; } }
+  versa(SCARTO2_TOT,m.tot); versa(SCARTO2_NON,m.nonScart); versa(MOTIV_MKT,m.mkt);
+  if(m.sub){
+    // un sub-stage senza righe in un mese vale zero, non "lascia il vecchio valore"
+    var noti={}; Object.keys(m.sub).forEach(function(k){noti[k]=m.sub[k];});
+    SCARTO2.forEach(function(r){
+      var src=noti[ascii(r.key)];
+      for(var i=0;i<12;i++){ if(m.tot&&m.tot[i]!=null) r.data[i]=src?(src[i]||0):0; }
+    });
+  }
+  if(m.tipo){ versa(MOTIV_TIPO_PRIV,m.tipo.priv); versa(MOTIV_TIPO_AZ,m.tipo.az); versa(MOTIV_TIPO_LP,m.tipo.lp); }
+}
 // ---- Vista MOTIVAZIONI (funnel qualifica lead). I valori dei sub-stage vengono letti da SCARTO2 per key;
 //      NON IN TARGET - MARKETING sta nel campo _Answered -> array a parte MOTIV_MKT. ----
 var MOTIV_MKT=[5,14,13,13,8,16,14,5,6,0,0,0];   // NON IN TARGET - MARKETING (Scartato_Substage_Answered__c)
@@ -3425,7 +3463,7 @@ function saveSnapshot(){try{
     nuovi: NUOVI, upsell: UPSELL, wonbrk: WONBRK,
     daily:{tot:DTOT,mql:DMQL,won:DWON,fat:DFAT},
     day0:DAY0, dayN:DAYN, snapshot:SNAPSHOT, curMonth:CUR_MONTH,
-    sources:BYSRC, cNuovi:CONTATT_NUOVI, cAw:CONTATT_AW, irD:IRR_DNC, irN:IRR_NMR, advReal:BUDGET.adv, lastUpdate: lastUpdate?lastUpdate.getTime():null
+    sources:BYSRC, motiv:{tot:SCARTO2_TOT,nonScart:SCARTO2_NON,mkt:MOTIV_MKT,sub:(function(){var o={};SCARTO2.forEach(function(r){o[r.key]=r.data;});return o;})(),tipo:{priv:MOTIV_TIPO_PRIV,az:MOTIV_TIPO_AZ,lp:MOTIV_TIPO_LP}}, cNuovi:CONTATT_NUOVI, cAw:CONTATT_AW, irD:IRR_DNC, irN:IRR_NMR, advReal:BUDGET.adv, lastUpdate: lastUpdate?lastUpdate.getTime():null
   }));
 }catch(e){}}
 function loadSnapshot(){try{
@@ -3438,6 +3476,7 @@ function loadSnapshot(){try{
   if(d.day0)DAY0=d.day0; if(d.dayN)DAYN=d.dayN; LAST_DAY=isoAddDays(DAY0,DAYN-1);
   if(d.snapshot)SNAPSHOT=d.snapshot; if(d.curMonth)CUR_MONTH=d.curMonth;
   if(d.sources)BYSRC=d.sources;
+  if(d.motiv)applicaMotiv(d.motiv);
   if(d.cNuovi)CONTATT_NUOVI=d.cNuovi; if(d.cAw)CONTATT_AW=d.cAw;
   if(d.irD)IRR_DNC=d.irD; if(d.irN)IRR_NMR=d.irN;
   if(d.advReal&&BUDGET&&BUDGET.adv){for(var ai=0;ai<12;ai++){if(d.advReal[ai]!=null)BUDGET.adv[ai]=d.advReal[ai];}}
@@ -3767,6 +3806,7 @@ async function doRefreshAPI(){
     if(d.daily){if(d.daily.tot)DTOT=d.daily.tot;if(d.daily.mql)DMQL=d.daily.mql;if(d.daily.won)DWON=d.daily.won;if(d.daily.fat)DFAT=d.daily.fat;}
     if(d.day0)DAY0=d.day0; if(d.dayN)DAYN=d.dayN; LAST_DAY=isoAddDays(DAY0,DAYN-1);
     if(d.snapshot)SNAPSHOT=d.snapshot; if(d.curMonth)CUR_MONTH=d.curMonth;
+    if(d.motiv)applicaMotiv(d.motiv);
     if(d.sources){BYSRC={year:d.year||Y_R,month:d.sources.month,rows:d.sources.rows||[]}; srcCache={}; srcCache[d.sources.month]=d.sources.rows||[];
       // Lead e Venduto per CANALE del mese caricato: alimentano CPL e ROAS reali della tab ADV.
       // Senza, restavano ai valori del seed (0 sul mese corrente): CPL mostrava "—" e ROAS uno 0%
@@ -3845,6 +3885,18 @@ async function doRefreshMCP(){
     BYSRC={year:now.getFullYear(), month:curM, rows:srows};
     srcCache={}; srcCache[curM]=srows; srcCacheU={}; srcCacheB={}; srcMonths=srcMonths.filter(function(m){return m<=curM;}); if(!srcMonths.length)srcMonths=[curM]; fillSrcMonths(curM);
     renderSources(); renderADV();
+    // motivazioni di scarto + tipologia lead: base diversa dal funnel (tutti i lead IREC,
+    // anche senza utm), percio' query a parte
+    rstatus("Marketing &middot; motivazioni...");
+    try{
+      var _MB="RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)="+Y_R;
+      var mTot=await q("SELECT "+_CM+" m,COUNT(Id) t,COUNT(Scartato_Substage__c) s FROM Lead WHERE "+_MB+" GROUP BY "+_CM);
+      var mSub=await q("SELECT "+_CM+" m,Scartato_Substage__c k,COUNT(Id) t FROM Lead WHERE "+_MB+" AND Scartato_Substage__c!=null GROUP BY "+_CM+", Scartato_Substage__c");
+      var mMkt=await q("SELECT "+_CM+" m,COUNT(Id) t FROM Lead WHERE "+_MB+" AND Scartato_Substage_Answered__c='NON IN TARGET - MARKETING' GROUP BY "+_CM);
+      var mTip=await q("SELECT "+_CM+" m,Tipologia_Lead__c k,COUNT(Id) t FROM Lead WHERE "+_MB+" AND Tipologia_Lead__c!=null GROUP BY "+_CM+", Tipologia_Lead__c");
+      if(mTot)applicaMotiv(motivDaRecord(mTot,mSub,mMkt,mTip,curM));
+      renderMotiv();
+    }catch(e){}
     groupDone("marketing");
 
     /* ===== FASE 3 - TMK (in costruzione) ===== */

@@ -73,6 +73,31 @@ function buildUtm(recsByVoce){
   }); }
   return Object.keys(map).map(k=>({ liv:map[k].liv, v:map[k].v }));
 }
+/* Motivazioni: la base NON e' quella del funnel (che vuole utm_source valorizzato) ma tutti i
+   lead IREC dell'anno per data di compilazione, perche' la vista spiega dove si perdono, e i
+   lead senza utm si perdono come gli altri. */
+const MB = "RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=" + YEAR;
+const QM_TOT  = `SELECT ${CM} m,COUNT(Id) t,COUNT(Scartato_Substage__c) s FROM Lead WHERE ${MB} GROUP BY ${CM}`;
+const QM_SUB  = `SELECT ${CM} m,Scartato_Substage__c k,COUNT(Id) t FROM Lead WHERE ${MB} AND Scartato_Substage__c!=null GROUP BY ${CM}, Scartato_Substage__c`;
+const QM_MKT  = `SELECT ${CM} m,COUNT(Id) t FROM Lead WHERE ${MB} AND Scartato_Substage_Answered__c='NON IN TARGET - MARKETING' GROUP BY ${CM}`;
+const QM_TIPO = `SELECT ${CM} m,Tipologia_Lead__c k,COUNT(Id) t FROM Lead WHERE ${MB} AND Tipologia_Lead__c!=null GROUP BY ${CM}, Tipologia_Lead__c`;
+// le chiavi viaggiano senza accenti: il client le confronta con le sue, scritte in ASCII
+const senzaAccenti = (x)=>String(x==null?'':x).replace(/[^\x00-\x7F]/g,'');
+function serieMese(recs, campo, curM){
+  const out=new Array(12).fill(null);
+  for(let i=0;i<Math.min(12,curM);i++) out[i]=0;
+  (recs||[]).forEach(r=>{ const m=+r.m; if(m>=1&&m<=12) out[m-1]=(out[m-1]||0)+(+(r[campo]||0)); });
+  return out;
+}
+function buildMotiv(tot, sub, mkt, tipo, curM){
+  const T=serieMese(tot,'t',curM), S=serieMese(tot,'s',curM);
+  const nonScart=T.map((v,i)=> v==null?null:(v-(S[i]||0)));
+  const perChiave=(recs)=>{ const o={}; (recs||[]).forEach(r=>{ const k=senzaAccenti(r.k); if(!o[k])o[k]=new Array(12).fill(0);
+    const m=+r.m; if(m>=1&&m<=12)o[k][m-1]+=(+(r.t||0)); }); return o; };
+  const tp=perChiave(tipo);
+  return { tot:T, nonScart, sub:perChiave(sub), mkt:serieMese(mkt,'t',curM),
+           tipo:{ priv:tp['Privati']||null, az:tp['Aziende']||null, lp:tp['Liberi professionisti']||null } };
+}
 const QD_TOT = `SELECT ${DD} d,COUNT(Id) t FROM Lead WHERE ${LB} GROUP BY ${DD} ORDER BY ${DD}`;
 const QD_MQL = `SELECT CloseDate d,COUNT(Id) t FROM Opportunity WHERE ${OB} AND (LeadSource!='Reopen' OR LeadSource=null) GROUP BY CloseDate ORDER BY CloseDate`;
 const QD_WON = `SELECT CloseDate d,COUNT(Id) c,SUM(Amount) a FROM Opportunity WHERE ${OB} AND StageName IN ('Chiuso - Vinto','Chiuso - Pending') GROUP BY CloseDate ORDER BY CloseDate`;
@@ -332,6 +357,12 @@ export default async function handler(req, res){
     let adspend = null;
     try { adspend = await getAdSpend(YEAR); } catch(_e) { adspend = null; }
 
+    // motivazioni di scarto + tipologia lead, dal vivo come il resto
+    let motiv = null;
+    try {
+      motiv = buildMotiv(await soql(ctx,QM_TOT), await soql(ctx,QM_SUB), await soql(ctx,QM_MKT), await soql(ctx,QM_TIPO), curM);
+    } catch(_e) { motiv = null; }
+
     res.status(200).json({
       snapshot: today, curMonth: curM, year: YEAR, day0, dayN: n,
       real, fatturato, contratti, reopen,
@@ -339,6 +370,7 @@ export default async function handler(req, res){
       prodotti: split && split.prodotti,
       daily: { tot:dtot, mql:dmql, won:dwon, fat:dfat },
       sources: { month: curM, rows: buildSrc(recsByVoce) },
+      motiv,
       contatt: { nuovi: cNuo, aw: cAw, irD, irN },
       tipo,
       adspend
