@@ -35,7 +35,12 @@ const VW = [
   { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')", won:true }
 ];
 const monthGrp = (i)=>{ const g = VW[i].o==='Lead'?CM:CMC; const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t'; const from = VW[i].o==='Lead'?'Lead':'Opportunity'; return `SELECT ${g} m,${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} GROUP BY ${g}`; };
-const srcGrp   = (i,m)=>{ const dcol = VW[i].o==='Lead'?'Data_Compilazione_Questionario__c':'CloseDate'; const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t'; const from = VW[i].o==='Lead'?'Lead':'Opportunity'; return `SELECT LeadSource s,${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} AND CALENDAR_MONTH(${dcol})=${m} GROUP BY LeadSource`; };
+/* La vista Sorgenti raggruppa per LeadSource (la sorgente dichiarata in Salesforce) oppure per
+   utm_source (il parametro con cui il contatto e' arrivato): sono due letture diverse dello stesso
+   funnel, non due dati diversi. Il campo e' presente su Lead e su Opportunity. */
+const SRC_FIELD = { lead:'LeadSource', utm:'utm_source__c' };
+const srcVuoto  = (by)=> by==='utm' ? 'utm non tracciato' : 'sorgente non trovata';
+const srcGrp   = (i,m,by)=>{ const f = SRC_FIELD[by]||SRC_FIELD.lead; const dcol = VW[i].o==='Lead'?'Data_Compilazione_Questionario__c':'CloseDate'; const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t'; const from = VW[i].o==='Lead'?'Lead':'Opportunity'; return `SELECT ${f} s,${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} AND CALENDAR_MONTH(${dcol})=${m} GROUP BY ${f}`; };
 const QD_TOT = `SELECT ${DD} d,COUNT(Id) t FROM Lead WHERE ${LB} GROUP BY ${DD} ORDER BY ${DD}`;
 const QD_MQL = `SELECT CloseDate d,COUNT(Id) t FROM Opportunity WHERE ${OB} AND (LeadSource!='Reopen' OR LeadSource=null) GROUP BY CloseDate ORDER BY CloseDate`;
 const QD_WON = `SELECT CloseDate d,COUNT(Id) c,SUM(Amount) a FROM Opportunity WHERE ${OB} AND StageName IN ('Chiuso - Vinto','Chiuso - Pending') GROUP BY CloseDate ORDER BY CloseDate`;
@@ -71,7 +76,7 @@ const iso = (d)=>d.toISOString().slice(0,10);
 function dayList(day0, n){ const a=[]; const base=new Date(day0+'T00:00:00Z'); for(let i=0;i<n;i++){ const d=new Date(base); d.setUTCDate(d.getUTCDate()+i); a.push(iso(d)); } return a; }
 function buildMonthly(recs, key, curM){ const pr={}; recs.forEach(r=>{ pr[+r.m]= r[key]==null?0:+r[key]; }); const a=new Array(12).fill(null); for(let m=1;m<=12;m++){ a[m-1]= pr[m]!=null?pr[m]:(m<=curM?0:null); } return a; }
 function buildDaily(recs, key, days){ const mp={}; recs.forEach(r=>{ mp[(r.d||'').slice(0,10)]= r[key]==null?0:+r[key]; }); return days.map(d=>mp[d]||0); }
-function buildSrc(recsByVoce){ const map={}; const ens=(s)=>{ if(!map[s]) map[s]=[0,0,0,0,0,0,0,0,0]; return map[s]; }; for(let i=0;i<8;i++){ (recsByVoce[i]||[]).forEach(r=>{ const row=ens((r.s==null||r.s==='')?'sorgente non trovata':r.s); row[i]= r[VW[i].won?'c':'t']==null?0:+r[VW[i].won?'c':'t']; if(VW[i].won) row[8]= r.a==null?0:+r.a; }); } return Object.keys(map).map(s=>({ src:s, v:map[s] })); }
+function buildSrc(recsByVoce, by){ const map={}; const ens=(s)=>{ if(!map[s]) map[s]=[0,0,0,0,0,0,0,0,0]; return map[s]; }; for(let i=0;i<8;i++){ (recsByVoce[i]||[]).forEach(r=>{ const row=ens((r.s==null||r.s==='')?srcVuoto(by):r.s); row[i]= r[VW[i].won?'c':'t']==null?0:+r[VW[i].won?'c':'t']; if(VW[i].won) row[8]= r.a==null?0:+r.a; }); } return Object.keys(map).map(s=>({ src:s, v:map[s] })); }
 
 // Operatori Sales (funnel MQL..Chiuso-Vinto per Owner.Name) e TMK (pool Contattabili per Owner.Name x Status) —
 // stessa logica client di index.html (opGrp/buildOpRows, tmkGrpAll/buildTmkRows), per la vista senza MCP (?view=operators / ?view=tmk).
@@ -103,7 +108,7 @@ async function wonSplit(ctx, curM){
   const nuovi=new Array(12).fill(null), upsell=new Array(12).fill(null), wonbrk={};
   for(let m=1;m<=curM;m++){ nuovi[m-1]=0; upsell[m-1]=0; }
   // tutte le opportunity vinte dell'anno (poche centinaia): mese, cliente, sorgente, operatore
-  const det = await soql(ctx, `SELECT Id, AccountId, LeadSource, Owner.Name, CloseDate FROM Opportunity WHERE ${VW[7].w}${VW[7].extra} ORDER BY CloseDate`);
+  const det = await soql(ctx, `SELECT Id, AccountId, LeadSource, utm_source__c, Owner.Name, CloseDate FROM Opportunity WHERE ${VW[7].w}${VW[7].extra} ORDER BY CloseDate`);
   if(!det.length) return { nuovi, upsell, wonbrk, prodotti:{} };
   // primo chiuso-vinto IN ASSOLUTO di ciascun cliente (anche di anni precedenti):
   // se cade nel mese in esame, quel cliente e' un cliente netto nuovo. Una query ogni 200 account.
@@ -137,14 +142,17 @@ async function wonSplit(ctx, curM){
     const d=String(r.CloseDate||'').slice(0,10), mi=+d.slice(5,7);
     if(!(mi>=1&&mi<=12)) return;
     const acc=r.AccountId, src=r.LeadSource||'(non tracciato)', op=(r.Owner&&r.Owner.Name)||'(nessuno)';
-    if(!wonbrk[mi]) wonbrk[mi]={ src:{}, op:{} };
+    const utm=r.utm_source__c||srcVuoto('utm');
+    if(!wonbrk[mi]) wonbrk[mi]={ src:{}, op:{}, utm:{} };
     const B=wonbrk[mi];
+    if(!B.utm) B.utm={};
     if(!B.src[src]) B.src[src]={tot:0,nuovi:0,ups:0};
     if(!B.op[op])   B.op[op]={tot:0,nuovi:0,ups:0};
-    B.src[src].tot++; B.op[op].tot++;
+    if(!B.utm[utm]) B.utm[utm]={tot:0,nuovi:0,ups:0};
+    B.src[src].tot++; B.op[op].tot++; B.utm[utm].tot++;
     const isNew = !!acc && firstWon[acc] && firstWon[acc].slice(0,7)===d.slice(0,7) && !seen[acc];
-    if(isNew){ seen[acc]=1; nuovi[mi-1]=(nuovi[mi-1]||0)+1; B.src[src].nuovi++; B.op[op].nuovi++; }
-    else { upsell[mi-1]=(upsell[mi-1]||0)+1; B.src[src].ups++; B.op[op].ups++; }
+    if(isNew){ seen[acc]=1; nuovi[mi-1]=(nuovi[mi-1]||0)+1; B.src[src].nuovi++; B.op[op].nuovi++; B.utm[utm].nuovi++; }
+    else { upsell[mi-1]=(upsell[mi-1]||0)+1; B.src[src].ups++; B.op[op].ups++; B.utm[utm].ups++; }
     segnaProdotti(r.Id, mi, isNew);
   });
   return { nuovi, upsell, wonbrk, prodotti };
@@ -167,9 +175,10 @@ export default async function handler(req, res){
     // vista "sources" per un mese specifico (?view=sources&month=6)
     if((req.query.view||'')==='sources'){
       const m = Math.max(1, Math.min(12, Number(req.query.month)||curM));
+      const by = req.query.by==='utm' ? 'utm' : 'lead';
       const recsByVoce = [];
-      for(let i=0;i<8;i++){ recsByVoce[i] = await soql(ctx, srcGrp(i,m)); }
-      res.status(200).json({ month:m, year:YEAR, rows:buildSrc(recsByVoce) });
+      for(let i=0;i<8;i++){ recsByVoce[i] = await soql(ctx, srcGrp(i,m,by)); }
+      res.status(200).json({ month:m, year:YEAR, by, rows:buildSrc(recsByVoce, by) });
       return;
     }
 

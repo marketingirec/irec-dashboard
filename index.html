@@ -504,6 +504,7 @@
         <h2>Real per sorgente di acquisizione</h2>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
           <label class="fld" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;color:var(--muted)">Mesi <span id="srcMonthChips" style="display:inline-flex;flex-wrap:wrap;gap:4px"></span></label>
+          <span style="display:inline-flex;align-items:center;gap:6px"><span class="hint" style="color:var(--muted)">per</span><span id="srcByChips" style="display:inline-flex;gap:4px"></span></span>
           <span class="hint" id="srcHint">Solo <b style="color:var(--accent)">Real</b> &middot; per <code>LeadSource</code></span>
         </div>
       </div>
@@ -1065,13 +1066,21 @@ var pivMonths = [CUR_MONTH-1];   // mesi selezionati nel Pivot (multi-selezione,
 function pivSum(arr){var any=false,s=0;pivMonths.forEach(function(m){var x=arr[m];if(x!=null&&x!==""){s+=(+x);any=true;}});return any?s:null;}
 var srcMonths = [CUR_MONTH];   // mesi selezionati nella vista Sorgenti (multi-selezione, 1-12)
 var srcMaxM = CUR_MONTH;       // mese massimo selezionabile
-var srcCache = {};             // cache dati per sorgente per mese: {mese: [{src,v}]}
+var srcCache = {};             // cache per LeadSource per mese: {mese: [{src,v}]}
+var srcCacheU = {};            // cache per utm_source per mese, stessa forma
 var srcLoading = false;
+/* Lo stesso funnel letto in due modi: per LeadSource (la sorgente dichiarata in Salesforce) o per
+   utm_source (il parametro con cui il contatto e' arrivato). Due cache separate, perche' il resto
+   della pagina - "Budget vs Real per canale" - ragiona per canale e quindi solo su LeadSource. */
+var SRC_FIELD = {lead:"LeadSource", utm:"utm_source__c"};
+var SRC_BY = "lead";
+function srcVuoto(by){return (by||SRC_BY)==="utm" ? "utm non tracciato" : "sorgente non trovata";}
+function srcStore(by){return (by||SRC_BY)==="utm" ? srcCacheU : srcCache;}
 // somma le righe sorgente sui mesi selezionati (solo quelli gia' in cache), prima del merge LeadAds+Meta
 function srcMerge(){
-  var mp={};
+  var mp={}, store=srcStore();
   srcMonths.forEach(function(m){
-    var rows=srcCache[m]; if(!rows)return;
+    var rows=store[m]; if(!rows)return;
     rows.forEach(function(r){
       if(!mp[r.src])mp[r.src]=new Array(SRC_COLS.length).fill(0);
       for(var i=0;i<SRC_COLS.length;i++)mp[r.src][i]+=(r.v[i]||0);
@@ -1416,7 +1425,7 @@ async function chanLoadRealH2(){var btn=document.getElementById("chanLoadBtn");
   var set={}; for(var mm=7;mm<=CUR_MONTH;mm++)set[mm]=1; var sm=chanMonthSel+1; if(sm>=1&&sm<=CUR_MONTH)set[sm]=1;
   var months=Object.keys(set).map(Number);
   try{var sf=await findTool();
-    for(var j=0;j<months.length;j++){var m2=months[j]; if(srcCache[m2]!=null)continue; var rbv=[]; for(var i=0;i<8;i++){rbv[i]=await sfCall(sf.tool,srcGrp(i,m2));} srcCache[m2]=buildSrcRows(rbv);}
+    for(var j=0;j<months.length;j++){var m2=months[j]; if(srcCache[m2]!=null)continue; var rbv=[]; for(var i=0;i<8;i++){rbv[i]=await sfCall(sf.tool,srcGrp(i,m2,"lead"));} srcCache[m2]=buildSrcRows(rbv,"lead");}
   }catch(e){}
   if(btn){btn.disabled=false; btn.innerHTML="&#8635; Carica Real";}
   renderChan();}
@@ -2041,21 +2050,24 @@ function campExport(){
 }
 function renderSources(){
   var el=document.getElementById("srcTable"); if(!el)return;
-  var missing=srcMonths.filter(function(m){return srcCache[m]==null;});
+  var store=srcStore();
+  var missing=srcMonths.filter(function(m){return store[m]==null;});
   if(missing.length){
     if(!srcLoading){ensureSrcMonths();}
     el.innerHTML='<thead><tr><th class="voce">Voce funnel</th></tr></thead><tbody><tr><td class="voce muted">Caricamento da Salesforce...</td></tr></tbody>';
     return;
   }
   // colonne = sorgenti (ordinate per Totali desc); righe = voci funnel (KPI a sx)
-  var srcs=mergeSrc(srcMerge()).sort(function(a,b){return (b.v[0]||0)-(a.v[0]||0);});
+  /* L'accorpamento LeadAds+Meta vale per i valori di LeadSource: su utm_source le etichette sono
+     quelle scritte nei link, e accorparle vorrebbe dire inventare una regola. Restano come stanno. */
+  var srcs=(SRC_BY==="lead"?mergeSrc(srcMerge()):srcMerge()).sort(function(a,b){return (b.v[0]||0)-(a.v[0]||0);});
   var head='<thead><tr><th class="voce">Voce funnel</th>';
   srcs.forEach(function(s){head+='<th>'+s.src+'</th>';});
   head+='<th>Totale</th></tr></thead>';
   var body='<tbody>';
   if(!srcs.length){body+='<tr><td class="voce muted" colspan="2">Nessun dato per i mesi selezionati.</td></tr>';}
   else{
-    function srcW(dispName,field){var raws=(dispName==="LeadAds Facebook + Meta ADS")?["LeadAds Facebook","Meta ADS"]:[dispName];var t=0;srcMonths.forEach(function(m){var w=WONBRK[m]&&WONBRK[m].src;if(!w)return;raws.forEach(function(rn){if(w[rn])t+=(w[rn][field]||0);});});return t;}
+    function srcW(dispName,field){var raws=(dispName==="LeadAds Facebook + Meta ADS")?["LeadAds Facebook","Meta ADS"]:[dispName];var t=0;srcMonths.forEach(function(m){var w=WONBRK[m]&&(SRC_BY==="utm"?WONBRK[m].utm:WONBRK[m].src);if(!w)return;raws.forEach(function(rn){if(w[rn])t+=(w[rn][field]||0);});});return t;}
     for(var i=0;i<SRC_COLS.length;i++){
       var isEur=(i===SRC_COLS.length-1), rowTot=0, vlab=(i===7)?"Chiusi Vinti TOT":SRC_COLS[i];
       body+='<tr><td class="voce">'+vlab+'</td>';
@@ -2941,6 +2953,14 @@ function initControls(){
     srcMonths.sort(function(a,b){return a-b;});
     fillSrcMonths(srcMaxM); renderSources();
   });
+  // sorgenti: selettore della lettura (LeadSource oppure utm_source)
+  fillSrcBy();
+  var srcB=document.getElementById("srcByChips");
+  if(srcB)srcB.addEventListener("click",function(ev){
+    var b=ev.target.closest("button[data-by]"); if(!b)return;
+    var by=b.getAttribute("data-by"); if(by===SRC_BY)return;
+    SRC_BY=by; fillSrcBy(); renderSources();
+  });
   // operatori: selettore mese (default corrente; altri mesi caricati dal vivo)
   opCache={}; if(BYOP&&BYOP.rows){opCache[BYOP.month]=BYOP.rows;} opMonths=[CUR_MONTH];
   fillOpMonths(CUR_MONTH);
@@ -3166,7 +3186,7 @@ var VW=[
  {o:"Opp", w:_OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')", won:true}
 ];
 function monthGrp(i){var g=(VW[i].o==="Lead")?_CM:_CMC; var sel=VW[i].won?("COUNT(Id) c,SUM(Amount) a"):"COUNT(Id) t"; var from=(VW[i].o==="Lead")?"Lead":"Opportunity"; return "SELECT "+g+" m,"+sel+" FROM "+from+" WHERE "+VW[i].w+VW[i].extra+" GROUP BY "+g;}
-function srcGrp(i,curM){var dcol=(VW[i].o==="Lead")?"Data_Compilazione_Questionario__c":"CloseDate"; var sel=VW[i].won?("COUNT(Id) c,SUM(Amount) a"):"COUNT(Id) t"; var from=(VW[i].o==="Lead")?"Lead":"Opportunity"; return "SELECT LeadSource s,"+sel+" FROM "+from+" WHERE "+VW[i].w+VW[i].extra+" AND CALENDAR_MONTH("+dcol+")="+curM+" GROUP BY LeadSource";}
+function srcGrp(i,curM,by){var f=SRC_FIELD[by||SRC_BY]||SRC_FIELD.lead; var dcol=(VW[i].o==="Lead")?"Data_Compilazione_Questionario__c":"CloseDate"; var sel=VW[i].won?("COUNT(Id) c,SUM(Amount) a"):"COUNT(Id) t"; var from=(VW[i].o==="Lead")?"Lead":"Opportunity"; return "SELECT "+f+" s,"+sel+" FROM "+from+" WHERE "+VW[i].w+VW[i].extra+" AND CALENDAR_MONTH("+dcol+")="+curM+" GROUP BY "+f;}
 var QD_TOT="SELECT "+_DD+" d,COUNT(Id) t FROM Lead WHERE "+_LB+" GROUP BY "+_DD+" ORDER BY "+_DD;
 var QD_MQL="SELECT CloseDate d,COUNT(Id) t FROM Opportunity WHERE "+_OB+" AND (LeadSource!='Reopen' OR LeadSource=null) GROUP BY CloseDate ORDER BY CloseDate";
 var QD_WON="SELECT CloseDate d,COUNT(Id) c,SUM(Amount) a FROM Opportunity WHERE "+_OB+" AND StageName IN ('Chiuso - Vinto','Chiuso - Pending') GROUP BY CloseDate ORDER BY CloseDate";
@@ -3213,11 +3233,29 @@ function firstVal(recs,key){return (recs&&recs[0]&&recs[0][key]!=null)?+recs[0][
 // aggiorna SOLO i mesi nella finestra [mStart..mEnd] (GROUP BY mese sul range), mantiene i mesi precedenti
 // guardIdx (0-based, opzionale): per quel mese prende il MAX tra vecchio e nuovo (anti-regressione sul mese in corso)
 function mergeMonthlyRange(arr,recs,key,mStart,mEnd,guardIdx){var out=(arr||[]).slice();while(out.length<12)out.push(null);var mp={};(recs||[]).forEach(function(r){mp[+r.m]=(r[key]==null?0:+r[key]);});for(var m=mStart;m<=mEnd;m++){var nv=(mp[m]!=null)?mp[m]:0;if(guardIdx!=null&&(m-1)===guardIdx)out[m-1]=Math.max((+out[m-1]||0),nv);else out[m-1]=nv;}return out;}
-function buildSrcRows(recsByVoce){
-  var srcMap={};
+function buildSrcRows(recsByVoce,by){
+  var srcMap={}, vuoto=srcVuoto(by);
   function ens(s){if(!srcMap[s])srcMap[s]=[0,0,0,0,0,0,0,0,0];return srcMap[s];}
-  for(var i=0;i<8;i++){(recsByVoce[i]||[]).forEach(function(r){var row=ens((r.s==null||r.s==="")?"sorgente non trovata":r.s);row[i]=(r[VW[i].won?"c":"t"]==null?0:+r[VW[i].won?"c":"t"]);if(VW[i].won){row[8]=(r.a==null?0:+r.a);}});}
+  for(var i=0;i<8;i++){(recsByVoce[i]||[]).forEach(function(r){var row=ens((r.s==null||r.s==="")?vuoto:r.s);row[i]=(r[VW[i].won?"c":"t"]==null?0:+r[VW[i].won?"c":"t"]);if(VW[i].won){row[8]=(r.a==null?0:+r.a);}});}
   return Object.keys(srcMap).map(function(s){return {src:s,v:srcMap[s]};});
+}
+/* Il selettore della lettura. L'avviso sotto cambia con la lettura perche' cambia anche cosa
+   significa una colonna vuota: su LeadSource il valore manca in Salesforce, su utm_source le voci
+   Lead hanno sempre il parametro (sta nella base dati), le Opportunity no. */
+function fillSrcBy(){
+  var el=document.getElementById("srcByChips");
+  if(el){
+    var opt=[["lead","LeadSource"],["utm","utm_source"]], h="";
+    opt.forEach(function(o){
+      var on=(SRC_BY===o[0]);
+      var st=on?'background:var(--accent);color:#fff;border-color:var(--accent)':'background:var(--surface);color:var(--ink);border-color:var(--border)';
+      h+='<button type="button" data-by="'+o[0]+'" aria-pressed="'+on+'" title="Raggruppa le colonne per '+o[1]+'" style="font:inherit;font-size:11.5px;line-height:1;padding:5px 9px;border:1px solid;border-radius:8px;cursor:pointer;'+st+'">'+o[1]+'</button>';
+    });
+    el.innerHTML=h;
+  }
+  var hint=document.getElementById("srcHint");
+  if(hint)hint.innerHTML='Solo <b style="color:var(--accent)">Real</b> &middot; per <code>'+(SRC_BY==="utm"?"utm_source__c":"LeadSource")+'</code>'
+    +(SRC_BY==="utm"?' &middot; <span style="color:var(--muted)">colonna <code>utm non tracciato</code> = Opportunity senza parametro</span>':'');
 }
 function fillSrcMonths(maxM){
   srcMaxM=maxM;
@@ -3233,7 +3271,8 @@ function fillSrcMonths(maxM){
 // carica dal vivo tutti i mesi selezionati non ancora in cache, poi ridisegna
 async function ensureSrcMonths(){
   if(srcLoading)return;
-  var need=srcMonths.filter(function(m){return srcCache[m]==null;});
+  var by=SRC_BY, store=srcStore(by);
+  var need=srcMonths.filter(function(m){return store[m]==null;});
   if(!need.length){renderSources();return;}
   srcLoading=true; renderSources();
   try{
@@ -3241,19 +3280,19 @@ async function ensureSrcMonths(){
       var sf=await findTool();
       for(var j=0;j<need.length;j++){
         var m=need[j], recsByVoce=[];
-        for(var i=0;i<8;i++){recsByVoce[i]=await sfCall(sf.tool,srcGrp(i,m));}
-        srcCache[m]=buildSrcRows(recsByVoce);
+        for(var i=0;i<8;i++){recsByVoce[i]=await sfCall(sf.tool,srcGrp(i,m,by));}
+        store[m]=buildSrcRows(recsByVoce,by);
       }
     }else{
       for(var j2=0;j2<need.length;j2++){
         var m2=need[j2];
-        var r=await fetch("api/dashboard?view=sources&month="+m2,{headers:{Accept:"application/json"}});
+        var r=await fetch("api/dashboard?view=sources&by="+by+"&month="+m2,{headers:{Accept:"application/json"}});
         var d=await r.json().catch(function(){return null;});
-        srcCache[m2]=(r.ok&&d&&d.rows)?d.rows:[];
+        store[m2]=(r.ok&&d&&d.rows)?d.rows:[];
       }
     }
   }catch(e){}
-  srcMonths.forEach(function(m){if(srcCache[m]==null)srcCache[m]=[];});
+  srcMonths.forEach(function(m){if(store[m]==null)store[m]=[];});
   srcLoading=false; renderSources();
 }
 
@@ -3496,10 +3535,10 @@ async function doRefreshMCP(){
     /* ===== FASE 2 - MARKETING (Sorgenti + ADV) ===== */
     rstatus("Marketing &middot; sorgenti...");
     var recsByVoce=[];
-    for(var i2=0;i2<8;i2++){var rr=await q(srcGrp(i2,curM));recsByVoce[i2]=(rr==null)?[]:rr;}
-    var srows=buildSrcRows(recsByVoce);
+    for(var i2=0;i2<8;i2++){var rr=await q(srcGrp(i2,curM,"lead"));recsByVoce[i2]=(rr==null)?[]:rr;}
+    var srows=buildSrcRows(recsByVoce,"lead");
     BYSRC={year:now.getFullYear(), month:curM, rows:srows};
-    srcCache={}; srcCache[curM]=srows; srcMonths=srcMonths.filter(function(m){return m<=curM;}); if(!srcMonths.length)srcMonths=[curM]; fillSrcMonths(curM);
+    srcCache={}; srcCache[curM]=srows; srcCacheU={}; srcMonths=srcMonths.filter(function(m){return m<=curM;}); if(!srcMonths.length)srcMonths=[curM]; fillSrcMonths(curM);
     renderSources(); renderADV();
     groupDone("marketing");
 
@@ -3672,7 +3711,7 @@ async function doRefreshUnified(scope){
       var _WONBASE="RecordType.DeveloperName='IREC' AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')";
       var wonR=await q("SELECT "+_CMC+" m,AccountId a,COUNT(Id) n,SUM(Amount) amt FROM Opportunity WHERE "+VW[7].w+VW[7].extra+" AND CloseDate>="+monFirst+" GROUP BY "+_CMC+",AccountId");
       // singole opp vinte della finestra (per attribuzione sorgente/operatore, opzione B = primo contratto del cliente)
-      var wonDet=await q("SELECT AccountId, LeadSource, Owner.Name, CloseDate FROM Opportunity WHERE "+VW[7].w+VW[7].extra+" AND CloseDate>="+monFirst+" ORDER BY AccountId, CloseDate");
+      var wonDet=await q("SELECT AccountId, LeadSource, utm_source__c, Owner.Name, CloseDate FROM Opportunity WHERE "+VW[7].w+VW[7].extra+" AND CloseDate>="+monFirst+" ORDER BY AccountId, CloseDate");
       if(wonR!=null){
         var byMon={}; wonR.forEach(function(r){var mo=+r.m; if(!byMon[mo])byMon[mo]={accs:[],opps:0,amt:0}; if(r.a)byMon[mo].accs.push(r.a); byMon[mo].opps+=(+r.n||0); byMon[mo].amt+=(r.amt==null?0:+r.amt);});
         for(var mo2=mStart;mo2<=mEnd;mo2++){
@@ -3684,15 +3723,18 @@ async function doRefreshUnified(scope){
           REAL.general[7].data[mo2-1]=tot; CONTRATTI[mo2-1]=tot; FATTURATO[mo2-1]=bm.amt;
           while(NUOVI.length<mo2)NUOVI.push(0); NUOVI[mo2-1]=nn; while(UPSELL.length<mo2)UPSELL.push(0); UPSELL[mo2-1]=ups;
           // attribuzione per sorgente/operatore (opzione B): il "Nuovo" va al gruppo del PRIMO contratto del cliente
-          var srcB={}, opB={}, firstDone={};
+          var srcB={}, opB={}, utmB={}, firstDone={};
           (wonDet||[]).forEach(function(r){ if((+(String(r.CloseDate).slice(5,7)))!==mo2)return;
             var acc=r.AccountId, src=r.LeadSource||"(non tracciato)", op=(r.Owner&&r.Owner.Name)||"(nessuno)";
+            var utm=r.utm_source__c||srcVuoto("utm");
             if(!srcB[src])srcB[src]={tot:0,nuovi:0,ups:0}; if(!opB[op])opB[op]={tot:0,nuovi:0,ups:0};
-            srcB[src].tot++; opB[op].tot++;
+            if(!utmB[utm])utmB[utm]={tot:0,nuovi:0,ups:0};
+            srcB[src].tot++; opB[op].tot++; utmB[utm].tot++;
             var isNew=acc && !exSet[acc] && !firstDone[acc];
-            if(isNew){ srcB[src].nuovi++; opB[op].nuovi++; firstDone[acc]=1; } else { srcB[src].ups++; opB[op].ups++; }
+            if(isNew){ srcB[src].nuovi++; opB[op].nuovi++; utmB[utm].nuovi++; firstDone[acc]=1; }
+            else { srcB[src].ups++; opB[op].ups++; utmB[utm].ups++; }
           });
-          WONBRK[mo2]={src:srcB, op:opB};
+          WONBRK[mo2]={src:srcB, op:opB, utm:utmB};
         }
         syncWonSplit();   // garanzia finale: Nuovi + Upsell = Chiusi Vinti TOT su ogni mese
       }
@@ -3729,7 +3771,7 @@ async function doRefreshUnified(scope){
     /* MARKETING (solo IREC) */
     if(doI){
     st("Marketing &middot; sorgenti e ADV...");
-    if(sf){ var mQ=[]; for(var b=0;b<8;b++)mQ.push(srcGrp(b,curM)); var mR=await qAll(mQ,1); var mByV=mR.map(function(x){return x==null?[]:x;}); var srows=buildSrcRows(mByV); BYSRC={year:now.getFullYear(),month:curM,rows:srows}; srcCache={}; srcCache[curM]=srows; srcMonths=srcMonths.filter(function(m){return m<=curM;}); if(!srcMonths.length)srcMonths=[curM]; fillSrcMonths(curM);
+    if(sf){ var mQ=[]; for(var b=0;b<8;b++)mQ.push(srcGrp(b,curM,"lead")); var mR=await qAll(mQ,1); var mByV=mR.map(function(x){return x==null?[]:x;}); var srows=buildSrcRows(mByV,"lead"); BYSRC={year:now.getFullYear(),month:curM,rows:srows}; srcCache={}; srcCache[curM]=srows; srcMonths=srcMonths.filter(function(m){return m<=curM;}); if(!srcMonths.length)srcMonths=[curM]; fillSrcMonths(curM);
       // lead + venduto per CANALE (per CPL/ROAS Meta/Google, tab ADV) del mese corrente: Meta = LeadAds Facebook + Meta ADS; Google = Google Ads
       var _ci=curM-1,_ml=0,_mv=0,_gl=0,_gv=0; srows.forEach(function(r){var n=r.src; if(n==="Meta ADS"||n==="LeadAds Facebook"){_ml+=(r.v[0]||0);_mv+=(r.v[8]||0);} else if(n==="Google Ads"){_gl+=(r.v[0]||0);_gv+=(r.v[8]||0);}}); ADV_META_LEADS[_ci]=_ml; ADV_META_VEND[_ci]=_mv; ADV_GOOGLE_LEADS[_ci]=_gl; ADV_GOOGLE_VEND[_ci]=_gv;
       renderSources(); renderADV(); }
