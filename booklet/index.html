@@ -729,6 +729,14 @@ function innestaYoY(d,Srf){
    Se una fallisce, le altre sezioni restano riempite lo stesso. */
 function mesiLive(d){var a=[],ultimo=Math.min(12,d.curMonth||12);
   for(var m=Math.max(PRIMO_LIVE,8)+1;m<=ultimo;m++)a.push(m);return a;}
+function caricaDisdette(){
+  return fetch("/api/disdette",{headers:{Accept:"application/json"}}).then(function(r){
+    if(!r.ok)throw new Error("HTTP "+r.status); return r.json();
+  }).then(function(d){
+    if(!d||d.error)throw new Error((d&&d.error)||"risposta non valida");
+    if(innestaDisdette(d))render();
+  }).catch(function(){ /* restano i valori importati, con la loro data gia' scritta in scheda */ });
+}
 function caricaPerMese(d){
   var mesi=mesiLive(d);
   if(!mesi.length)return Promise.resolve();
@@ -743,6 +751,46 @@ function caricaPerMese(d){
   return Promise.all(att).then(function(){
     innestaSorgenti(src); innestaVenduto(src); innestaOperatori(ops); render();
   });
+}
+/* Disdette: il foglio Google pubblicato in CSV, letto tramite /api/disdette. Se non risponde
+   restano i valori importati a mano, che la scheda dichiara con la loro data: meglio un numero
+   vecchio ma datato che una tabella vuota. */
+var DISDETTE_LIVE=false, DISDETTE_DATA="";
+var MOT_RIGA={"% bassa recuperato":">> % bassa recuperato","nessun recupero":">> nessun recupero",
+  "nessun affido":">> nessun affido","cliente andato a recupero":">> cliente andato a recupero",
+  "problemi personali":">> problemi personali","non ha insoluti":">> non ha insoluti",
+  "saldo e stralcio":">> Saldo e stralcio"};
+function innestaDisdette(d){
+  var sez=sezione("cust-care"); if(!sez||!d||!d.anni)return 0;
+  function riga(nome){return sez.righe.filter(function(r){return r.cat==="Disdette"&&r.kpi===nome;})[0];}
+  var mesi=riga("N clienti con disdetta"), vs=riga("- % su stesso mese 2025");
+  var a26=d.anni["2026"], a25=d.anni["2025"], n=0;
+  if(mesi&&a26&&a26.mesi){ mesi.act=a26.mesi.slice(0,12); n++; }
+  if(mesi&&a25&&a25.mesi){ mesi.act25=a25.mesi.slice(0,12); n++; }
+  /* La variazione si ricalcola invece di leggerla: nel foglio novembre e dicembre segnano
+     -100% solo perche' il 2026 e' ancora vuoto, e sarebbe un crollo che non e' successo. */
+  if(vs&&mesi){
+    vs.act=[]; 
+    for(var i=0;i<12;i++){
+      var x=(mesi.act||[])[i], y=(mesi.act25||[])[i];
+      vs.act.push((x==null||y==null||y===0)?null:(x/y-1));
+    }
+    n++;
+  }
+  [["2026","annuale"],["2025","annuale25"]].forEach(function(par){
+    var A=d.anni[par[0]], campo=par[1]; if(!A)return;
+    var sz=riga("- di cui senza motivazione"), co=riga("- di cui con motivazione");
+    if(sz&&A.senza!=null){sz[campo]=A.senza;n++;}
+    if(co&&A.con!=null){co[campo]=A.con;n++;}
+    Object.keys(MOT_RIGA).forEach(function(k){
+      var r=riga(MOT_RIGA[k]); if(!r)return;
+      r[campo]=(A.mot&&A.mot[k]!=null)?A.mot[k]:0; n++;
+    });
+  });
+  DISDETTE_LIVE=true; DISDETTE_DATA=d.letto||"";
+  var et=DISDETTE_DATA?(" &middot; aggiornate al "+DISDETTE_DATA.split("-").reverse().join("/")):"";
+  sez.notaFonte='Rinnovi inseriti a mano; Disdette dal foglio <span class="tag t-live">LIVE</span>'+et;
+  return n;
 }
 function innestaLive(d){
   var sez=(DATI.sezioni||[]).filter(function(x){return x.id==="ff-irec";})[0];
@@ -1284,6 +1332,7 @@ Promise.all([
     if(!d||d.error)throw new Error((d&&d.error)||"risposta non valida");
     innestaLive(d); innestaMkt(d); innestaProdotti(d); innestaYoY(d,null); LIVE_OK=true; render();
     caricaPerMese(d);   // Marketing per canale e Performance Sales: una chiamata per mese
+    caricaDisdette();   // foglio Google pubblicato in CSV, indipendente da Salesforce
   }).catch(function(e){ LIVE_ERR="dati live non disponibili ("+(e&&e.message||e)+")"; render(); })
   .then(function(){
     return fetch("/api/rf",{headers:{Accept:"application/json"}}).then(function(r){
