@@ -141,6 +141,8 @@ a{color:var(--accent)}
 "use strict";
 try{document.documentElement.setAttribute("data-theme",localStorage.getItem("bk_theme")||"light");}catch(e){}
 var MESI=["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
+// per esteso, dove la colonna e' larga: la tabella delle disdette ha i mesi sulle righe
+var MESI_INTERI=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 /* REGOLA FONDAMENTALE DELLA PAGINA
    Gennaio-Agosto (indici 0..7) sono la copia del booklet 2026 e NON vanno mai toccati da nulla di
    automatico: sono il dato ufficiale gia' consolidato. Da Settembre in poi (indici 8..11) il budget
@@ -752,44 +754,16 @@ function caricaPerMese(d){
     innestaSorgenti(src); innestaVenduto(src); innestaOperatori(ops); render();
   });
 }
-/* Disdette: il foglio Google pubblicato in CSV, letto tramite /api/disdette. Se non risponde
-   restano i valori importati a mano, che la scheda dichiara con la loro data: meglio un numero
+/* Disdette: il foglio Google pubblicato in CSV, letto tramite /api/disdette. Arriva nella
+   stessa forma in cui sta nel file dati, quindi si sostituisce in blocco. Se non risponde
+   restano i valori importati, che la scheda dichiara con la loro data: meglio un numero
    vecchio ma datato che una tabella vuota. */
-var DISDETTE_LIVE=false, DISDETTE_DATA="";
-var MOT_RIGA={"% bassa recuperato":">> % bassa recuperato","nessun recupero":">> nessun recupero",
-  "nessun affido":">> nessun affido","cliente andato a recupero":">> cliente andato a recupero",
-  "problemi personali":">> problemi personali","non ha insoluti":">> non ha insoluti",
-  "saldo e stralcio":">> Saldo e stralcio"};
 function innestaDisdette(d){
-  var sez=sezione("cust-care"); if(!sez||!d||!d.anni)return 0;
-  function riga(nome){return sez.righe.filter(function(r){return r.cat==="Disdette"&&r.kpi===nome;})[0];}
-  var mesi=riga("N clienti con disdetta"), vs=riga("- % su stesso mese 2025");
-  var a26=d.anni["2026"], a25=d.anni["2025"], n=0;
-  if(mesi&&a26&&a26.mesi){ mesi.act=a26.mesi.slice(0,12); n++; }
-  if(mesi&&a25&&a25.mesi){ mesi.act25=a25.mesi.slice(0,12); n++; }
-  /* La variazione si ricalcola invece di leggerla: nel foglio novembre e dicembre segnano
-     -100% solo perche' il 2026 e' ancora vuoto, e sarebbe un crollo che non e' successo. */
-  if(vs&&mesi){
-    vs.act=[]; 
-    for(var i=0;i<12;i++){
-      var x=(mesi.act||[])[i], y=(mesi.act25||[])[i];
-      vs.act.push((x==null||y==null||y===0)?null:(x/y-1));
-    }
-    n++;
-  }
-  [["2026","annuale"],["2025","annuale25"]].forEach(function(par){
-    var A=d.anni[par[0]], campo=par[1]; if(!A)return;
-    var sz=riga("- di cui senza motivazione"), co=riga("- di cui con motivazione");
-    if(sz&&A.senza!=null){sz[campo]=A.senza;n++;}
-    if(co&&A.con!=null){co[campo]=A.con;n++;}
-    Object.keys(MOT_RIGA).forEach(function(k){
-      var r=riga(MOT_RIGA[k]); if(!r)return;
-      r[campo]=(A.mot&&A.mot[k]!=null)?A.mot[k]:0; n++;
-    });
-  });
-  DISDETTE_LIVE=true; DISDETTE_DATA=d.letto||"";
-  var et=DISDETTE_DATA?(" &middot; aggiornate al "+DISDETTE_DATA.split("-").reverse().join("/")):"";
-  sez.notaFonte='Rinnovi inseriti a mano; Disdette dal foglio <span class="tag t-live">LIVE</span>'+et;
+  if(!d||!d.anni||!DATI)return 0;
+  var n=0;
+  DATI.disdette=DATI.disdette||{anni:{}};
+  ["2026","2025"].forEach(function(y){ if(d.anni[y]){DATI.disdette.anni[y]=d.anni[y];n++;} });
+  if(n){ DATI.disdette.live=true; DATI.disdette.letto=d.letto||""; }
   return n;
 }
 function innestaLive(d){
@@ -885,19 +859,88 @@ function nColonne(cols,sez){var n=0,largh=(sez&&sez.compatto&&vista==="mesi")?1:
 // Una riga e' un "di cui" se l'etichetta comincia con un marcatore di rientro: >, >>, -, --
 // oppure la numerazione a), b), c), d) usata nei blocchi per canale del Marketing.
 function figliaKPI(k){return /^\s*(>>|>|--|-|[a-d]\))/.test(k||"");}
-/* Una riga annuale puo' dichiarare di quale altra riga e' una quota (quotaDi): sotto il numero
-   compare la percentuale, come nel foglio da cui arrivano le disdette. Il denominatore si legge
-   dalla riga indicata, che sia annuale o mensile - in quel caso vale la somma dell'anno. */
-function valoreAnnuo(sez,r){
-  if(!r)return null;
-  if("annuale" in r)return (ANNO===2025)?(("annuale25" in r)?r.annuale25:null):r.annuale;
-  return somma(serie(sez.id,r,cA(),sez.righe),0,11);
+/* Le disdette hanno un layout loro, uguale al foglio da cui arrivano: una tabella con i mesi
+   sulle righe e i due anni a fianco, e una seconda con le motivazioni. Non entrano nella griglia
+   KPI perche' li' i due anni non si vedrebbero insieme e le motivazioni, che sono un totale
+   d'anno, finirebbero schiacciate in una colonna sola. */
+var MOT_ORDINE=[["% bassa recuperato","% bassa recuperato"],["nessun recupero","nessun recupero"],
+  ["nessun affido","nessun affido"],["cliente andato a recupero","cliente andato a recupero"],
+  ["problemi personali","problemi personali"],["non ha insoluti","non ha insoluti"],
+  ["saldo e stralcio","Saldo e stralcio"]];
+function disdAnno(y){var D=DATI&&DATI.disdette; return (D&&D.anni&&D.anni[y])||null;}
+function disdTot(a){ if(!a||!a.mesi)return null; var s=null;
+  a.mesi.forEach(function(v){ if(v!=null)s=(s||0)+v; }); return s; }
+function nInt(v){return v==null?'<span class="muted">&mdash;</span>':v.toLocaleString("it-IT");}
+function nPct(v){return v==null?'<span class="muted">&mdash;</span>':(v*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"%";}
+function disdFonte(){
+  var D=DATI&&DATI.disdette; if(!D)return "";
+  var data=(D.letto||"").split("-").reverse().join("/");
+  return D.live ? ('Foglio disdette <span class="tag t-live">LIVE</span>'+(data?' &middot; aggiornate al '+data:''))
+                : ('Foglio disdette &middot; importate il '+(data||'?'));
 }
-function quotaAnnua(sez,r,v){
-  if(v==null||r.quotaDi==null)return "";
-  var den=valoreAnnuo(sez,sez.righe[r.quotaDi]);
-  if(den==null||den===0)return "";
-  return '<span class="d2" style="color:var(--faint)">'+(v/den*100).toLocaleString("it-IT",{maximumFractionDigits:1})+'%</span>';
+function cartaDisdetteMesi(){
+  var a=disdAnno("2026"), b=disdAnno("2025");
+  if(!a&&!b)return "";
+  var h='<div class="card"><div class="card-h"><h2>Disdette &middot; mese su mese</h2>'
+    +'<span class="hint">'+disdFonte()+'</span></div>'
+    +'<div class="scroll"><table><thead><tr><th class="voce">Mese</th>'
+    +'<th class="gsep" style="text-align:right">2026</th>'
+    +'<th style="text-align:right">2025</th>'
+    +'<th style="text-align:right">&Delta; su stesso mese</th></tr></thead><tbody>';
+  for(var i=0;i<12;i++){
+    var x=a&&a.mesi?a.mesi[i]:null, y=b&&b.mesi?b.mesi[i]:null;
+    // niente variazione dove il 2026 non e' ancora arrivato: non e' un crollo, e' un mese che manca
+    var dif=(x==null||y==null)?null:(x-y), rel=(dif==null||y===0)?null:(dif/Math.abs(y));
+    var cl=(dif==null)?"":classeDelta(dif,{verso:-1});
+    h+='<tr'+(i+1===ULTIMO_LIVE?' class="main"':'')+'><td class="voce">'+MESI_INTERI[i]+'</td>'
+      +'<td class="tnum gsep">'+nInt(x)+'</td><td class="tnum">'+nInt(y)+'</td>'
+      +'<td class="tnum">'+(dif==null?'<span class="muted">&mdash;</span>'
+        :('<span class="dcell '+cl+'"><span>'+(dif>0?"+":"")+dif+'</span>'
+          +(rel==null?'':'<span class="d2">'+(rel>0?"+":"")+(rel*100).toLocaleString("it-IT",{maximumFractionDigits:1})+'%</span>')+'</span>'))
+      +'</td></tr>';
+  }
+  var ta=disdTot(a), tb=disdTot(b);
+  var dT=(ta==null||tb==null)?null:(ta-tb), rT=(dT==null||!tb)?null:(dT/Math.abs(tb));
+  h+='<tr class="main" style="font-weight:700"><td class="voce">TOTALE</td>'
+    +'<td class="tnum gsep">'+nInt(ta)+'</td><td class="tnum">'+nInt(tb)+'</td>'
+    +'<td class="tnum">'+(dT==null?'<span class="muted">&mdash;</span>'
+      :('<span class="dcell '+classeDelta(dT,{verso:-1})+'"><span>'+(dT>0?"+":"")+dT+'</span>'
+        +(rT==null?'':'<span class="d2">'+(rT>0?"+":"")+(rT*100).toLocaleString("it-IT",{maximumFractionDigits:1})+'%</span>')+'</span>'))
+    +'</td></tr>';
+  return h+'</tbody></table></div><div class="legenda">'
+    +'<span>Clienti che hanno disdetto nel mese. Il mese in corso e\' in grassetto.</span>'
+    +'<span>Il &Delta; e\' il 2026 meno il 2025 sullo stesso mese: in verde quando le disdette calano.</span>'
+    +'<span>I mesi che il 2026 non ha ancora vissuto restano vuoti, senza variazione.</span></div></div>';
+}
+function cartaDisdetteMotivi(){
+  var a=disdAnno("2026"), b=disdAnno("2025");
+  if(!a&&!b)return "";
+  function riga(et, va, vb, da, db, indent, forte){
+    var pa=(va==null||!da)?null:va/da, pb=(vb==null||!db)?null:vb/db;
+    return '<tr'+(forte?' class="main"':'')+'><td class="voce" style="padding-left:'+(12+indent*18)+'px'
+      +(forte?';font-weight:700':'')+'">'+et+'</td>'
+      +'<td class="tnum gsep">'+nInt(va)+'</td><td class="tnum" style="color:var(--faint)">'+nPct(pa)+'</td>'
+      +'<td class="tnum gsep">'+nInt(vb)+'</td><td class="tnum" style="color:var(--faint)">'+nPct(pb)+'</td></tr>';
+  }
+  var ta=disdTot(a), tb=disdTot(b);
+  var ca=a?a.con:null, cb=b?b.con:null;
+  var h='<div class="card"><div class="card-h"><h2>Disdette &middot; motivazioni</h2>'
+    +'<span class="hint">Totale da inizio anno &middot; '+disdFonte()+'</span></div>'
+    +'<div class="scroll"><table><thead><tr><th class="voce" rowspan="2">Motivazione</th>'
+    +'<th class="gsep" colspan="2" style="text-align:center">2026</th>'
+    +'<th class="gsep" colspan="2" style="text-align:center">2025</th></tr>'
+    +'<tr><th class="gsep" style="text-align:right">N</th><th style="text-align:right">quota</th>'
+    +'<th class="gsep" style="text-align:right">N</th><th style="text-align:right">quota</th></tr></thead><tbody>';
+  h+=riga("Disdette totali", ta, tb, ta, tb, 0, true);
+  h+=riga("- di cui senza motivazione", a?a.senza:null, b?b.senza:null, ta, tb, 1, false);
+  h+=riga("- di cui con motivazione", ca, cb, ta, tb, 1, false);
+  // le quote delle singole motivazioni sono sul totale di quelle motivate, come nel foglio
+  MOT_ORDINE.forEach(function(m){
+    h+=riga("&raquo; "+m[1], (a&&a.mot)?a.mot[m[0]]:null, (b&&b.mot)?b.mot[m[0]]:null, ca, cb, 2, false);
+  });
+  return h+'</tbody></table></div><div class="legenda">'
+    +'<span>Le quote di &ldquo;senza&rdquo; e &ldquo;con motivazione&rdquo; sono sul totale delle disdette; quelle delle singole motivazioni sul totale di quelle motivate.</span>'
+    +'<span>Le percentuali sono ricalcolate qui: nel foglio la colonna del 2025 divide per il totale del 2026.</span></div></div>';
 }
 function statoFonte(sez){
   if(ANNO===2025)return 'anno chiuso, tutto dal booklet 2025';
@@ -1128,11 +1171,9 @@ function render(){
           if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
           var qui=(vista!=="mesi"&&c.n==="Anno");
           if(!qui){h+='<td class="muted gsep">&mdash;</td><td class="muted">&mdash;</td><td class="muted">&mdash;</td>';return;}
-          var k=sez.id+"|"+r.cat+"|"+r.kpi+"|annuale"+(ANNO===2025?"25":"")+"|0";
-          var base=(ANNO===2025)?(("annuale25" in r)?r.annuale25:null):r.annuale;
-          var v=(k in OVR)?OVR[k]:base;
-          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r,"act")
-            +quotaAnnua(sez,r,v)+'</td><td></td>';
+          var k=sez.id+"|"+r.cat+"|"+r.kpi+"|annuale|0";
+          var v=(k in OVR)?OVR[k]:r.annuale;
+          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r,"act")+'</td><td></td>';
         });
         h+='</tr>'; return;
       }
@@ -1176,6 +1217,8 @@ function render(){
       +(vista==="aggr"?'<span>Rapporti aggregati come rapporto fra numeratori e denominatori del periodo, non come media dei mesi. &#8220;&mdash;&#8221; dove la coppia non &egrave; ricostruibile dai dati del foglio.</span>':'')
       +'</div></div>';
     html+=h;
+    // Customer Care: sotto i rinnovi, le due tabelle delle disdette, con il layout del foglio
+    if(sez.id==="cust-care"&&vista==="mesi")html+=cartaDisdetteMesi()+cartaDisdetteMotivi();
   });
   host.innerHTML=html;
   /* La seconda riga d'intestazione si appiccica sotto la prima: l'altezza della prima dipende dal
