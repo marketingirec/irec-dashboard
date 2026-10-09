@@ -837,10 +837,24 @@ function nColonne(cols,sez){var n=0,largh=(sez&&sez.compatto&&vista==="mesi")?1:
 // Una riga e' un "di cui" se l'etichetta comincia con un marcatore di rientro: >, >>, -, --
 // oppure la numerazione a), b), c), d) usata nei blocchi per canale del Marketing.
 function figliaKPI(k){return /^\s*(>>|>|--|-|[a-d]\))/.test(k||"");}
+/* Una riga annuale puo' dichiarare di quale altra riga e' una quota (quotaDi): sotto il numero
+   compare la percentuale, come nel foglio da cui arrivano le disdette. Il denominatore si legge
+   dalla riga indicata, che sia annuale o mensile - in quel caso vale la somma dell'anno. */
+function valoreAnnuo(sez,r){
+  if(!r)return null;
+  if("annuale" in r)return (ANNO===2025)?(("annuale25" in r)?r.annuale25:null):r.annuale;
+  return somma(serie(sez.id,r,cA(),sez.righe),0,11);
+}
+function quotaAnnua(sez,r,v){
+  if(v==null||r.quotaDi==null)return "";
+  var den=valoreAnnuo(sez,sez.righe[r.quotaDi]);
+  if(den==null||den===0)return "";
+  return '<span class="d2" style="color:var(--faint)">'+(v/den*100).toLocaleString("it-IT",{maximumFractionDigits:1})+'%</span>';
+}
 function statoFonte(sez){
   if(ANNO===2025)return 'anno chiuso, tutto dal booklet 2025';
   var f=sez.fonte||"manuale";
-  if(f==="manuale")return 'dati manuali, nessuna fonte da agganciare';
+  if(f==="manuale")return sez.notaFonte || 'dati manuali, nessuna fonte da agganciare';
   var ok=(f==="rf")?LIVE_RF:LIVE_OK;
   var et='Set&ndash;Dic <span class="tag t-live">LIVE</span>';
   if(ok)return et;
@@ -1066,9 +1080,11 @@ function render(){
           if(perChiuso(c)){h+='<td class="chiusa gsep"></td>';return;}
           var qui=(vista!=="mesi"&&c.n==="Anno");
           if(!qui){h+='<td class="muted gsep">&mdash;</td><td class="muted">&mdash;</td><td class="muted">&mdash;</td>';return;}
-          var k=sez.id+"|"+r.cat+"|"+r.kpi+"|annuale|0";
-          var v=(k in OVR)?OVR[k]:r.annuale;
-          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r,"act")+'</td><td></td>';
+          var k=sez.id+"|"+r.cat+"|"+r.kpi+"|annuale"+(ANNO===2025?"25":"")+"|0";
+          var base=(ANNO===2025)?(("annuale25" in r)?r.annuale25:null):r.annuale;
+          var v=(k in OVR)?OVR[k]:base;
+          h+='<td class="gsep"></td><td class="tnum edit'+((k in OVR)?" ovr":"")+'" data-k="'+k+'">'+fmt(v,r,"act")
+            +quotaAnnua(sez,r,v)+'</td><td></td>';
         });
         h+='</tr>'; return;
       }
