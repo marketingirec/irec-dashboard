@@ -442,9 +442,14 @@ function fmt(v,r,campo){
    punti percentuali), sotto la stessa differenza in percentuale sul budget. */
 /* Lo scostamento della cella compatta: due righe come nella vista normale, l'assoluto e la
    percentuale, ma senza centesimi per restare nella larghezza. */
+/* Su quasi tutti i KPI fare piu' del budget e' un risultato buono. Sui costi e' il contrario:
+   spendere meno del previsto, o avere un CPL sotto il target, e' un risparmio. Quelle righe
+   portano verso:-1 nel file dati e il colore del delta si gira. */
+function verso(r){return r && r.verso===-1 ? -1 : 1;}
+function classeDelta(dif,r){return (dif*verso(r))>=0 ? "dpos" : "dneg";}
 function deltaComp(a,b,r){
   if(a==null||b==null||r.budPct)return '<span class="muted">&mdash;</span>';
-  var dif=a-b, cl=(dif>=0?"dpos":"dneg"), seg=(dif>0?"+":"");
+  var dif=a-b, cl=classeDelta(dif,r), seg=(dif>0?"+":"");
   var ass;
   if(r.pct||haParola(r.kpi,"mer|roas"))ass=seg+(dif*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"pp";
   else if(r.eur)ass=seg+"&euro;\u00A0"+dif.toLocaleString("it-IT",{maximumFractionDigits:0});
@@ -463,7 +468,7 @@ function fmtComp(v,r,campo){
 }
 function delta(a,b,r,stessaUnita){
   if(a==null||b==null||(r.budPct&&!stessaUnita))return '<span class="muted">&mdash;</span>';
-  var dif=a-b, cl=(dif>=0?"dpos":"dneg"), seg=(dif>0?"+":"");
+  var dif=a-b, cl=classeDelta(dif,r), seg=(dif>0?"+":"");
   var ass;
   if(haParola(r.kpi,"mer|roas"))ass=seg+(dif*100).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+"pp";
   else if(r.pct)ass=seg+(dif*100).toLocaleString("it-IT",{maximumFractionDigits:1})+"pp";
