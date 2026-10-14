@@ -710,10 +710,10 @@
 
     <section class="rfpanel" id="rfpanel-operatori">
       <div class="card">
-        <div class="card-h"><h2>Operatori Sales &mdash; ordini gestiti via codice sconto</h2><span class="hint" id="rfOpCap"></span></div>
+        <div class="card-h"><h2>Operatori Sales &mdash; venduto operatori</h2><span class="hint" id="rfOpCap"></span></div>
         <div class="card-b scroll"><table id="rfOpTable"></table></div>
       </div>
-      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Ordini Shopify con <b>codice sconto = nome venditore</b>, raggruppati per operatore: numero ordini e importo netto (netto IVA), mese selezionato.</p>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Il <b>venduto operatori</b> del mese, netto IVA. Per operatore c&rsquo;&egrave; l&rsquo;<b>online guidato</b>: ordini Shopify con <b>codice sconto</b>, <b>referral</b> o <b>tag</b> del venditore. <b>Offline</b> e <b>Partner</b> passano sempre da un venditore ma arrivano da Salesforce senza il riferimento alla persona, quindi stanno in due righe a parte: entrano nel Totale, non nel dettaglio per nome. Il <b>Totale</b> &egrave; lo stesso numero della tile <b>Venduto Operatori</b> in alto.</p>
       <div class="card" style="margin-top:18px">
         <div class="card-h"><h2>Soddisfazione Clienti (CSAT)</h2><span class="hint">Purchase Experience &middot; post consegna</span></div>
         <div class="card-b" style="padding:40px 24px;text-align:center;color:var(--muted)">
@@ -3246,16 +3246,31 @@ function renderRFSorgenti(){
   var foot='<tfoot><tr class="sep"><td class="voce" colspan="3"><b>Totale (any-click, pu&ograve; superare il fatturato)</b></td><td class="tnum"><b>'+eur(ta)+'</b></td></tr></tfoot>';
   el.innerHTML=head+body+foot;
 }
+/* Il venduto operatori e' online guidato + tutto l'offline + tutto il partner: offline e
+   partner passano sempre da un venditore. Il dettaglio per persona pero' esiste solo
+   sull'online, dove il codice sconto o il referral dicono di chi e'; offline e partner
+   arrivano da Salesforce senza quel riferimento, quindi stanno in due righe loro invece di
+   essere spalmati. Cosi' il Totale qui e' lo stesso numero della tile Venduto Operatori. */
 function renderRFOperatori(){
   var el=document.getElementById("rfOpTable"); if(!el)return;
-  var cap=document.getElementById("rfOpCap"); if(cap)cap.innerHTML="Mese: "+RF_MONTHS[rfMonthSel]+" 2026 &middot; ordini via codice sconto";
-  var rows=(RF_OPERATORI[rfMonthSel]||[]).slice().sort(function(a,b){return (b.amt||0)-(a.amt||0);});
-  var head='<thead><tr><th class="voce">Operatore</th><th>N ordini (codice)</th><th>Importo netto</th></tr></thead>';
+  var i=rfMonthSel;
+  var cap=document.getElementById("rfOpCap"); if(cap)cap.innerHTML="Mese: "+RF_MONTHS[i]+" 2026 &middot; online per venditore + tutto Offline e Partner";
+  var rows=(RF_OPERATORI[i]||[]).slice().sort(function(a,b){return (b.amt||0)-(a.amt||0);});
+  var off=RF_OFFLINE[i]||0, part=RF_PARTNER[i]||0;
+  var ordOff=RF_ORD_OFFLINE[i]||0, ordPart=RF_ORD_PARTNER[i]||0;
+  var head='<thead><tr><th class="voce">Operatore</th><th>N ordini</th><th>Importo netto</th></tr></thead>';
   var body='<tbody>', to=0, ta=0;
-  if(!rows.length){body+='<tr><td class="voce muted" colspan="3">Nessun ordine con codice venditore nel mese (premi Aggiorna per estrarlo dal vivo).</td></tr>';}
+  if(!rows.length){body+='<tr><td class="voce muted" colspan="3">Nessun ordine online con codice o referral venditore nel mese (premi Aggiorna per estrarlo dal vivo).</td></tr>';}
   rows.forEach(function(r){to+=r.ord||0; ta+=r.amt||0; body+='<tr><td class="voce">'+r.op+'</td><td class="tnum">'+nf(r.ord)+'</td><td class="tnum">'+eur(r.amt)+'</td></tr>';});
+  function extra(lab,sub,n,amt){
+    to+=n; ta+=amt;
+    return '<tr><td class="voce" style="color:var(--muted)">'+lab+' <span style="font-size:11px;font-weight:400">&middot; '+sub+'</span></td>'
+      +'<td class="tnum" style="color:var(--muted)">'+nf(n)+'</td><td class="tnum" style="color:var(--muted)">'+eur(amt)+'</td></tr>';
+  }
+  body+=extra("Offline","non attribuibile al singolo venditore",ordOff,off);
+  body+=extra("Partner","non attribuibile al singolo venditore",ordPart,part);
   body+='</tbody>';
-  var foot='<tfoot><tr class="sep"><td class="voce"><b>Totale</b></td><td class="tnum"><b>'+nf(to)+'</b></td><td class="tnum"><b>'+eur(ta)+'</b></td></tr></tfoot>';
+  var foot='<tfoot><tr class="sep"><td class="voce"><b>Totale venduto operatori</b></td><td class="tnum"><b>'+nf(to)+'</b></td><td class="tnum"><b>'+eur(ta)+'</b></td></tr></tfoot>';
   el.innerHTML=head+body+foot;
 }
 function renderRFAdv(){
