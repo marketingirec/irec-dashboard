@@ -26,6 +26,10 @@ const SHOP_API_V  = process.env.SHOPIFY_API_VERSION || '2026-07';
    percentuale la dice il prodotto. Dove non la sappiamo il credito resta pari all'importo e la
    riga lo dichiara, invece di dare per buona un'aliquota inventata. */
 const PRODOTTI_RICARICA = ['Ricarica Wallet 500€ + 100€ in regalo'];
+/* Il wallet non sta dentro l'anno solare: un credito comprato a novembre si spende a marzo, e il
+   residuo ha senso solo guardando tutta la vita del cliente. Niente filtro sull'anno, quindi:
+   si parte da prima che il negozio aprisse e si arriva a oggi. */
+const DA_SEMPRE = '2023-01-01';
 const CASHBACK = { 500: 0.20 };          // importo pagato -> quota di credito in regalo
 const CASHBACK_PARTNER = null;           // da confermare: quanto regala una ricarica da rete vendita
 
@@ -76,7 +80,7 @@ async function gql(query, variables) {
 async function ricaricheEcommerce() {
   const out = [];
   for (const titolo of PRODOTTI_RICARICA) {
-    const q = `FROM sales SHOW net_sales GROUP BY order_name, customer_email, day WHERE product_title = '${titolo.replace(/'/g, "\\'")}' SINCE ${YEAR}-01-01 UNTIL today ORDER BY day ASC LIMIT 500`;
+    const q = `FROM sales SHOW net_sales GROUP BY order_name, customer_email, day WHERE product_title = '${titolo.replace(/'/g, "\\'")}' SINCE ${DA_SEMPRE} UNTIL today ORDER BY day ASC LIMIT 1000`;
     const d = await gql(`query($q:String!){shopifyqlQuery(query:$q){parseErrors tableData{rows}}}`, { q });
     const res = d && d.shopifyqlQuery;
     if (!res) continue;
@@ -95,7 +99,7 @@ async function ricaricheEcommerce() {
 // totale dell'ordine. Sommare le singole applicazioni lo conterebbe due volte.
 async function consumi() {
   const out = [];
-  const q = `query($after:String){orders(first:50,after:$after,query:"discount_code:'Sconto Credito Wallet*' created_at:>=${YEAR}-01-01",sortKey:CREATED_AT){edges{node{name createdAt customer{email} discountCodes totalDiscountsSet{shopMoney{amount}}}}pageInfo{hasNextPage endCursor}}}`;
+  const q = `query($after:String){orders(first:50,after:$after,query:"discount_code:'Sconto Credito Wallet*'",sortKey:CREATED_AT){edges{node{name createdAt customer{email displayName} discountCodes currentSubtotalPriceSet{shopMoney{amount}} totalDiscountsSet{shopMoney{amount}}}}pageInfo{hasNextPage endCursor}}}`;
   let after = null, giri = 0;
   do {
     const d = await gql(q, after ? { after } : {});
@@ -105,37 +109,64 @@ async function consumi() {
       if (!(n.discountCodes || []).some((c) => RX_WALLET.test(c))) return;
       const amt = parseFloat((n.totalDiscountsSet && n.totalDiscountsSet.shopMoney && n.totalDiscountsSet.shopMoney.amount) || 0) || 0;
       if (amt <= 0) return;
-      out.push({ email: mail(n.customer && n.customer.email), data: giorno(n.createdAt), importo: round2(amt), rif: n.name || '' });
+      /* Il valore dell'ordine e' quello prima dello sconto: il netto incassato e' zero quando il
+         credito copre tutto, e conterebbe come un ordine da zero euro. */
+      const netto = parseFloat((n.currentSubtotalPriceSet && n.currentSubtotalPriceSet.shopMoney && n.currentSubtotalPriceSet.shopMoney.amount) || 0) || 0;
+      out.push({ email: mail(n.customer && n.customer.email), nome: (n.customer && n.customer.displayName) || '',
+                 data: giorno(n.createdAt), importo: round2(amt), valore: round2(netto + amt), rif: n.name || '' });
     });
     after = (o.pageInfo && o.pageInfo.hasNextPage) ? o.pageInfo.endCursor : null; giri++;
-  } while (after && giri < 20);
+  } while (after && giri < 60);
   return out;
 }
-/* Ordini dei clienti wallet, per contare quanti ne hanno fatti dalla ricarica in poi e con che
-   ticket medio. Una query sola con le email in OR invece di una per cliente. */
-async function ordiniClienti(emails) {
-  const out = [];
-  if (!emails.length) return out;
-  const filtro = emails.map((e) => `email:${e}`).join(' OR ');
-  const q = `query($after:String){orders(first:50,after:$after,query:"(${filtro}) created_at:>=${YEAR}-01-01",sortKey:CREATED_AT){edges{node{name createdAt customer{email} currentSubtotalPriceSet{shopMoney{amount}} transactions{kind status}}}pageInfo{hasNextPage endCursor}}}`;
-  let after = null, giri = 0;
-  do {
-    const d = await gql(q, after ? { after } : {});
-    const o = d && d.orders; if (!o) break;
-    (o.edges || []).forEach((e) => {
+/* Credits Yard, il plugin che tiene il wallet dentro Shopify, scrive il saldo sul cliente come
+   metafield. E' il numero vero, quindi il residuo si legge da li' invece di ricavarlo dalla
+   differenza fra quanto ha caricato e quanto ha speso: quella differenza non sa niente dei
+   movimenti fatti fuori dagli ordini (rettifiche, scadenze, crediti dati a mano). */
+const CY_NS = 'creditsyard', CY_SALDO = 'store_credit_balance', CY_AGG = 'store_credit_last_updated';
+async function saldiCreditsYard(emails) {
+  const out = {};
+  for (let i = 0; i < emails.length; i += 25) {
+    const blocco = emails.slice(i, i + 25);
+    const filtro = blocco.map((e) => `email:${e}`).join(' OR ');
+    const d = await gql(`query{customers(first:50,query:"${filtro.replace(/"/g, '')}"){edges{node{email displayName saldo:metafield(namespace:"${CY_NS}",key:"${CY_SALDO}"){value} agg:metafield(namespace:"${CY_NS}",key:"${CY_AGG}"){value}}}}}`);
+    ((d && d.customers && d.customers.edges) || []).forEach((e) => {
       const n = e.node; if (!n) return;
-      const pagato = (n.transactions || []).some((t) => (t.kind === 'SALE' || t.kind === 'CAPTURE') && t.status === 'SUCCESS');
-      if (!pagato) return;
-      out.push({ email: mail(n.customer && n.customer.email), data: giorno(n.createdAt),
-                 netto: round2(parseFloat((n.currentSubtotalPriceSet && n.currentSubtotalPriceSet.shopMoney && n.currentSubtotalPriceSet.shopMoney.amount) || 0) || 0),
-                 rif: n.name || '' });
+      const em = mail(n.email); if (!em) return;
+      const v = n.saldo && n.saldo.value != null ? parseFloat(n.saldo.value) : null;
+      out[em] = { saldo: Number.isFinite(v) ? round2(v) : null, agg: (n.agg && n.agg.value) || null, nome: n.displayName || '' };
     });
-    after = (o.pageInfo && o.pageInfo.hasNextPage) ? o.pageInfo.endCursor : null; giri++;
-  } while (after && giri < 40);
+  }
   return out;
 }
 
-const mesiFra = (da, a) => Math.max(1, (new Date(a) - new Date(da)) / 2592e6);
+const GIORNO_MS = 864e5;
+const mesiFra = (da, a) => Math.max(0.5, (new Date(a) - new Date(da)) / (30 * GIORNO_MS));
+const giorniFra = (da, a) => Math.round((new Date(a) - new Date(da)) / GIORNO_MS);
+const piuMesi = (da, m) => { const d = new Date(da); d.setDate(d.getDate() + Math.round(m * 30)); return d.toISOString().slice(0, 10); };
+
+/* Quando farsi vivi. Si stima dal ritmo con cui il cliente brucia il credito: quanto ha
+   consumato diviso i mesi da quando ha ricaricato la prima volta. Il residuo diviso quel ritmo
+   dice quanti mesi mancano alla fine, e conviene chiamarlo un mese prima che finisca.
+   Chi ha ricaricato e non ha mai speso non ha un ritmo da misurare: li' il segnale e' il
+   silenzio, cioe' da quanti giorni non ordina. */
+function quandoContattare(r, oggi) {
+  // il saldo del plugin se c'e', altrimenti la stima da caricato meno speso
+  const res = (r.residuo != null) ? r.residuo : r.residuoStimato;
+  if (!r.nRicariche && res == null) return { quando: null, perche: 'nessuna ricarica registrata' };
+  if (res != null && res <= 0) return { quando: oggi, perche: 'credito esaurito' };
+  const consumoMese = r.consumato > 0 ? r.consumato / mesiFra(r.prima || r.ultimoOrdine || oggi, oggi) : 0;
+  if (consumoMese <= 0) {
+    const fermo = giorniFra(r.ultima || r.ultimoOrdine || oggi, oggi);
+    return fermo >= 60
+      ? { quando: oggi, perche: 'ha credito fermo da ' + fermo + ' giorni' }
+      : { quando: piuMesi(r.ultima || oggi, 2), perche: 'ricarica recente, non ancora usata' };
+  }
+  const mesiResidui = res / consumoMese;
+  return mesiResidui <= 1
+    ? { quando: oggi, perche: 'al ritmo attuale il credito finisce entro un mese' }
+    : { quando: piuMesi(oggi, mesiResidui - 1), perche: 'al ritmo attuale il credito dura ancora ' + (Math.round(mesiResidui * 10) / 10) + ' mesi' };
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -148,39 +179,40 @@ export default async function handler(req, res) {
 
     // 1) ricariche da rete vendita: sono le opportunity che la dashboard conta come Partner
     const ctx = await sfToken();
-    const vinti = await soql(ctx, `SELECT Amount, ContactEmail__c, ContactName__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='${RF_RTID}' AND StageName='Chiuso - Vinto' AND Data_Chiusa_Vinta__c>=${YEAR}-01-01T00:00:00Z AND Amount>=1000`);
+    const vinti = await soql(ctx, `SELECT Amount, ContactEmail__c, ContactName__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='${RF_RTID}' AND StageName='Chiuso - Vinto' AND Amount>=1000`);
     const ricSf = [];
     vinti.forEach((r) => {
       const am = r.Amount == null ? 0 : +r.Amount;
       if (!(am > 0 && am % 1000 === 0)) return;   // stessa regola del Partner in /api/rf
-      ricSf.push({ email: mail(r.ContactEmail__c), nome: r.ContactName__c || '', data: giorno(r.Data_Chiusa_Vinta__c), importo: round2(am), tipo: 'partner', rif: '' });
+      ricSf.push({ email: mail(r.ContactEmail__c), nome: r.ContactName__c || '', data: giorno(r.Data_Chiusa_Vinta__c), importo: round2(am), tipo: 'partner' });
     });
 
-    // 2) ricariche da e-commerce + 3) consumi
+    // 2) ricariche da e-commerce + 3) consumi, entrambi da sempre
     const ricSh = await ricaricheEcommerce();
     const cons  = await consumi();
 
-    // 4) anagrafica e ordini: servono tutte le email viste, anche di chi consuma senza ricarica
     const nomi = {};
-    ricSf.forEach((r) => { if (r.email && r.nome) nomi[r.email] = r.nome; });
-    const emails = [...new Set([...ricSf, ...ricSh, ...cons].map((r) => r.email).filter(Boolean))];
-    const ordini = await ordiniClienti(emails);
+    [...ricSf, ...cons].forEach((r) => { if (r.email && r.nome && !nomi[r.email]) nomi[r.email] = r.nome; });
+    const tutteEmail = [...new Set([...ricSf, ...ricSh, ...cons].map((r) => r.email).filter(Boolean))];
+    let saldi = {}; try { saldi = await saldiCreditsYard(tutteEmail); } catch (_e) { saldi = {}; }
+    Object.keys(saldi).forEach((em) => { if (!nomi[em] && saldi[em].nome) nomi[em] = saldi[em].nome; });
 
     const clienti = {};
     const ens = (em) => {
-      if (!clienti[em]) clienti[em] = { email: em, nome: nomi[em] || '', ricariche: [], consumato: 0, nConsumi: 0, ordini: 0, venduto: 0 };
+      if (!clienti[em]) clienti[em] = { email: em, ricariche: [], consumi: [] };
       return clienti[em];
     };
     [...ricSf, ...ricSh].forEach((r) => { if (r.email) ens(r.email).ricariche.push(r); });
-    cons.forEach((c) => { if (!c.email) return; const k = ens(c.email); k.consumato += c.importo; k.nConsumi++; });
+    cons.forEach((c) => { if (c.email) ens(c.email).consumi.push(c); });
 
     const righe = Object.keys(clienti).map((em) => {
       const c = clienti[em];
       c.ricariche.sort((a, b) => (a.data < b.data ? -1 : 1));
+      c.consumi.sort((a, b) => (a.data < b.data ? -1 : 1));
       const prima = c.ricariche.length ? c.ricariche[0].data : null;
-      const ultima = c.ricariche.length ? c.ricariche[c.ricariche.length - 1].data : null;
+      const ult = c.ricariche.length ? c.ricariche[c.ricariche.length - 1] : null;
       const importo = round2(c.ricariche.reduce((s, r) => s + r.importo, 0));
-      // credito = importo + regalo, dove sappiamo quanto regala quel taglio
+      // credito = importo piu' il regalo, dove sappiamo quanto regala quel taglio
       let credito = 0, cashbackNoto = c.ricariche.length > 0;
       c.ricariche.forEach((r) => {
         const q = (r.tipo === 'partner') ? CASHBACK_PARTNER : (CASHBACK[r.importo] != null ? CASHBACK[r.importo] : null);
@@ -188,26 +220,36 @@ export default async function handler(req, res) {
         credito += r.importo * (1 + (q || 0));
       });
       credito = round2(credito);
-      // ordini e venduto dalla prima ricarica in poi; senza ricarica si guarda tutto l'anno
-      const suoi = ordini.filter((o) => o.email === em && (!prima || o.data >= prima));
-      const venduto = round2(suoi.reduce((s, o) => s + o.netto, 0));
-      const consumato = round2(c.consumato);
-      const mesi = mesiFra(prima || (YEAR + '-01-01'), oggi);
-      const tipi = [...new Set(c.ricariche.map((r) => r.tipo))];
-      return {
-        email: em, nome: c.nome,
-        tipo: tipi.length === 0 ? 'nessuna ricarica' : (tipi.length > 1 ? 'misto' : (tipi[0] === 'partner' ? 'partner (rete vendita)' : 'ricarica e-commerce')),
-        prima, ultima, nRicariche: c.ricariche.length,
-        importo, credito, cashbackNoto,
-        ordini: suoi.length, venduto,
-        consumato, nConsumi: c.nConsumi,
-        residuo: c.ricariche.length ? round2(credito - consumato) : null,
-        ticket: suoi.length ? round2(venduto / suoi.length) : null,
-        frequenza: suoi.length ? Math.round((suoi.length / mesi) * 100) / 100 : null
+      // gli ordini che contano sono quelli pagati col credito, non tutti quelli del cliente
+      const consumato = round2(c.consumi.reduce((s, x) => s + x.importo, 0));
+      const venduto   = round2(c.consumi.reduce((s, x) => s + (x.valore || 0), 0));
+      const nOrd = c.consumi.length;
+      const ultimoOrdine = nOrd ? c.consumi[nOrd - 1].data : null;
+      const base = prima || ultimoOrdine || oggi;
+      const r = {
+        email: em, nome: nomi[em] || '',
+        nRicariche: c.ricariche.length, prima, ricaricato: importo,
+        ultima: ult ? ult.data : null,
+        ultimaTipo: ult ? (ult.tipo === 'partner' ? 'rete vendita' : 'e-commerce') : null,
+        ultimaImporto: ult ? ult.importo : null,
+        credito: c.ricariche.length ? credito : null, cashbackNoto,
+        consumato,
+        // il residuo buono e' quello del plugin; la differenza fra caricato e speso resta a
+        // fianco, perche' se i due numeri divergono vuol dire che sul wallet si e' mosso
+        // qualcosa che gli ordini non raccontano
+        residuo: (saldi[em] && saldi[em].saldo != null) ? saldi[em].saldo : null,
+        residuoStimato: c.ricariche.length ? round2(credito - consumato) : null,
+        saldoAggiornato: (saldi[em] && saldi[em].agg) || null,
+        ordini: nOrd, venduto, ultimoOrdine,
+        ticket: nOrd ? round2(venduto / nOrd) : null,
+        frequenza: nOrd ? Math.round((nOrd / mesiFra(base, oggi)) * 100) / 100 : null
       };
-    }).sort((a, b) => (b.importo - a.importo) || (b.consumato - a.consumato));
+      const q = quandoContattare(r, oggi);
+      r.contattare = q.quando; r.perche = q.perche;
+      return r;
+    }).sort((a, b) => (b.ricaricato - a.ricaricato) || (b.consumato - a.consumato));
 
-    res.status(200).json({ anno: YEAR, oggi, prodotti: PRODOTTI_RICARICA, cashbackPartnerNoto: CASHBACK_PARTNER != null, righe });
+    res.status(200).json({ oggi, da: DA_SEMPRE, prodotti: PRODOTTI_RICARICA, cashbackPartnerNoto: CASHBACK_PARTNER != null, righe });
   } catch (e) {
     res.status(502).json({ error: 'wallet non leggibile: ' + (e && e.message || e) });
   }
