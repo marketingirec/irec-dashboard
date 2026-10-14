@@ -660,6 +660,7 @@
       </div>
       <div class="tabgroup" data-macro="dettaglio">
         <button role="tab" aria-selected="false" data-rftab="ordini">Dettaglio ordini</button>
+        <button role="tab" aria-selected="false" data-rftab="wallet">Dettaglio wallet</button>
       </div>
     </nav>
     <section class="rfpanel active" id="rfpanel-pv">
@@ -770,6 +771,20 @@
         <div class="card-b" style="padding:0"><iframe src="https://www.google.com/maps?cid=15557604203574262818&amp;output=embed" width="100%" height="380" style="border:0;display:block" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Scheda Google RintraccioFacile"></iframe></div>
       </div>
       <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Fotografia <b>as-is</b> delle recensioni Trustpilot di Rintraccio Facile al caricamento della dashboard: <b>punteggio medio</b> e <b>numero totale</b>. Clicca un valore per aggiornarlo (si salva nel browser). Trustpilot al 07/09/2026: 4,5 / 155. La mappa Google sotto &egrave; <b>live</b> (sempre aggiornata), visibile solo sul sito pubblico Vercel (bloccata dalla CSP nell&rsquo;Artifact Claude). Il widget Trustpilot live &egrave; stato rimosso: mostra solo il logo senza dati, probabilmente per restrizioni di dominio/piano sul loro account.</p>
+    </section>
+
+    <section class="rfpanel" id="rfpanel-wallet">
+      <div class="card">
+        <div class="card-h" style="flex-wrap:wrap;gap:10px">
+          <h2>Dettaglio wallet &mdash; credito acquistato, consumato e residuo</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="hint" id="rfWalCap"></span>
+            <button type="button" id="rfWalCsv" title="Scarica la tabella wallet in CSV" style="font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border:1px solid var(--accent);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer">&#8595; Scarica CSV</button>
+          </div>
+        </div>
+        <div class="card-b scroll"><table id="rfWalTable"></table></div>
+      </div>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Un cliente per riga. Il credito si compra in due modi: dalla <b>rete vendita</b> (le opportunity che la dashboard conta come <b>Partner</b>) o dall&rsquo;<b>e-commerce</b> con il prodotto <b>Ricarica Wallet</b>; i tagli a catalogo chiuso restano fuori. Si consuma sul sito come <b>Sconto Credito Wallet</b>, che pu&ograve; portare l&rsquo;ordine a zero. <b>Credito</b> = importo pagato pi&ugrave; il regalo previsto dal taglio. <b>Ordini</b>, <b>venduto</b>, <b>ticket medio</b> e <b>frequenza</b> contano dalla prima ricarica a oggi. Chi compare senza ricarica sta spendendo credito caricato prima dell&rsquo;anno in corso.</p>
     </section>
 
     <section class="rfpanel" id="rfpanel-ordini">
@@ -3070,6 +3085,7 @@ function renderRFActive(){
   else if(rfTab==="adv")renderRFAdv();
   else if(rfTab==="operatori")renderRFOperatori();
   else if(rfTab==="ordini")renderRFOrders();
+  else if(rfTab==="wallet")ensureWallet();
   else if(rfTab==="comportamento"){renderRFComport();ensureRfComport();}
   else if(rfTab==="recensioni")renderRecRf();
 }
@@ -3251,6 +3267,77 @@ function renderRFSorgenti(){
    sull'online, dove il codice sconto o il referral dicono di chi e'; offline e partner
    arrivano da Salesforce senza quel riferimento, quindi stanno in due righe loro invece di
    essere spalmati. Cosi' il Totale qui e' lo stesso numero della tile Venduto Operatori. */
+/* ================= DETTAGLIO WALLET =================
+   Si carica da /api/wallet quando si apre la tab: incrocia tre fonti (ricariche da rete vendita,
+   ricariche da e-commerce, consumi) e non dipende dal mese selezionato, perche' un credito
+   comprato a maggio si spende a ottobre. */
+var WAL=null, walLoading=false, walErr="";
+async function ensureWallet(){
+  if(WAL||walLoading)return renderWallet();
+  walLoading=true; walErr=""; renderWallet();
+  try{
+    var r=await fetch("api/wallet",{headers:{Accept:"application/json"}});
+    var d=await r.json().catch(function(){return null;});
+    if(!r.ok||!d||d.error)throw new Error((d&&d.error)||("HTTP "+r.status));
+    WAL=d;
+  }catch(e){ walErr=(e&&e.message)||String(e); }
+  walLoading=false; renderWallet();
+}
+function renderWallet(){
+  var el=document.getElementById("rfWalTable"); if(!el)return;
+  var cap=document.getElementById("rfWalCap");
+  if(walLoading){ if(cap)cap.textContent=""; el.innerHTML='<thead><tr><th class="voce">Cliente</th></tr></thead><tbody><tr><td class="voce muted">Caricamento da Shopify e Salesforce...</td></tr></tbody>'; return; }
+  if(walErr){ if(cap)cap.textContent=""; el.innerHTML='<thead><tr><th class="voce">Cliente</th></tr></thead><tbody><tr><td class="voce muted">'+esc(walErr)+'</td></tr></tbody>'; return; }
+  var righe=(WAL&&WAL.righe)||[];
+  if(cap)cap.innerHTML=righe.length+" clienti &middot; dati al "+((WAL&&WAL.oggi)||"").split("-").reverse().join("/")
+    +(WAL&&!WAL.cashbackPartnerNoto?' &middot; <span style="color:var(--warn)">regalo sulle ricariche da rete vendita non impostato</span>':'');
+  var head='<thead><tr><th class="voce">Cliente</th><th>Tipo</th><th>1&ordf; ricarica</th><th>N ric.</th>'
+    +'<th>Importo</th><th>Credito</th><th>Consumato</th><th>Residuo</th>'
+    +'<th>Ordini</th><th>Venduto</th><th>Ticket medio</th><th>Ordini/mese</th></tr></thead>';
+  var body='<tbody>';
+  if(!righe.length){body+='<tr><td class="voce muted" colspan="12">Nessun wallet nel periodo.</td></tr>';}
+  var tImp=0,tCre=0,tCon=0,tOrd=0,tVen=0;
+  righe.forEach(function(r){
+    tImp+=r.importo||0; tCre+=r.credito||0; tCon+=r.consumato||0; tOrd+=r.ordini||0; tVen+=r.venduto||0;
+    var nome=r.nome||r.email||"(senza anagrafica)";
+    // il residuo sotto zero vuol dire credito consumato oltre quello comprato quest'anno:
+    // quasi sempre e' una ricarica dell'anno prima, non un errore di conto
+    var resCl=(r.residuo==null)?"muted":(r.residuo<0?"dneg":(r.residuo<=0.0001?"muted":""));
+    body+='<tr><td class="voce" title="'+esc(r.email||"")+'">'+esc(nome)+'</td>'
+      +'<td class="tnum" style="text-align:left;color:var(--muted);font-size:11.5px">'+esc(r.tipo)+'</td>'
+      +'<td class="tnum">'+(r.prima?r.prima.split("-").reverse().join("/"):'<span class="muted">&mdash;</span>')+'</td>'
+      +'<td class="tnum">'+(r.nRicariche||'<span class="muted">&mdash;</span>')+'</td>'
+      +'<td class="tnum">'+(r.importo?eur(r.importo):'<span class="muted">&mdash;</span>')+'</td>'
+      +'<td class="tnum"'+(r.cashbackNoto?'':' title="regalo non impostato per questo taglio: il credito mostrato e\' il solo importo pagato"')+'>'
+        +(r.credito?eur(r.credito)+(r.cashbackNoto?'':' <span style="color:var(--warn)">?</span>'):'<span class="muted">&mdash;</span>')+'</td>'
+      +'<td class="tnum">'+(r.consumato?eur(r.consumato):'<span class="muted">&mdash;</span>')+'</td>'
+      +'<td class="tnum '+resCl+'">'+(r.residuo==null?'<span class="muted">&mdash;</span>':eur(r.residuo))+'</td>'
+      +'<td class="tnum">'+nf(r.ordini||0)+'</td>'
+      +'<td class="tnum">'+eur(r.venduto||0)+'</td>'
+      +'<td class="tnum">'+(r.ticket!=null?eur(r.ticket):'<span class="muted">&mdash;</span>')+'</td>'
+      +'<td class="tnum">'+(r.frequenza!=null?r.frequenza.toLocaleString("it-IT",{maximumFractionDigits:2}):'<span class="muted">&mdash;</span>')+'</td></tr>';
+  });
+  body+='</tbody>';
+  var foot='<tfoot><tr class="sep"><td class="voce"><b>Totale</b></td><td></td><td></td><td></td>'
+    +'<td class="tnum"><b>'+eur(tImp)+'</b></td><td class="tnum"><b>'+eur(tCre)+'</b></td>'
+    +'<td class="tnum"><b>'+eur(tCon)+'</b></td><td class="tnum"><b>'+eur(tCre-tCon)+'</b></td>'
+    +'<td class="tnum"><b>'+nf(tOrd)+'</b></td><td class="tnum"><b>'+eur(tVen)+'</b></td>'
+    +'<td class="tnum"><b>'+(tOrd?eur(tVen/tOrd):"&mdash;")+'</b></td><td></td></tr></tfoot>';
+  el.innerHTML=head+body+foot;
+  ancoraTeste(el);
+}
+function walletCsv(){
+  var righe=(WAL&&WAL.righe)||[]; if(!righe.length)return;
+  var cols=["Cliente","Email","Tipo","Prima ricarica","Ultima ricarica","N ricariche","Importo","Credito","Consumato","Residuo","Ordini","Venduto","Ticket medio","Ordini al mese"];
+  var r2=function(v){return v==null?"":String(v).replace(/"/g,'""');};
+  var csv=[cols.join(";")].concat(righe.map(function(r){
+    return ['"'+r2(r.nome)+'"','"'+r2(r.email)+'"','"'+r2(r.tipo)+'"',r2(r.prima),r2(r.ultima),r2(r.nRicariche),
+            r2(r.importo),r2(r.credito),r2(r.consumato),r2(r.residuo),r2(r.ordini),r2(r.venduto),r2(r.ticket),r2(r.frequenza)].join(";");
+  })).join("\n");
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));
+  a.download="wallet-rf-"+((WAL&&WAL.oggi)||"")+".csv"; a.click();
+}
 function renderRFOperatori(){
   var el=document.getElementById("rfOpTable"); if(!el)return;
   var i=rfMonthSel;
@@ -3537,6 +3624,7 @@ function initControls(){
   }
   var rfb=document.getElementById("rfRefreshBtn"); if(rfb)rfb.addEventListener("click",refreshRF);
   document.querySelectorAll(".rftabs button").forEach(function(b){ b.addEventListener("click",function(){rfShowTab(b.getAttribute("data-rftab"));}); });
+  var _wcsv=document.getElementById("rfWalCsv"); if(_wcsv)_wcsv.addEventListener("click",walletCsv);
   /* Navigazione a due livelli: prima l'area (General, MKT, Sales...), sotto solo le tab di
      quell'area. Prima stavano tutte su una riga sola, e con undici tab IREC la riga andava a
      capo e il nome del gruppo si perdeva. L'area scelta resta fra una visita e l'altra. */
