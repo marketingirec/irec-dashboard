@@ -30,8 +30,14 @@ const PRODOTTI_RICARICA = ['Ricarica Wallet 500€ + 100€ in regalo'];
    residuo ha senso solo guardando tutta la vita del cliente. Niente filtro sull'anno, quindi:
    si parte da prima che il negozio aprisse e si arriva a oggi. */
 const DA_SEMPRE = '2023-01-01';
-const CASHBACK = { 500: 0.20 };          // importo pagato -> quota di credito in regalo
-const CASHBACK_PARTNER = null;           // da confermare: quanto regala una ricarica da rete vendita
+/* Quanto credito da' ogni taglio, dal listino del wallet. Due avvertenze che cambiano i conti:
+   la chiave e' l'imponibile (quello che leggiamo da Shopify e da Salesforce), mentre il credito
+   e' IVA INCLUSA, perche' e' la cifra che il cliente puo' spendere nel carrello.
+   Verificato sul saldo vero di Credits Yard: ricarica da 500 -> 732 di credito, 295 di sconti
+   scalati sugli ordini (imponibile) fanno 359,90 lordi, e 732 meno 359,90 da' 372,10, cioe' il
+   saldo al centesimo. Senza riportare a lordo il consumo verrebbero 437 e non tornerebbe. */
+const CREDITO_TAGLIO = { 100: 122, 250: 305, 500: 732, 2000: 3050, 5000: 8133.33, 10000: 17428.57 };
+const IVA = 1.22;
 
 const RX_WALLET = /sconto\s+credito\s+wallet/i;
 const round2 = (v) => Math.round(v * 100) / 100;
@@ -215,13 +221,17 @@ export default async function handler(req, res) {
       // credito = importo piu' il regalo, dove sappiamo quanto regala quel taglio
       let credito = 0, cashbackNoto = c.ricariche.length > 0;
       c.ricariche.forEach((r) => {
-        const q = (r.tipo === 'partner') ? CASHBACK_PARTNER : (CASHBACK[r.importo] != null ? CASHBACK[r.importo] : null);
-        if (q == null) cashbackNoto = false;
-        credito += r.importo * (1 + (q || 0));
+        const dato = CREDITO_TAGLIO[r.importo];
+        // taglio fuori listino: si mette il solo imponibile e la riga lo dichiara, invece di
+        // inventare un regalo che gonfierebbe il residuo
+        if (dato == null) { cashbackNoto = false; credito += r.importo; }
+        else credito += dato;
       });
       credito = round2(credito);
       // gli ordini che contano sono quelli pagati col credito, non tutti quelli del cliente
-      const consumato = round2(c.consumi.reduce((s, x) => s + x.importo, 0));
+      // lo sconto wallet sugli ordini e' imponibile, il credito e' lordo: per confrontarli
+      // vanno messi nella stessa valuta, e quella del wallet e' il lordo
+      const consumato = round2(c.consumi.reduce((s, x) => s + x.importo, 0) * IVA);
       const venduto   = round2(c.consumi.reduce((s, x) => s + (x.valore || 0), 0));
       const nOrd = c.consumi.length;
       const ultimoOrdine = nOrd ? c.consumi[nOrd - 1].data : null;
@@ -249,7 +259,7 @@ export default async function handler(req, res) {
       return r;
     }).sort((a, b) => (b.ricaricato - a.ricaricato) || (b.consumato - a.consumato));
 
-    res.status(200).json({ oggi, da: DA_SEMPRE, prodotti: PRODOTTI_RICARICA, cashbackPartnerNoto: CASHBACK_PARTNER != null, righe });
+    res.status(200).json({ oggi, da: DA_SEMPRE, prodotti: PRODOTTI_RICARICA, listino: CREDITO_TAGLIO, iva: IVA, righe });
   } catch (e) {
     res.status(502).json({ error: 'wallet non leggibile: ' + (e && e.message || e) });
   }

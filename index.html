@@ -786,7 +786,7 @@
         </div>
         <div class="card-b scroll"><table id="rfWalTable"></table></div>
       </div>
-      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Un cliente per riga. Il credito si compra in due modi: dalla <b>rete vendita</b> (le opportunity che la dashboard conta come <b>Partner</b>) o dall&rsquo;<b>e-commerce</b> con il prodotto <b>Ricarica Wallet</b>; i tagli a catalogo chiuso restano fuori. Si consuma sul sito come <b>Sconto Credito Wallet</b>, che pu&ograve; portare l&rsquo;ordine a zero. <b>Credito</b> = importo pagato pi&ugrave; il regalo previsto dal taglio. <b>Ordini</b>, <b>venduto</b>, <b>ticket medio</b> e <b>frequenza</b> contano dalla prima ricarica a oggi. Chi compare senza ricarica sta spendendo credito caricato prima dell&rsquo;anno in corso.</p>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Un cliente per riga. Il credito si compra in due modi: dalla <b>rete vendita</b> (le opportunity che la dashboard conta come <b>Partner</b>) o dall&rsquo;<b>e-commerce</b> con il prodotto <b>Ricarica Wallet</b>; i tagli a catalogo chiuso restano fuori. Si consuma sul sito come <b>Sconto Credito Wallet</b>, che pu&ograve; portare l&rsquo;ordine a zero. <b>Credito</b> e <b>Consumato</b> sono <b>IVA inclusa</b>, come il listino del wallet; il <b>Venduto</b> &egrave; imponibile come il resto della dashboard. Il <b>Residuo</b> &egrave; il saldo vero letto da <b>Credits Yard</b>, non una sottrazione. <b>Ordini</b>, <b>venduto</b>, <b>ticket medio</b> e <b>frequenza</b> contano dalla prima ricarica a oggi. Chi compare senza ricarica sta spendendo credito caricato prima dell&rsquo;anno in corso.</p>
     </section>
 
     <section class="rfpanel" id="rfpanel-ordini">
@@ -3079,6 +3079,7 @@ function rfShowTab(tab){
   document.querySelectorAll(".rftabs button").forEach(function(b){b.setAttribute("aria-selected", b.getAttribute("data-rftab")===tab?"true":"false");});
   renderRFActive();
   updateOverlay();
+  scriviAncora();
 }
 function renderRFActive(){
   renderRF(); // tiles + tabella PV
@@ -3282,11 +3283,11 @@ var WAL_COLS=[
   {k:"ultima",     t:"Ultima ricarica", tip:"data"},
   {k:"ultimaTipo", t:"Tipo",           testo:true},
   {k:"ultimaImporto", t:"Importo ult.", tip:"eur"},
-  {k:"credito",    t:"Credito",        tip:"eur", tit:"Ricaricato piu' il regalo previsto dal taglio"},
-  {k:"consumato",  t:"Consumato",      tip:"eur", tit:"Credito scalato dagli ordini"},
-  {k:"residuo",    t:"Residuo",        tip:"eur", tit:"Saldo letto da Credits Yard"},
+  {k:"credito",    t:"Credito IVA incl.", tip:"eur", tit:"Credito effettivamente caricato: il listino del wallet lo esprime IVA inclusa"},
+  {k:"consumato",  t:"Consumato IVA incl.", tip:"eur", tit:"Credito scalato dagli ordini, riportato a lordo per stare nella stessa valuta del credito"},
+  {k:"residuo",    t:"Residuo",        tip:"eur", tit:"Saldo vero letto da Credits Yard"},
   {k:"ordini",     t:"Ordini",         tip:"num", tit:"Ordini pagati col credito"},
-  {k:"venduto",    t:"Venduto",        tip:"eur", tit:"Valore di quegli ordini prima dello sconto"},
+  {k:"venduto",    t:"Venduto netto",  tip:"eur", tit:"Valore imponibile di quegli ordini, prima dello sconto wallet"},
   {k:"ticket",     t:"Ticket medio",   tip:"eur"},
   {k:"frequenza",  t:"Ordini/mese",    tip:"num2"},
   {k:"contattare", t:"Da sentire",     tip:"data"}
@@ -3337,7 +3338,7 @@ function renderWallet(){
   if(walErr){ if(cap)cap.textContent=""; el.innerHTML='<thead><tr><th class="voce">Cliente</th></tr></thead><tbody><tr><td class="voce muted">'+esc(walErr)+'</td></tr></tbody>'; return; }
   var righe=walRighe(), tutte=((WAL&&WAL.righe)||[]).length;
   if(cap)cap.innerHTML=righe.length+(righe.length===tutte?"":" di "+tutte)+" clienti &middot; dati al "+((WAL&&WAL.oggi)||"").split("-").reverse().join("/")
-    +(WAL&&!WAL.cashbackPartnerNoto?' &middot; <span style="color:var(--warn)">regalo sulle ricariche da rete vendita non impostato</span>':'');
+    ;
   var head='<thead><tr>'+WAL_COLS.map(function(c,i){
     var on=(c.k===walSort);
     return '<th'+(i===0?' class="voce"':'')+' data-ws="'+c.k+'" title="'+esc(c.tit||("Ordina per "+c.t))+'" style="cursor:pointer'+(i<2?';text-align:left':'')+'">'
@@ -3475,6 +3476,46 @@ function groupDone(g){groupReady[g]=true;updateOverlay();}
 function allGroupsReady(){groupReady={general:true,marketing:true,tmk:true,sales:true};updateOverlay();}
 
 /* ---------- ROUTER VISTE (menu IREC / RF) ---------- */
+/* ---------- indirizzo condivisibile ----------
+   Ogni punto della dashboard ha un suo indirizzo: #irec/sources, #rf/wallet, #irec-tax.
+   Serve per mandare a qualcuno il link di quello che si sta guardando, non di "la dashboard".
+   Si scrive con replaceState e non cambiando location.hash, altrimenti ogni clic su una tab
+   lascerebbe una tappa nella cronologia e il tasto indietro diventerebbe inutilizzabile. */
+function ancoraCorrente(){
+  if(currentView==="irec-dash")return "irec/"+(currentTab||"mom");
+  if(currentView==="rf-dash")return "rf/"+(rfTab||"andamento");
+  return currentView;   // irec-tax, rf-tax
+}
+var ancoraFerma=false;
+function scriviAncora(){
+  if(ancoraFerma)return;
+  var h="#"+ancoraCorrente();
+  if(location.hash!==h){ try{history.replaceState(null,"",location.pathname+location.search+h);}catch(e){location.hash=h;} }
+}
+/* Apre il punto indicato dall'indirizzo. Si clicca sui bottoni veri invece di toccare le
+   variabili: cosi' scattano anche i caricamenti che quella tab si porta dietro. */
+function vaiAdAncora(h){
+  var v=String(h||"").replace(/^#/,""); if(!v)return false;
+  var p=v.split("/"), area=p[0], tab=p[1]||"";
+  ancoraFerma=true;
+  try{
+    if(area==="irec-tax"||area==="rf-tax"){ showView(area); return true; }
+    if(area==="irec"||area==="rf"){
+      showView(area==="irec"?"irec-dash":"rf-dash");
+      if(!tab)return true;
+      var btn=(area==="irec")
+        ? document.querySelector('#tabsIrec button[data-tab="'+tab+'"]')
+        : document.querySelector('.rftabs button[data-rftab="'+tab+'"]');
+      if(!btn)return true;
+      // prima si apre l'area che contiene la tab, altrimenti il gruppo resta nascosto
+      var grp=btn.closest(".tabgroup"), m=grp&&grp.getAttribute("data-macro");
+      if(m){ var mb=document.querySelector("#"+(area==="irec"?"macroIrec":"macroRf")+' button[data-macro="'+m+'"]'); if(mb)mb.click(); }
+      btn.click();
+      return true;
+    }
+  } finally { ancoraFerma=false; scriviAncora(); }
+  return false;
+}
 function showView(v){
   var views=["irec-dash","irec-tax","rf-dash","rf-tax"];
   if(views.indexOf(v)<0)v="irec-dash";
@@ -3493,6 +3534,7 @@ function showView(v){
   if(v==="rf-dash")renderRFActive();
   updateOverlay();
   try{localStorage.setItem("irec_view",v);}catch(e){}
+  scriviAncora();
 }
 function renderAll(){renderTiles();renderFunnel();renderMoM();renderOperators();renderOppScarto();renderTMK();renderWon();renderCampaign();renderPivot();renderMotiv();renderConfronto();renderADV();renderReopen();renderSources();renderRecIrec();renderChan();topVis(currentTab);}
 
@@ -3658,6 +3700,7 @@ function initControls(){
       currentTab=b.getAttribute("data-tab");
       document.getElementById("panel-"+currentTab).classList.add("active");
       topVis(currentTab);
+      scriviAncora();
       if(currentTab==="sources")renderSources();
       if(currentTab==="operatori")renderOperators();
       if(currentTab==="tmk")renderTMK();
@@ -3710,8 +3753,15 @@ function initControls(){
     if(salvata&&!barra.querySelector('button[data-macro="'+salvata+'"]'))salvata=null;
     mostra(salvata||barra.querySelector("button").getAttribute("data-macro"));
   }
+  /* L'indirizzo va letto PRIMA del ripristino: aprendo l'area salvata si seleziona una tab,
+     quella selezione riscrive l'ancora e il link arrivato da fuori sarebbe gia' perso. */
+  var ancoraIniziale=location.hash;
   macroSetup("macroIrec","tabsIrec","irec_macro");
   macroSetup("macroRf","tabsRf","rf_macro");
+  /* L'indirizzo ha la precedenza sull'ultima posizione salvata: se qualcuno apre un link
+     mandato da un collega deve trovarsi dove gli e' stato indicato, non dove era rimasto lui. */
+  if(!vaiAdAncora(ancoraIniziale))scriviAncora();
+  window.addEventListener("hashchange",function(){vaiAdAncora(location.hash);});
   var _oc=document.getElementById("rfOrdCsv"); if(_oc)_oc.addEventListener("click",rfExportOrders);
   var _op=document.getElementById("rfOrdPrint"); if(_op)_op.addEventListener("click",function(){window.print();});
   // theme
