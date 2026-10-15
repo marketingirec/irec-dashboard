@@ -125,6 +125,9 @@
   table{border-collapse:collapse;width:100%;font-size:13px}
   th,td{padding:9px 12px;text-align:right;white-space:nowrap}
   th.voce,td.voce{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;font-weight:560;min-width:140px}
+  /* La prima colonna resta ferma mentre le altre le scorrono sotto. Il filo e l'ombra compaiono
+     solo quando si e' scorso davvero: a tabella ferma non servono e sporcherebbero. */
+  .scroll.scrollato th.voce,.scroll.scrollato td.voce{box-shadow:1px 0 0 var(--border),7px 0 9px -7px rgba(0,0,0,.22)}
   thead th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;
     border-bottom:1px solid var(--border);background:var(--surface-2);position:sticky;top:0}
   thead th.voce{background:var(--surface-2);z-index:3}
@@ -2366,6 +2369,14 @@ function campExport(){
 }
 /* Intestazioni su due righe: la seconda si appiccica sotto la prima, la cui altezza dipende dal
    testo e va quindi misurata a schermo invece che fissata a mano. */
+/* Segna i riquadri che sono stati scorsi lateralmente, cosi' la colonna bloccata si stacca da
+   quelle che le passano sotto. Un ascolto solo, in cattura, invece di uno per tabella. */
+function segnaScorrimento(){
+  document.addEventListener("scroll",function(e){
+    var b=e.target; if(!b||!b.classList||!b.classList.contains("scroll"))return;
+    b.classList.toggle("scrollato", b.scrollLeft>0);
+  },true);
+}
 function ancoraTeste(root){
   var box=root||document;
   (box.matches&&box.matches("table")?[box]:[].slice.call(box.querySelectorAll("table"))).forEach(function(t){
@@ -3352,7 +3363,7 @@ function renderWallet(){
       return '<td class="tnum" title="'+esc(r.perche||"")+'" style="color:'+(urge?"var(--bad)":"var(--ink)")+';font-weight:'+(urge?620:400)+'">'
         +(urge?"subito":v.split("-").reverse().join("/"))+'</td>';
     }
-    if(v==null||v==="")return '<td class="'+(c.testo?"voce muted":"tnum muted")+'">&mdash;</td>';
+    if(v==null||v==="")return '<td class="'+(c.k==="nome"?"voce muted":"tnum muted")+'">&mdash;</td>';
     if(c.testo)return '<td class="'+(c.k==="nome"?"voce":"")+'" style="text-align:left'+(c.k!=="nome"?";font-size:11.5px;color:var(--muted)":"")+'">'+esc(String(v))+'</td>';
     if(c.tip==="data")return '<td class="tnum">'+String(v).split("-").reverse().join("/")+'</td>';
     if(c.tip==="num")return '<td class="tnum">'+nf(v)+'</td>';
@@ -3755,6 +3766,7 @@ function initControls(){
   }
   /* L'indirizzo va letto PRIMA del ripristino: aprendo l'area salvata si seleziona una tab,
      quella selezione riscrive l'ancora e il link arrivato da fuori sarebbe gia' perso. */
+  segnaScorrimento();
   var ancoraIniziale=location.hash;
   macroSetup("macroIrec","tabsIrec","irec_macro");
   macroSetup("macroRf","tabsRf","rf_macro");

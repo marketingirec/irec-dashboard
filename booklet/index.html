@@ -39,6 +39,8 @@ h1{margin:0;font-size:22px;font-weight:680;letter-spacing:-.02em}
 table{border-collapse:collapse;width:100%;font-size:12.5px}
 th,td{padding:7px 9px;text-align:right;white-space:nowrap}
 th.voce,td.voce{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;min-width:250px;max-width:250px;white-space:normal}
+/* Come nella dashboard: il filo sulla colonna ferma compare solo quando si e' scorso. */
+.scroll.scrollato th.voce,.scroll.scrollato td.voce{box-shadow:1px 0 0 var(--border),7px 0 9px -7px rgba(0,0,0,.22)}
 thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);font-weight:600;background:var(--surface-2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2}
 thead th.voce{background:var(--surface-2);z-index:4}
 tbody tr:hover td{background:var(--surface-2)}
@@ -1221,6 +1223,9 @@ function render(){
     if(sez.id==="cust-care"&&vista==="mesi")html+=cartaDisdetteMesi()+cartaDisdetteMotivi();
   });
   host.innerHTML=html;
+  host.querySelectorAll(".scroll").forEach(function(b){
+    b.addEventListener("scroll",function(){b.classList.toggle("scrollato", b.scrollLeft>0);});
+  });
   /* La seconda riga d'intestazione si appiccica sotto la prima: l'altezza della prima dipende dal
      testo, quindi la si misura a schermo invece di fissarla a mano. */
   /* Ogni riga d'intestazione si appiccica sotto quelle che ha sopra: le altezze dipendono dal
