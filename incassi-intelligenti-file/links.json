@@ -1,98 +1,114 @@
 [
-  {
-    "area": "Marketing",
-    "titolo": "Business Model Overview",
-    "url": "https://claude.ai/artifact/WQgfFYZrtpcs5LJemDKo1F",
-    "interno": false
-  },
-  {
-    "area": "Marketing",
-    "titolo": "Mappatura competitor Italia",
-    "url": "https://claude.ai/artifact/H48ekHP2WnKaBQqpt3XQGt",
-    "interno": true
-  },
-  {
-    "area": "Marketing",
-    "titolo": "Prezzo della fattura extra",
-    "url": "https://claude.ai/artifact/1H6v35mDEar1LUFMU1wP8h",
-    "interno": false
-  },
-  {
-    "area": "Marketing",
-    "titolo": "Landing page Incassi Intelligenti",
-    "url": "https://claude.ai/artifact/4BMLJ9Cgdoduv7DgqhWpND",
-    "interno": false
-  },
-  {
-    "area": "Marketing",
-    "titolo": "Testi della landing page",
-    "url": "https://claude.ai/artifact/7nB5HAA8zNKByP5rL3Pamq",
-    "interno": false
-  },
-  {
-    "area": "Marketing",
-    "titolo": "One-pager",
-    "url": "https://claude.ai/artifact/SMoCHUa815qjjqwpKeCNMx",
-    "interno": false
-  },
-  {
-    "area": "Marketing",
-    "titolo": "Calcolatore dei vantaggi",
-    "url": "https://claude.ai/artifact/LdAvbpoTUXiKPmE113eUUA",
-    "interno": false
-  },
-  {
-    "area": "Sales",
-    "titolo": "Presentazione commerciale",
-    "url": "https://claude.ai/artifact/Pxr5NctD3dhHQmw3x8W5G4",
-    "interno": false
-  },
-  {
-    "area": "Sales",
-    "titolo": "Distributori Ho.Re.Ca.",
-    "url": "https://claude.ai/artifact/AuMcFTvhKwJh1Qtxx9gLN5",
-    "interno": false
-  },
-  {
-    "area": "Sales",
-    "titolo": "Fornitori dell'edilizia",
-    "url": "https://claude.ai/artifact/BAyAoty8cvysRZoS38e6zg",
-    "interno": false
-  },
-  {
-    "area": "Sales",
-    "titolo": "Servizi B2B ricorrenti",
-    "url": "https://claude.ai/artifact/Mm9cLVB8jfSuS11SqnGsyq",
-    "interno": false
-  },
-  {
-    "area": "Sales",
-    "titolo": "Fornitori della GDO",
-    "url": "https://claude.ai/artifact/RAHfTqbrmHwCBeoU3HEpQ9",
-    "interno": false
-  },
-  {
-    "area": "Sales",
-    "titolo": "Kit vendita",
-    "url": "https://claude.ai/artifact/GyRnoppqhoiayDakiGfw5H",
-    "interno": true
-  },
-  {
-    "area": "Sales",
-    "titolo": "Calcolatore dei vantaggi",
-    "url": "https://claude.ai/artifact/LdAvbpoTUXiKPmE113eUUA",
-    "interno": false
-  },
-  {
-    "area": "Sales",
-    "titolo": "One-pager",
-    "url": "https://claude.ai/artifact/SMoCHUa815qjjqwpKeCNMx",
-    "interno": false
-  },
-  {
-    "area": "Sales",
-    "titolo": "Kit onboarding e supporto",
-    "url": "https://claude.ai/artifact/N4B7UFeZ6hdfsmc1wCKjUX",
-    "interno": false
-  }
+ {
+  "titolo": "Business Model Overview",
+  "tipo": "Documento",
+  "percorso": "materiali/business-model-overview.docx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Mappatura competitor Italia",
+  "tipo": "Documento",
+  "percorso": "materiali/mappatura-competitor-italia.docx",
+  "locale": true,
+  "interno": true
+ },
+ {
+  "titolo": "Prezzo della fattura extra",
+  "tipo": "Documento",
+  "percorso": "materiali/prezzo-fattura-extra.docx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Schermate e funzionalità",
+  "tipo": "Documento",
+  "percorso": "materiali/business-model-schermate-funzionalita.docx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Landing page Incassi Intelligenti",
+  "tipo": "Design",
+  "percorso": "https://claude.ai/artifact/4BMLJ9Cgdoduv7DgqhWpND",
+  "locale": false,
+  "interno": false
+ },
+ {
+  "titolo": "Testi della landing page",
+  "tipo": "Documento",
+  "percorso": "materiali/testi-landing-page.docx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Copy landing, nuova versione",
+  "tipo": "Documento",
+  "percorso": "materiali/copy-landing-nuova-versione.docx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "One-pager",
+  "tipo": "Design · A4",
+  "percorso": "https://claude.ai/artifact/SMoCHUa815qjjqwpKeCNMx",
+  "locale": false,
+  "interno": false
+ },
+ {
+  "titolo": "Calcolatore dei vantaggi",
+  "tipo": "Strumento",
+  "percorso": "calcolatore/",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Presentazione commerciale",
+  "tipo": "Slide · madre",
+  "percorso": "materiali/presentazione-commerciale-madre.pptx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Distributori Ho.Re.Ca.",
+  "tipo": "Slide · settore",
+  "percorso": "materiali/presentazione-horeca.pptx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Fornitori dell'edilizia",
+  "tipo": "Slide · settore",
+  "percorso": "materiali/presentazione-edilizia.pptx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Servizi B2B ricorrenti",
+  "tipo": "Slide · settore",
+  "percorso": "materiali/presentazione-servizi-b2b.pptx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Fornitori della GDO",
+  "tipo": "Slide · settore",
+  "percorso": "materiali/presentazione-gdo.pptx",
+  "locale": true,
+  "interno": false
+ },
+ {
+  "titolo": "Kit vendita",
+  "tipo": "Documento",
+  "percorso": "materiali/kit-vendita.docx",
+  "locale": true,
+  "interno": true
+ },
+ {
+  "titolo": "Kit onboarding e supporto",
+  "tipo": "Documento",
+  "percorso": "materiali/kit-onboarding-supporto.docx",
+  "locale": true,
+  "interno": false
+ }
 ]
