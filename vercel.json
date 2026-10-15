@@ -1,7 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/dashboard.js": { "maxDuration": 60 },
-    "api/rf.js": { "maxDuration": 60 }
+    "api/dashboard.js": {
+      "maxDuration": 60
+    },
+    "api/rf.js": {
+      "maxDuration": 60
+    },
+    "api/wallet.js": {
+      "maxDuration": 60
+    },
+    "api/disdette.js": {
+      "maxDuration": 30
+    }
   }
 }
