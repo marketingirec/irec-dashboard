@@ -37,6 +37,9 @@ const DA_SEMPRE = '2023-01-01';
    scalati sugli ordini (imponibile) fanno 359,90 lordi, e 732 meno 359,90 da' 372,10, cioe' il
    saldo al centesimo. Senza riportare a lordo il consumo verrebbero 437 e non tornerebbe. */
 const CREDITO_TAGLIO = { 100: 122, 250: 305, 500: 732, 2000: 3050, 5000: 8133.33, 10000: 17428.57 };
+/* Partner/wallet contro offline: stessa regola di /api/rf.js, perche' il solo importo tondo
+   lasciava fuori le ricariche wallet da 500 e i partner program da 1500. */
+const ePartner = (nome, a) => a > 0 && (/partner|wallet|ricarica|\bppg\b/i.test(String(nome || '')) || a % 1000 === 0);
 const IVA = 1.22;
 
 const RX_WALLET = /sconto\s+credito\s+wallet/i;
@@ -185,15 +188,14 @@ export default async function handler(req, res) {
 
     // 1) ricariche da rete vendita: sono le opportunity che la dashboard conta come Partner
     const ctx = await sfToken();
-    const vinti = await soql(ctx, `SELECT Amount, ContactEmail__c, ContactName__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='${RF_RTID}' AND StageName='Chiuso - Vinto' AND Amount>=1000`);
+    const vinti = await soql(ctx, `SELECT Name, Amount, ContactEmail__c, ContactName__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='${RF_RTID}' AND StageName='Chiuso - Vinto' AND ContactEmail__c!=null AND Data_Chiusa_Vinta__c!=null AND (Amount>=1000 OR Name LIKE '%partner%' OR Name LIKE '%wallet%' OR Name LIKE '%ricarica%' OR Name LIKE '%ppg%')`);
     const ricSf = [];
     vinti.forEach((r) => {
       const am = r.Amount == null ? 0 : +r.Amount;
-      // Qui la regola resta la piu' stretta (solo multipli di 1000), piu' stretta di ePartner()
-      // in /api/rf.js: la query non ha filtro d'anno e in Salesforce restano vecchie
-      // 'CREDITO WALLET GRATUITO' da 0 e ricariche da 200/570 fuori listino, che qui
-      // entrerebbero come righe senza cashback noto.
-      if (!(am > 0 && am % 1000 === 0)) return;
+      // La query non ha filtro d'anno e in Salesforce restano vecchie 'CREDITO WALLET
+      // GRATUITO' da 0 e ricariche da 200/570 fuori listino: le tiene fuori il vincolo
+      // su email e data di pagamento, che quei record hanno entrambe vuote.
+      if (!ePartner(r.Name, am)) return;
       ricSf.push({ email: mail(r.ContactEmail__c), nome: r.ContactName__c || '', data: giorno(r.Data_Chiusa_Vinta__c), importo: round2(am), tipo: 'partner' });
     });
 
