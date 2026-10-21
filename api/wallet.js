@@ -189,7 +189,11 @@ export default async function handler(req, res) {
     const ricSf = [];
     vinti.forEach((r) => {
       const am = r.Amount == null ? 0 : +r.Amount;
-      if (!(am > 0 && am % 1000 === 0)) return;   // stessa regola del Partner in /api/rf
+      // Qui la regola resta la piu' stretta (solo multipli di 1000), piu' stretta di ePartner()
+      // in /api/rf.js: la query non ha filtro d'anno e in Salesforce restano vecchie
+      // 'CREDITO WALLET GRATUITO' da 0 e ricariche da 200/570 fuori listino, che qui
+      // entrerebbero come righe senza cashback noto.
+      if (!(am > 0 && am % 1000 === 0)) return;
       ricSf.push({ email: mail(r.ContactEmail__c), nome: r.ContactName__c || '', data: giorno(r.Data_Chiusa_Vinta__c), importo: round2(am), tipo: 'partner' });
     });
 

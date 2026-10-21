@@ -1262,6 +1262,9 @@ function tmkMerge(){
 /* ---------- DASHBOARD RF (Venduto: Online da Shopify + Offline/Partner da Salesforce) ---------- */
 var RF_MONTHS=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"]; // idx 0..11 = mesi 1..12
 var RF_RTID="012Mf000000oReaIAE";  // RecordType Rintraccio Facile (Opportunity)
+/* Partner/wallet contro offline: stessa regola di /api/rf.js. Il solo importo tondo non
+   bastava, le ricariche wallet da 500 e i partner program da 1500 finivano fra gli offline. */
+function ePartnerRF(nome,a){ return /partner|wallet|ricarica|\bppg\b/i.test(String(nome==null?"":nome)) || (a>0 && a%1000===0); }
 // Real (seed dell'ultimo aggiornamento; ricalcolato dal vivo con il tasto Aggiorna). Tutto AL NETTO IVA.
 // FATTURATO = confermato: Shopify pagato + SF Chiuso-Vinto. IN ATTESA = Shopify pending + SF Chiuso-Pending (escluso dal totale).
 // Tutti i mesi = STIMA live (Shopify net_sales pagato + SF Chiuso-Vinto). File contabilita' IGNORATO (richiesta utente 2026-09-01). Seed allineato al live fino a Settembre (30/09); Ott..Dic non ancora rilevati.
@@ -3040,10 +3043,10 @@ async function refreshRF(){
     }
     var sf=await findTool();
     if(sf){
-      var recs=await sfCall(sf.tool,"SELECT Amount, StageName FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND CloseDate>="+rng.s+" AND CloseDate<="+rng.e+" AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')");
+      var recs=await sfCall(sf.tool,"SELECT Name, Amount, StageName FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND CloseDate>="+rng.s+" AND CloseDate<="+rng.e+" AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')");
       var off=0, part=0, offP=0, partP=0, ordOff=0, ordPart=0;
       (recs||[]).forEach(function(r){
-        var a=(r.Amount==null?0:+r.Amount), round=(a>0 && a%1000===0), pend=(r.StageName==="Chiuso - Pending");
+        var a=(r.Amount==null?0:+r.Amount), round=ePartnerRF(r.Name,a), pend=(r.StageName==="Chiuso - Pending");
         if(pend){ if(round)partP+=a; else offP+=a; } else { if(round){part+=a;ordPart++;} else {off+=a; ordOff++;} }
       });
       RF_OFFLINE[i]=off; RF_PARTNER[i]=part; RF_OFFLINE_PEND[i]=offP; RF_PARTNER_PEND[i]=partP; RF_ORD_OFFLINE[i]=ordOff; RF_ORD_PARTNER[i]=ordPart;
@@ -4394,9 +4397,9 @@ async function doRefreshUnified(scope){
         var vrec=await q("SELECT Name, Amount, ContactName__c, ContactEmail__c, Data_Chiusa_Vinta__c FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND StageName='Chiuso - Vinto' AND Data_Chiusa_Vinta__c>="+localDayBoundsUTC(rng.s,false)+" AND Data_Chiusa_Vinta__c<="+localDayBoundsUTC(rng.e,true));
         // IN ATTESA = Chiuso-Pending (non ancora pagato), per CloseDate del mese
         var prec=await q("SELECT Name, Amount, ContactName__c, ContactEmail__c FROM Opportunity WHERE RecordTypeId='"+RF_RTID+"' AND StageName='Chiuso - Pending' AND CloseDate>="+rng.s+" AND CloseDate<="+rng.e);
-        if(vrec!=null){ ordDetSf=true; var off=0,part=0,ordOff=0,ordPart=0; vrec.forEach(function(r){var am=(r.Amount==null?0:+r.Amount),round=(am>0&&am%1000===0); if(round){part+=am;ordPart++;}else{off+=am;ordOff++;} sfOrd.push({n:(r.Name||"(opportunity RF)"),net:am,st:"Pagato",sr:"Salesforce",nome:(r.ContactName__c||""),email:(r.ContactEmail__c||""),dpag:String(r.Data_Chiusa_Vinta__c||"").slice(0,10)});});
+        if(vrec!=null){ ordDetSf=true; var off=0,part=0,ordOff=0,ordPart=0; vrec.forEach(function(r){var am=(r.Amount==null?0:+r.Amount),round=ePartnerRF(r.Name,am); if(round){part+=am;ordPart++;}else{off+=am;ordOff++;} sfOrd.push({n:(r.Name||"(opportunity RF)"),net:am,st:"Pagato",sr:"Salesforce",nome:(r.ContactName__c||""),email:(r.ContactEmail__c||""),dpag:String(r.Data_Chiusa_Vinta__c||"").slice(0,10)});});
           RF_OFFLINE[ri]=off;RF_PARTNER[ri]=part;RF_ORD_OFFLINE[ri]=ordOff;RF_ORD_PARTNER[ri]=ordPart; }
-        if(prec!=null){ ordDetSf=true; var offP=0,partP=0; prec.forEach(function(r){var am=(r.Amount==null?0:+r.Amount),round=(am>0&&am%1000===0); if(round)partP+=am;else offP+=am; sfOrd.push({n:(r.Name||"(opportunity RF)"),net:am,st:"In attesa",sr:"Salesforce",nome:(r.ContactName__c||""),email:(r.ContactEmail__c||""),dpag:""});});
+        if(prec!=null){ ordDetSf=true; var offP=0,partP=0; prec.forEach(function(r){var am=(r.Amount==null?0:+r.Amount),round=ePartnerRF(r.Name,am); if(round)partP+=am;else offP+=am; sfOrd.push({n:(r.Name||"(opportunity RF)"),net:am,st:"In attesa",sr:"Salesforce",nome:(r.ContactName__c||""),email:(r.ContactEmail__c||""),dpag:""});});
           RF_OFFLINE_PEND[ri]=offP;RF_PARTNER_PEND[ri]=partP; }
       }
       var mergedOrd=(RF_ORDERS[ri]||[]).slice();
