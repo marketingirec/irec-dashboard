@@ -37,7 +37,11 @@ async function soql(ctx, q) {
   }
   return out;
 }
-const isRound = (a) => a > 0 && a % 1000 === 0;
+/* Partner/wallet contro offline. Prima bastava l'importo tondo (multiplo di 1000), ma cosi'
+   le ricariche wallet da 500 e i partner program da 1500 finivano fra gli offline. Si guarda
+   prima il nome dell'opportunity, che e' l'informazione vera, e si tiene il multiplo di 1000
+   come rete di sicurezza per i nomi generici. */
+const ePartner = (nome, a) => /partner|wallet|ricarica|\bppg\b/i.test(String(nome || '')) || (a > 0 && a % 1000 === 0);
 const monthOf = (s) => parseInt(String(s || '').slice(5, 7), 10); // 1..12 da 'YYYY-MM-...'
 
 export default async function handler(req, res) {
@@ -68,13 +72,13 @@ const MESE_CONTABILE = { '006Mf00000YnKN0IAN': 9 };
       const am = r.Amount == null ? 0 : +r.Amount;
       const m = MESE_CONTABILE[r.Id] || monthOf(r.Data_Chiusa_Vinta__c);
       if (m < 1 || m > 12) return;
-      if (isRound(am)) { partner[m - 1] += am; ordPartner[m - 1]++; } else { offline[m - 1] += am; ordOffline[m - 1]++; }
+      if (ePartner(r.Name, am)) { partner[m - 1] += am; ordPartner[m - 1]++; } else { offline[m - 1] += am; ordOffline[m - 1]++; }
       orders.push({ m, n: r.Name || '(opportunity RF)', nome: r.ContactName__c || '', email: r.ContactEmail__c || '', dpag: String(r.Data_Chiusa_Vinta__c || '').slice(0, 10), net: am, st: 'Pagato', sr: 'Salesforce' });
     });
     pend.forEach((r) => {
       const am = r.Amount == null ? 0 : +r.Amount, m = monthOf(r.CloseDate);
       if (m < 1 || m > 12) return;
-      if (isRound(am)) partnerP[m - 1] += am; else offlineP[m - 1] += am;
+      if (ePartner(r.Name, am)) partnerP[m - 1] += am; else offlineP[m - 1] += am;
       orders.push({ m, n: r.Name || '(opportunity RF)', nome: r.ContactName__c || '', email: r.ContactEmail__c || '', dpag: '', net: am, st: 'In attesa', sr: 'Salesforce' });
     });
 
