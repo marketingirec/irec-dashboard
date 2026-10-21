@@ -889,7 +889,11 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
 
 /* ---------- DATI REAL (snapshot Salesforce) ---------- */
 var SNAPSHOT = "2026-09-16";
-var CUR_MONTH = 9;              // settembre in corso (parziale)
+/* Mese in corso. Lo sovrascrive /api/dashboard con d.curMonth, ma il valore di partenza
+   era scritto a mano e invecchiava da solo: a Ottobre la tab RF si apriva ancora su
+   Settembre e i mesi gia' chiusi comparivano come "solo budget". Si parte dalla data
+   vera, e fuori dall'anno della dashboard si considerano tutti i mesi conclusi. */
+var CUR_MONTH = (function(){ var d=new Date(); return d.getFullYear()===2026 ? d.getMonth()+1 : 12; })();
 var MESI = ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
 var MESI_LUNGHI = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 
@@ -3435,7 +3439,7 @@ function renderRFOperatori(){
 function renderRFAdv(){
   var el=document.getElementById("rfAdvTable"); if(!el)return;
   var i=rfMonthSel;
-  var cap=document.getElementById("rfAdvCap"); if(cap)cap.innerHTML="Mese: "+RF_MONTHS[i]+" 2026 &middot; <b style=\"color:var(--accent)\">Meta + Google</b> importati dagli account RF (auto, ogni giorno alle 10:00) &middot; Altri/Extra editabili";
+  var cap=document.getElementById("rfAdvCap"); if(cap)cap.innerHTML="Mese: "+RF_MONTHS[i]+" 2026 &middot; <b style=\"color:var(--accent)\">Meta + Google</b> letti dagli account RF a ogni Aggiorna &middot; Altri/Extra editabili";
   var metaR=RF_ADV_META[i]||0, googleR=RF_ADV_GOOGLE[i]||0, altriR=RF_ADV_ALTRI[i]||0, extraR=RF_ADV_EXTRA[i]||0, eventiR=RF_ADV_EVENTI[i]||0;
   var advR=metaR+googleR+altriR, advTotR=advR+extraR+eventiR;
   var metaB=RFB.advMeta[i], googleB=RFB.advGoogle[i], altriB=RFB.advAltri[i], extraB=RFB.advExtra[i], eventiB=RFB.eventi[i];
@@ -4147,9 +4151,26 @@ async function doRefreshRFAPI(){
     // dettaglio ordini: ricostruisci solo i mesi coperti (SF + Shopify live); gli altri restano i seed
     var byM={}; if(d.sf&&d.sf.orders)d.sf.orders.forEach(function(o){var mi=(o.m||0)-1;if(mi>=0&&mi<12){(byM[mi]=byM[mi]||[]).push(o);}}); if(shOk&&d.shopify.orders)d.shopify.orders.forEach(function(o){var mi=(o.m||0)-1;if(mi>=0&&mi<12){(byM[mi]=byM[mi]||[]).push(o);}});
     for(var mm=0;mm<12;mm++){ if(!_cov(mm))continue; RF_ORDERS[mm]=(byM[mm]||[]).map(function(o){return {n:o.n,nome:o.nome,email:o.email,dpag:o.dpag,net:o.net,st:o.st,sr:o.sr};}); }
-    if(d.adspend){var g=d.adspend.google||[],m2=d.adspend.meta||[]; for(var k=0;k<12;k++){if(m2[k]!=null)RF_ADV_META[k]=m2[k]; if(g[k]!=null)RF_ADV_GOOGLE[k]=g[k];}}
+    /* Oltre al valore va aggiornato anche RF_*_REAL, che decide il badge e la sola lettura:
+       senza, un mese appena arrivato dall API restava mostrato come voce scritta a mano, e un
+       mese vecchio teneva il badge anche se il dato era quello cotto dentro da update-meta.py.
+       Stessa correzione gia' fatta sul ramo IREC. Solo fino al mese in corso: sui mesi futuri
+       l API manda 0 e comparirebbe "0,00" al posto di "—".
+       Gli errori per canale non fermano la risposta: se restano muti un token scaduto passa
+       inosservato, percio' finiscono nella riga di stato. */
+    var advErr="";
+    if(d.adspend){
+      var g=d.adspend.google||[],m2=d.adspend.meta||[];
+      var _oggi=new Date(), _cmR=(_oggi.getFullYear()===(+d.year||2026))?(_oggi.getMonth()+1):12;
+      for(var k=0;k<12;k++){
+        if(m2[k]!=null){RF_ADV_META[k]=m2[k]; if(k<_cmR)RF_META_REAL[k]=m2[k];}
+        if(g[k]!=null){RF_ADV_GOOGLE[k]=g[k]; if(k<_cmR)RF_GOOGLE_REAL[k]=g[k];}
+      }
+      var _er=d.adspend.errors||{}, _ek=Object.keys(_er);
+      if(_ek.length)advErr=" &middot; <b style=\"color:var(--bad)\">&#9888; ADV non letto ("+_ek.join(", ")+"): "+_ek.map(function(x){return _er[x];}).join("; ")+"</b>";
+    } else advErr=" &middot; <b style=\"color:var(--bad)\">&#9888; ADV non disponibile: i valori Meta/Google restano quelli precedenti</b>";
     rfCompLoaded=false; renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); rfPersist();
-    st("RF aggiornato &middot; Salesforce + ADV"+(shOk?" + Shopify (ultimi ~60 giorni; mesi precedenti da storico)":" &middot; &#9888; Shopify non agganciato (online sui dati statici)"));
+    st("RF aggiornato &middot; Salesforce + ADV"+(shOk?" + Shopify (ultimi ~60 giorni; mesi precedenti da storico)":" &middot; &#9888; Shopify non agganciato (online sui dati statici)")+advErr);
   }catch(e){ st("Errore aggiornamento RF: "+(e&&e.message||e)); }
   finally{ refreshing=false; if(icon)icon.className=""; if(btn)btn.disabled=false; }
 }
