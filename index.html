@@ -4167,7 +4167,7 @@ async function doRefreshRFAPI(){
         if(g[k]!=null){RF_ADV_GOOGLE[k]=g[k]; if(k<_cmR)RF_GOOGLE_REAL[k]=g[k];}
       }
       var _er=d.adspend.errors||{}, _ek=Object.keys(_er);
-      if(_ek.length)advErr=" &middot; <b style=\"color:var(--bad)\">&#9888; ADV non letto ("+_ek.join(", ")+"): "+_ek.map(function(x){return _er[x];}).join("; ")+"</b>";
+      if(_ek.length)advErr=" &middot; <b style=\"color:var(--bad)\">&#9888; ADV non letto ("+_ek.join(", ")+"): "+esc(_ek.map(function(x){return String(_er[x]||"");}).join("; ")).slice(0,180)+"</b>";
     } else advErr=" &middot; <b style=\"color:var(--bad)\">&#9888; ADV non disponibile: i valori Meta/Google restano quelli precedenti</b>";
     rfCompLoaded=false; renderRF(); renderRFAndamento(); renderRFOrders(); renderRFSorgenti(); renderRFAdv(); renderRFOperatori(); renderRFActive(); rfPersist();
     st("RF aggiornato &middot; Salesforce + ADV"+(shOk?" + Shopify (ultimi ~60 giorni; mesi precedenti da storico)":" &middot; &#9888; Shopify non agganciato (online sui dati statici)")+advErr);
@@ -4192,12 +4192,19 @@ async function doRefreshAPI(){
     // mai: senza questo la riga "Spesa ADV TOT real" restava ferma ai valori di update-meta.py
     // (stessa logica gia' usata dal ramo RF piu' sopra). Solo i mesi <= mese corrente: sui mesi
     // futuri il backend manda 0 e sovrascriverebbe i null, facendo comparire "0,00" al posto di "—".
+    var advErrI="";
     if(d.adspend){var _g=d.adspend.google||[],_m=d.adspend.meta||[],anyAdv=false,_cmA=(d.curMonth||CUR_MONTH||12);
       for(var mi=0;mi<12;mi++){var gv=_g[mi],mv=_m[mi];
         if(gv==null&&mv==null)continue;
         BUDGET.adv[mi]=(gv||0)+(mv||0);anyAdv=true;
         if(mi<_cmA){ if(mv!=null)IREC_META_REAL[mi]=mv; if(gv!=null)IREC_GOOGLE_REAL[mi]=gv; }}
-      if(anyAdv)persist();}
+      if(anyAdv)persist();
+      /* Gli errori per canale valgono qui quanto sul ramo RF: la v17 e poi la v22 di Google
+         sono state dismesse senza che la dashboard lo dicesse, e i numeri mostrati erano
+         quelli dell ultimo giro di update-meta.py. */
+      var _erI=d.adspend.errors||{}, _ekI=Object.keys(_erI);
+      if(_ekI.length)advErrI=" &middot; <b style=\"color:var(--bad)\">&#9888; ADV non letto ("+_ekI.join(", ")+"): "+esc(_ekI.map(function(x){return String(_erI[x]||"");}).join("; ")).slice(0,180)+"</b>";
+    }
     if(d.contatt){if(d.contatt.nuovi)CONTATT_NUOVI=d.contatt.nuovi;if(d.contatt.aw)CONTATT_AW=d.contatt.aw;if(d.contatt.irD)IRR_DNC=d.contatt.irD;if(d.contatt.irN)IRR_NMR=d.contatt.irN;}
     if(d.tipo){if(d.tipo.priv)MOTIV_TIPO_PRIV=d.tipo.priv;if(d.tipo.az)MOTIV_TIPO_AZ=d.tipo.az;if(d.tipo.lp)MOTIV_TIPO_LP=d.tipo.lp;}
     if(d.contratti)CONTRATTI=d.contratti.slice(); if(d.fatturato)FATTURATO=d.fatturato; LEAD_TOT=REAL.general[0].data;
@@ -4223,7 +4230,7 @@ async function doRefreshAPI(){
     if(!rangeCustom){rangeStart=monthStart(CUR_MONTH);rangeEnd=LAST_DAY;if(dS)dS.value=rangeStart;if(dE)dE.value=rangeEnd;}
     else if(rangeEnd>LAST_DAY){rangeEnd=LAST_DAY;if(dE)dE.value=LAST_DAY;}
     lastUpdate=new Date(); updBadge(); wonCache={}; campCache={}; utmCache={}; renderAll(); if(currentTab==="vinti")ensureWonMonth(); if(currentTab==="campagne"){ensureCampData();ensureUtmMonths();} saveSnapshot();
-    rstatus("Aggiornato: "+fmtDT(lastUpdate),"ok");
+    rstatus("Aggiornato: "+fmtDT(lastUpdate)+advErrI,"ok");
   }catch(e){rstatus("Dati live non disponibili in questa vista.","err");}
   finally{refreshing=false; if(icon)icon.className=""; if(btn)btn.disabled=false; setBar(null);}
 }
