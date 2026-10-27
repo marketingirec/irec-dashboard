@@ -2,7 +2,7 @@
 // + spesa ADV (Meta+Google account RF). Shopify (online) aggiunto quando disponibile
 // il token Admin API (env SHOPIFY_*). Tutto in sola lettura.
 import crypto from 'crypto';
-import { getAdSpendRF } from '../lib/adspend.js';
+import { getAdSpendRF, getAdPrevisioneRF } from '../lib/adspend.js';
 import { getShopifyRF } from '../lib/shopify.js';
 
 const LOGIN_URL   = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
@@ -84,6 +84,9 @@ const MESE_CONTABILE = { '006Mf00000YnKN0IAN': 9 };
 
     // ADV RF (Meta + Google account RF) - non blocca
     let adspend = null; try { adspend = await getAdSpendRF(Y); } catch (_e) { adspend = null; }
+    // previsione di fine mese: speso a ieri + budget giornaliero per i giorni che restano
+    let prevAdv = null;
+    try { prevAdv = await getAdPrevisioneRF(); } catch (e) { prevAdv = { errors: { previsione: String(e && e.message || e) } }; }
     // Shopify RF (online per data pagamento + sorgenti + operatori) - solo se configurato; non blocca
     let shopify = null; try { shopify = await getShopifyRF(Y); } catch (e) { shopify = { error: String(e && e.message || e) }; }
 
@@ -91,6 +94,7 @@ const MESE_CONTABILE = { '006Mf00000YnKN0IAN': 9 };
       year: Y,
       sf: { offline, partner, ordOffline, ordPartner, offlineP, partnerP, orders },
       adspend,
+      prevAdv,
       shopify
     });
   } catch (e) {

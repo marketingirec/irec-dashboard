@@ -1580,6 +1580,19 @@ async function chanLoadRealH2(){var btn=document.getElementById("chanLoadBtn");
    piattaforme: la fattura include la fee del 2,5% ed e' quella che consuma il budget.
    Stessa tabella lato server in lib/adspend.js, qui serve solo per dirlo nell'etichetta. */
 var ADV_FATT={irec:{8:1},rf:{8:1}};
+/* Previsione di fine mese calcolata dal backend: speso dal primo del mese a ieri piu' il
+   budget giornaliero delle campagne attive per i giorni che restano, oggi compreso. Non si
+   salva in locale di proposito: una previsione vecchia di giorni e' peggio di nessuna. */
+var PREV_ADV=null, RF_PREV_ADV=null;
+/* Vale solo per il mese in corso, e solo se il backend l'ha calcolata per quel mese: a
+   cavallo di mezzanotte di fine mese un dato rimasto in pagina parlerebbe del mese prima. */
+function prevDi(p,m,canale){ if(!p||!p.prev)return null; if(((p.mese|0)-1)!==m)return null; var v=p.prev[canale]; return (v==null)?null:v; }
+function prevNota(p,canale){
+  if(!p||!p.prev)return "";
+  var s=p.speso&&p.speso[canale], d=p.daily&&p.daily[canale];
+  if(s==null||d==null)return "";
+  return "Speso dal 1 al "+String(p.aIeri||"").slice(8)+": "+eur2(s)+" &middot; piu' "+eur2(d)+" al giorno di budget attivo per "+p.giorniRestanti+(p.giorniRestanti===1?" giorno":" giorni")+" (oggi compreso)";
+}
 var RF_META_REAL = [null,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2733.90,null,null,null];   // Meta RF live (account act_3120594051452791)
 var RF_GOOGLE_REAL = [3213.23,3028.55,4958.88,5763.47,5540.19,5492.36,6326.18,4253.55,6029.11,null,null,null];   // Google Ads RF live (account RintraccioFacile.it 796-544-7725); non-null = sola lettura
 var RF_ADV_META = [0,1681.9,4142.59,2187.66,1233.43,1246.97,1320.01,855.16,2667.28,0,0,0];
@@ -1979,7 +1992,12 @@ function renderADV(){
     var cplM=(mv!=null&&ADV_META_LEADS[m])?mv/ADV_META_LEADS[m]:null, cplG=(gv!=null&&ADV_GOOGLE_LEADS[m])?gv/ADV_GOOGLE_LEADS[m]:null;
     var roaM=(mv&&ADV_META_VEND[m]!=null)?ADV_META_VEND[m]/mv*100:null, roaG=(gv&&ADV_GOOGLE_VEND[m]!=null)?ADV_GOOGLE_VEND[m]/gv*100:null;
     var _c=[cplM,cplG].filter(function(x){return x!=null;}), _r=[roaM,roaG].filter(function(x){return x!=null;});
-    return {spB:spB, spR:spR, mv:mv, gv:gv, fatB:fatB, fatR:fatR,
+    /* Previsione di fine mese: c'e' solo per Meta e Google, gli unici con un budget giornaliero
+       da leggere, e solo sul mese in corso. Nel totale il canale senza previsione entra col suo
+       real, cosi' la riga resta confrontabile col budget. */
+    var pvM=prevDi(PREV_ADV,m,"meta"), pvG=prevDi(PREV_ADV,m,"google");
+    var pvS=(pvM==null&&pvG==null)?null:((pvM==null?(mv||0):pvM)+(pvG==null?(gv||0):pvG));
+    return {spB:spB, spR:spR, mv:mv, gv:gv, fatB:fatB, fatR:fatR, pvM:pvM, pvG:pvG, pvS:pvS,
       cplB:(spB!=null&&leadB)?spB/leadB:null,
       cplR:_c.length?_c.reduce(function(s,x){return s+x;},0)/_c.length:null, cplM:cplM, cplG:cplG,
       roaB:(spB&&fatB!=null)?fatB/spB*100:null,
@@ -1996,9 +2014,9 @@ function renderADV(){
     var d=(r-(+b))/(+b)*100; return (d>0?'+':'')+d.toLocaleString('it-IT',{maximumFractionDigits:1})+'%';
   }
   var SPEC=[
-    {lab:'Spesa ADV', f:'eur', spesa:1, b:function(v,m){return v.spB;}, r:function(v,m){return v.spR;}},
-    {lab:'&#8627; di cui Meta', f:'eur', sub:1, b:function(v,m){return SPESA_BUD_META[m];}, r:function(v){return v.mv;}},
-    {lab:'&#8627; di cui Google', f:'eur', sub:1, b:function(v,m){return SPESA_BUD_GOOGLE[m];}, r:function(v){return v.gv;}},
+    {lab:'Spesa ADV', f:'eur', spesa:1, b:function(v,m){return v.spB;}, r:function(v,m){return v.spR;}, p:function(v){return v.pvS;}, pCan:null},
+    {lab:'&#8627; di cui Meta', f:'eur', sub:1, b:function(v,m){return SPESA_BUD_META[m];}, r:function(v){return v.mv;}, p:function(v){return v.pvM;}, pCan:'meta'},
+    {lab:'&#8627; di cui Google', f:'eur', sub:1, b:function(v,m){return SPESA_BUD_GOOGLE[m];}, r:function(v){return v.gv;}, p:function(v){return v.pvG;}, pCan:'google'},
     {lab:'Venduto', f:'eur', sep:1, b:function(v){return v.fatB;}, r:function(v){return v.fatR;}},
     {lab:'CPL', f:'eur', sep:1, tip:'Budget: spesa a budget / lead a budget. Real: media fra CPL Meta e CPL Google.', b:function(v){return v.cplB;}, r:function(v){return v.cplR;}},
     {lab:'&#8627; CPL Meta', f:'eur', sub:1, b:function(){return null;}, r:function(v){return v.cplM;}},
@@ -2009,10 +2027,11 @@ function renderADV(){
   ];
   var SEPL='border-left:2px solid var(--border)';
   var head='<thead><tr><th class="voce" rowspan="2">Metrica</th>';
-  for(var m=0;m<12;m++)head+='<th colspan="3" style="text-align:center;'+SEPL+'" class="'+(m===CUR_MONTH-1?'colhdr-now':'')+'">'+MESI[m]+'</th>';
+  for(var m=0;m<12;m++)head+='<th colspan="'+((m===CUR_MONTH-1)?4:3)+'" style="text-align:center;'+SEPL+'" class="'+(m===CUR_MONTH-1?'colhdr-now':'')+'">'+MESI[m]+'</th>';
   head+='</tr><tr>';
   for(var mh=0;mh<12;mh++){var nw=(mh===CUR_MONTH-1?' now':'');
     head+='<th style="position:static;font-size:10px;'+SEPL+'" class="'+nw+'">Budget</th>'
+        + ((mh===CUR_MONTH-1)?'<th style="position:static;font-size:10px" class="'+nw+'" title="Previsione a fine mese: speso dal primo del mese a ieri, piu\' il budget giornaliero delle campagne attive per i giorni che restano, oggi compreso">Prev</th>':'')
         + '<th style="position:static;font-size:10px" class="'+nw+'">Real</th>'
         + '<th style="position:static;font-size:10px;color:var(--accent)" class="'+nw+'">&Delta;</th>';}
   head+='</tr></thead>';
@@ -2030,7 +2049,14 @@ function renderADV(){
           ? '<span style="color:var(--accent);font-weight:560" title="'+(ADV_FATT.irec[m]?"Consuntivo da fattura, fee 2,5% inclusa (non editabile)":"Importato da API (non editabile)")+' &middot; Meta '+eur2(IREC_META_REAL[m]||0)+' + Google '+eur2(IREC_GOOGLE_REAL[m]||0)+'">'+eur2(rv)+'</span>'
           : curSpan(rv,'adv',m);
       } else { bCell=fv(bv,sp.f); rCell=fv(rv,sp.f); }
+      var pCell='';
+      if(nowc){
+        var pv2=sp.p?sp.p(v,m):null;
+        pCell='<td class="tnum'+nw+'">'+((pv2==null)?NIL
+          :('<span title="'+(sp.pCan?prevNota(PREV_ADV,sp.pCan):'Previsione a fine mese: speso a ieri piu\' il budget giornaliero attivo per i giorni che restano')+'" style="color:var(--muted);font-style:italic">'+fv(pv2,sp.f)+'</span>'))+'</td>';
+      }
       body+='<td class="tnum'+nw+'" style="color:var(--budget);'+SEPL+'">'+bCell+'</td>'
+          + pCell
           + '<td class="tnum'+nw+'">'+rCell+'</td>'
           + '<td class="tnum'+nw+'" style="color:var(--muted)">'+fd(rv,bv,sp.f,past)+'</td>';
     }
@@ -3439,7 +3465,7 @@ function renderRFOperatori(){
 function renderRFAdv(){
   var el=document.getElementById("rfAdvTable"); if(!el)return;
   var i=rfMonthSel;
-  var cap=document.getElementById("rfAdvCap"); if(cap)cap.innerHTML="Mese: "+RF_MONTHS[i]+" 2026 &middot; <b style=\"color:var(--accent)\">Meta + Google</b> letti dagli account RF a ogni Aggiorna &middot; Altri/Extra editabili";
+  var cap=document.getElementById("rfAdvCap"); if(cap)cap.innerHTML="Mese: "+RF_MONTHS[i]+" 2026 &middot; <b style=\"color:var(--accent)\">Meta + Google</b> letti dagli account RF a ogni Aggiorna &middot; <b>Prev</b> = speso a ieri + budget giornaliero attivo fino a fine mese &middot; Altri/Extra editabili";
   var metaR=RF_ADV_META[i]||0, googleR=RF_ADV_GOOGLE[i]||0, altriR=RF_ADV_ALTRI[i]||0, extraR=RF_ADV_EXTRA[i]||0, eventiR=RF_ADV_EVENTI[i]||0;
   var advR=metaR+googleR+altriR, advTotR=advR+extraR+eventiR;
   var metaB=RFB.advMeta[i], googleB=RFB.advGoogle[i], altriB=RFB.advAltri[i], extraB=RFB.advExtra[i], eventiB=RFB.eventi[i];
@@ -3448,26 +3474,34 @@ function renderRFAdv(){
   var ordR=(RF_ORD_ONLINE[i]||0)+(RF_ORD_OFFLINE[i]||0), ordB=RFB.ordOnline[i]+RFB.ordOffline[i];
   var roasR=advR?fatR/advR*100:null, roasB=advB?fatB/advB*100:null;
   var cpoR=ordR?advTotR/ordR:null, cpoB=ordB?advTotB/ordB:null;
+  /* Previsione: esiste solo per Meta e Google, che sono gli unici con un budget giornaliero
+     leggibile. Nei totali le voci senza previsione (Altri, Extra, Eventi) entrano con il
+     loro real, cosi' la riga resta confrontabile con il budget invece di sparire. */
+  var pvMeta=prevDi(RF_PREV_ADV,i,"meta"), pvGoogle=prevDi(RF_PREV_ADV,i,"google");
+  var pvAdv=(pvMeta==null&&pvGoogle==null)?null:((pvMeta==null?metaR:pvMeta)+(pvGoogle==null?googleR:pvGoogle)+altriR);
+  var pvAdvTot=(pvAdv==null)?null:(pvAdv+extraR+eventiR);
   function fp(v,f){ if(v==null)return '<span class="muted">&mdash;</span>'; if(f==="num")return nf(v); if(f==="pct")return v.toLocaleString("it-IT",{maximumFractionDigits:1})+"%"; if(f==="aov")return "&euro; "+v.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2}); return eur(v); }
-  function ln(lab,bud,real,f,editKey,bold,metaRO,roLabel){
+  function ln(lab,bud,prev,real,f,editKey,bold,metaRO,roLabel,notaPrev){
     var dN=(bud!=null&&real!=null)?real-bud:null, dCls=dN==null?"":(dN>=0?"cell g":"cell b");
     var indent=(editKey||metaRO);
+    var pc=(prev==null)?'<span class="muted">&mdash;</span>'
+      :'<span title="'+(notaPrev||"Previsione a fine mese")+'" style="color:var(--muted);font-style:italic">'+fp(prev,f)+'</span>';
     var rc=metaRO?'<span title="Importato da API (account RF, sola lettura, al centesimo)" style="color:var(--accent);font-weight:560">'+eur2(real)+' <span style="font-size:8.5px;font-weight:700;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:0 4px;margin-left:2px;vertical-align:1px">'+(roLabel||"META")+'</span></span>':(editKey?rfCurSpan(real,editKey):fp(real,f));
-    return '<tr'+(bold?' class="sep"':'')+'><td class="voce" style="'+(bold?'font-weight:680':(indent?'padding-left:26px;font-weight:400;color:var(--muted)':''))+'">'+(indent?"&rsaquo; ":"")+lab+'</td><td class="tnum muted">'+fp(bud,f)+'</td><td class="tnum"'+(bold?' style="font-weight:680"':'')+'>'+rc+'</td><td class="tnum">'+(dN==null?'<span class="muted">&mdash;</span>':'<span class="'+dCls+'">'+(dN>0?"+":"")+fp(dN,f)+'</span>')+'</td></tr>';
+    return '<tr'+(bold?' class="sep"':'')+'><td class="voce" style="'+(bold?'font-weight:680':(indent?'padding-left:26px;font-weight:400;color:var(--muted)':''))+'">'+(indent?"&rsaquo; ":"")+lab+'</td><td class="tnum muted">'+fp(bud,f)+'</td><td class="tnum">'+pc+'</td><td class="tnum"'+(bold?' style="font-weight:680"':'')+'>'+rc+'</td><td class="tnum">'+(dN==null?'<span class="muted">&mdash;</span>':'<span class="'+dCls+'">'+(dN>0?"+":"")+fp(dN,f)+'</span>')+'</td></tr>';
   }
-  var head='<thead><tr><th class="voce">Voce</th><th>Budget</th><th>Real</th><th>Delta</th></tr></thead>';
+  var head='<thead><tr><th class="voce">Voce</th><th>Budget</th><th title="Previsione a fine mese: speso dal primo del mese a ieri, piu\' il budget giornaliero delle campagne attive per i giorni che restano, oggi compreso">Prev</th><th>Real</th><th>Delta</th></tr></thead>';
   var body='<tbody>';
-  body+=ln("Investimento ads",advB,advR,"eur",null,true);
-  body+=ln("Meta",metaB,metaR,"eur",(RF_META_REAL[i]!=null?null:"meta"),false,(RF_META_REAL[i]!=null),"META");
-  body+=ln("Google",googleB,googleR,"eur",(RF_GOOGLE_REAL[i]!=null?null:"google"),false,(RF_GOOGLE_REAL[i]!=null),"GOOGLE");
-  body+=ln("Altri canali",altriB,altriR,"eur","altri");
-  body+=ln("Extra budget",extraB,extraR,"eur","extra");
-  body+=ln("Extra Eventi",eventiB,eventiR,"eur","eventi");
-  body+=ln("ADV totale (+ extra + eventi)",advTotB,advTotR,"eur",null,true);
-  body+=ln("Fatturato",fatB,fatR,"eur",null,true);
-  body+=ln("N ordini",ordB,ordR,"num");
-  body+=ln("ROAS / MER (Fatturato / ADV)",roasB,roasR,"pct",null,true);
-  body+=ln("CPO (ADV totale / ordini)",cpoB,cpoR,"aov");
+  body+=ln("Investimento ads",advB,pvAdv,advR,"eur",null,true);
+  body+=ln("Meta",metaB,pvMeta,metaR,"eur",(RF_META_REAL[i]!=null?null:"meta"),false,(RF_META_REAL[i]!=null),"META",prevNota(RF_PREV_ADV,"meta"));
+  body+=ln("Google",googleB,pvGoogle,googleR,"eur",(RF_GOOGLE_REAL[i]!=null?null:"google"),false,(RF_GOOGLE_REAL[i]!=null),"GOOGLE",prevNota(RF_PREV_ADV,"google"));
+  body+=ln("Altri canali",altriB,null,altriR,"eur","altri");
+  body+=ln("Extra budget",extraB,null,extraR,"eur","extra");
+  body+=ln("Extra Eventi",eventiB,null,eventiR,"eur","eventi");
+  body+=ln("ADV totale (+ extra + eventi)",advTotB,pvAdvTot,advTotR,"eur",null,true);
+  body+=ln("Fatturato",fatB,null,fatR,"eur",null,true);
+  body+=ln("N ordini",ordB,null,ordR,"num");
+  body+=ln("ROAS / MER (Fatturato / ADV)",roasB,null,roasR,"pct",null,true);
+  body+=ln("CPO (ADV totale / ordini)",cpoB,null,cpoR,"aov");
   body+='</tbody>';
   el.innerHTML=head+body;
   wireRfCurEdit("rfAdvTable",renderRFActive);
@@ -4158,6 +4192,7 @@ async function doRefreshRFAPI(){
        l API manda 0 e comparirebbe "0,00" al posto di "—".
        Gli errori per canale non fermano la risposta: se restano muti un token scaduto passa
        inosservato, percio' finiscono nella riga di stato. */
+    if(d.prevAdv)RF_PREV_ADV=d.prevAdv;
     var advErr="";
     if(d.adspend){
       var g=d.adspend.google||[],m2=d.adspend.meta||[];
@@ -4192,6 +4227,7 @@ async function doRefreshAPI(){
     // mai: senza questo la riga "Spesa ADV TOT real" restava ferma ai valori di update-meta.py
     // (stessa logica gia' usata dal ramo RF piu' sopra). Solo i mesi <= mese corrente: sui mesi
     // futuri il backend manda 0 e sovrascriverebbe i null, facendo comparire "0,00" al posto di "—".
+    if(d.prevAdv)PREV_ADV=d.prevAdv;
     var advErrI="";
     if(d.adspend){var _g=d.adspend.google||[],_m=d.adspend.meta||[],anyAdv=false,_cmA=(d.curMonth||CUR_MONTH||12);
       for(var mi=0;mi<12;mi++){var gv=_g[mi],mv=_m[mi];

@@ -3,7 +3,7 @@
 // e restituisce il JSON che alimenta la dashboard IREC. Nessuna credenziale
 // nel client: tutto server-side, con le env var impostate su Vercel.
 import crypto from 'crypto';
-import { getAdSpend } from '../lib/adspend.js';
+import { getAdSpend, getAdPrevisione } from '../lib/adspend.js';
 
 const LOGIN_URL  = process.env.SF_LOGIN_URL || 'https://login.salesforce.com';
 const CLIENT_ID  = process.env.SF_CLIENT_ID;
@@ -356,6 +356,9 @@ export default async function handler(req, res){
     // spesa ADV (Google Ads + Meta) — non blocca se non configurata o in errore
     let adspend = null;
     try { adspend = await getAdSpend(YEAR); } catch(_e) { adspend = null; }
+    // previsione di fine mese: speso a ieri + budget giornaliero per i giorni che restano
+    let prevAdv = null;
+    try { prevAdv = await getAdPrevisione(); } catch(e) { prevAdv = { errors: { previsione: String(e && e.message || e) } }; }
 
     // motivazioni di scarto + tipologia lead, dal vivo come il resto
     let motiv = null;
@@ -364,7 +367,7 @@ export default async function handler(req, res){
     } catch(_e) { motiv = null; }
 
     res.status(200).json({
-      snapshot: today, curMonth: curM, year: YEAR, day0, dayN: n,
+      snapshot: today, curMonth: curM, year: YEAR, day0, dayN: n, prevAdv,
       real, fatturato, contratti, reopen,
       nuovi: split && split.nuovi, upsell: split && split.upsell, wonbrk: split && split.wonbrk,
       prodotti: split && split.prodotti,
