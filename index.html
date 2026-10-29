@@ -677,7 +677,7 @@
       La <b>spesa ADV real</b> (Meta/Google/Altri/Extra/Eventi) &egrave; <b>editabile a mano</b> nella colonna Real finch&eacute; non si agganciano le API Meta/Google; il <b>MER</b> usa la spesa ADV inserita. &middot;
       <b>MER no Partner</b> = (Online+Offline)/Investimento&nbsp;ads; <b>MER TOT</b> = Fatturato/Investimento&nbsp;ads. Budget MER dal Reforecast (Lug 380% / 349,95%). &middot;
       <b>Gestito Venditori</b> (= Venduto Operatori) = Online con codice sconto <i>nome venditore + numero</i> (es. Massimo10, Lorenzop15, Elisap20) o referral con un nome, <b>+ tutto l&rsquo;Offline + tutto il Partner</b> (sempre gestiti dai venditori). Lo <b>Spontaneo</b> &egrave; l&rsquo;online senza codice venditore. Cos&igrave; <b>Spontaneo + Gestito = Totale Fatturato</b> del mese. &middot;
-      Il <b>credito wallet</b> &egrave; uno <b>sconto sul prezzo</b>, non un metodo di pagamento: l&rsquo;imponibile &egrave; gi&agrave; al netto del credito scalato e viene incassato per intero, quindi l&rsquo;ordine conta normalmente. Solo se il credito copre l&rsquo;intero ordine l&rsquo;imponibile &egrave; &euro;&nbsp;0 (nessuna transazione) e l&rsquo;ordine resta fuori. &middot;
+      Il <b>credito wallet</b> &egrave; uno <b>sconto sul prezzo</b>, non un metodo di pagamento: l&rsquo;imponibile &egrave; gi&agrave; al netto del credito scalato e viene incassato per intero, quindi l&rsquo;ordine conta normalmente. Solo se il credito copre l&rsquo;intero ordine l&rsquo;imponibile &egrave; &euro;&nbsp;0 (nessuna transazione) e l&rsquo;ordine resta fuori dal fatturato: quegli ordini sono contati nelle due righe <b>pagati con Wallet</b> in fondo, col <b>valore prima dello sconto</b>, e restano esclusi dal Totale perch&eacute; l&rsquo;incasso &egrave; gi&agrave; stato registrato come <b>ricarica fra i Partner</b>. &middot;
       <b>Nota budget:</b> a Reforecast, sull&rsquo;<b>online</b> lo <b>Spontaneo</b> vale il <b>60%</b> e il <b>Guidato</b> il <b>40%</b>; nel Real invece lo split &egrave; quello effettivo dai codici venditore.
     </p>
     </section><!-- /rfpanel-pv -->
@@ -687,7 +687,7 @@
         <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF <b style="color:var(--good)">(live)</b></h2><span class="hint">stime <b>live</b> Shopify/SF &middot; MER su <b>spesa ADV reale</b> (da ADV &amp; Economics)</span></div>
         <div class="card-b scroll"><table id="rfAndTable"></table></div>
       </div>
-      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Voci del fatturato RF (Online/Offline/Partner, N ordini, AOV, Spontaneo/Gestito, <b>ADV totale speso</b>, MER) per tutti i mesi, valori <b>Real</b> (stime live Shopify/SF). Il <b>MER</b> = Totale Fatturato / <b>spesa ADV reale</b> (Meta+Google+Altri, la stessa di <i>ADV &amp; Economics</i>, non pi&ugrave; il budget). La sezione <span style="color:var(--accent);font-weight:600">In attesa di pagamento</span> (blu) &egrave; collassabile e resta esclusa dal fatturato.</p>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Voci del fatturato RF (Online/Offline/Partner, N ordini, AOV, Spontaneo/Gestito, <b>ADV totale speso</b>, MER) per tutti i mesi, valori <b>Real</b> (stime live Shopify/SF). Il <b>MER</b> = Totale Fatturato / <b>spesa ADV reale</b> (Meta+Google+Altri, la stessa di <i>ADV &amp; Economics</i>, non pi&ugrave; il budget). La sezione <span style="color:var(--accent);font-weight:600">In attesa di pagamento</span> (blu) &egrave; collassabile e resta esclusa dal fatturato. In fondo gli <b>ordini pagati con Wallet</b> (credito che copre l&rsquo;intero ordine, valore prima dello sconto): fuori dal fatturato, l&rsquo;incasso &egrave; gi&agrave; nei Partner come ricarica.</p>
 
       <div class="card" style="margin-top:22px">
         <div class="card-h"><h2>Andamento mese su mese &mdash; fatturato RF <b style="color:var(--accent)">(booklet)</b></h2><span class="hint">dati manuali <b>ufficiali</b> dal booklet (Google Sheet &ldquo;KPI Full Funnel RF&rdquo;) &middot; valori <b>Actual</b></span></div>
@@ -1278,6 +1278,13 @@ var RF_PARTNER     =[0,2000,2000,0,4000,0,1000,2000,3000,0,0,0];   // Partner: S
 var RF_ONLINE_PEND =[14325.7,1688.4,562.5,575.41,395.18,441.67,1000,750.80,501,0,0,0];   // Online in attesa: Shopify net_sales pending
 var RF_OFFLINE_PEND=[32,612.10,72,307.30,32,603,0,40,963.85,0,0,0];   // Offline in attesa: SF RF Chiuso-Pending, non tondi
 var RF_PARTNER_PEND=[2000,0,0,0,0,0,0,0,0,0,0,0];   // Partner in attesa: SF RF Chiuso-Pending, tondi (x1000)
+/* Ordini pagati INTERAMENTE col credito wallet. In Shopify il credito e' uno sconto (codice
+   "Sconto Credito Wallet - <id>"): quando copre tutto, l'ordine va a 0,00, non ha nessuna
+   transazione e resta fuori dal Fatturato Online. Giusto cosi' - l'incasso e' gia' contato come
+   ricarica fra i Partner - ma sono ordini veri e vanno visti. VAL = valore PRIMA dello sconto.
+   Seed Feb-Ott letto da Shopify il 29/10/2026 (Gennaio: nessun ordine a credito). */
+var RF_WAL_ORD=[0,6,28,19,17,24,21,6,10,19,0,0];
+var RF_WAL_VAL=[0,2034.05,8290.10,5779.40,6053.85,5622.30,6740.80,1593.80,2402.40,4314.50,0,0];
 // Budget mensile: Gen..Giu dal Forecast originale, Lug..Dic dal Reforecast RF (scenario NORMAL)
 var RF_BUD_ONLINE =[27923.29, 33906.85, 34704.66, 35901.37, 41087.12, 35901.37, 27219, 17288, 31300, 35459, 39828, 22468];
 var RF_BUD_OFFLINE=[3926.71,  4768.15,  5299.19,  5048.63,  5777.88,  5048.63,  1897,  1200,  2158,  2296,  2841,  1530];
@@ -2986,6 +2993,10 @@ function renderRF(){
     body+=line("Offline in attesa",{real:offP,indent:true,noDelta:true});
     body+=line("Partner in attesa",{real:partP,indent:true,noDelta:true});
   }
+  // ordini pagati col credito wallet: fuori dal fatturato, l'incasso e' gia' nei Partner come ricarica
+  var walO=RF_WAL_ORD[i]||0, walV=RF_WAL_VAL[i]||0;
+  body+=line("N ordini pagati con Wallet",{real:(walO?walO:null),fmt:"num",noDelta:true,sep:true,sub:"credito wallet che copre l&rsquo;intero ordine"});
+  body+=line("Valore ordini pagati con Wallet",{real:(walV?walV:null),noDelta:true,sub:"valore prima dello sconto &middot; fuori dal fatturato, la ricarica &egrave; gi&agrave; nei Partner"});
   body+='</tbody>';
   el.innerHTML=head+body;
   var pr=el.querySelector(".rfpend-row"); if(pr){var tgp=function(){rfPendExp=!rfPendExp;renderRFActive();}; pr.addEventListener("click",tgp); pr.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();tgp();}});}
@@ -3258,6 +3269,8 @@ function renderRFAndamento(){
     body+=row("Offline in attesa",function(m){return A.offlineP[m];},{style:ps,tdstyle:pts});
     body+=row("Partner in attesa",function(m){return A.partnerP[m];},{style:ps,tdstyle:pts});
   }
+  body+=row("N ordini pagati con Wallet",function(m){return RF_WAL_ORD[m]||null;},{num:true,sep:true,style:"color:var(--muted)",tdstyle:"color:var(--muted)"});
+  body+=row("Valore ordini pagati con Wallet",function(m){return RF_WAL_VAL[m]||null;},{style:"color:var(--muted)",tdstyle:"color:var(--muted)"});
   body+='</tbody>';
   el.innerHTML=head+body;
   var pr=el.querySelector(".rfpend-row"); if(pr){var tg=function(){rfPendExp=!rfPendExp;renderRFAndamento();}; pr.addEventListener("click",tg); pr.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();tg();}});}
@@ -4185,7 +4198,7 @@ async function doRefreshRFAPI(){
     // Shopify (scope read_orders senza read_all_orders) vede solo ~60 giorni: aggiorna i mesi COPERTI, tiene i seed sugli altri
     var _now=new Date(), _cut=_now.getTime()-60*864e5, _yr=_now.getFullYear();
     function _cov(m){ return new Date(_yr,m,1).getTime() >= _cut; } // primo del mese dentro la finestra
-    if(shOk){var sh=d.shopify; for(var j=0;j<12;j++){ if(!_cov(j))continue; if(sh.online)RF_ONLINE[j]=sh.online[j]||0; if(sh.pending)RF_ONLINE_PEND[j]=sh.pending[j]||0; if(sh.gest)RF_ONLINE_GEST[j]=sh.gest[j]||0; if(sh.ordOnline)RF_ORD_ONLINE[j]=sh.ordOnline[j]||0; } if(sh.operatori){for(var mk in sh.operatori){var oi=(+mk)-1; if(oi>=0&&oi<12&&_cov(oi))RF_OPERATORI[oi]=sh.operatori[mk];}} }
+    if(shOk){var sh=d.shopify; for(var j=0;j<12;j++){ if(!_cov(j))continue; if(sh.online)RF_ONLINE[j]=sh.online[j]||0; if(sh.pending)RF_ONLINE_PEND[j]=sh.pending[j]||0; if(sh.gest)RF_ONLINE_GEST[j]=sh.gest[j]||0; if(sh.ordOnline)RF_ORD_ONLINE[j]=sh.ordOnline[j]||0; if(sh.walOrd)RF_WAL_ORD[j]=sh.walOrd[j]||0; if(sh.walVal)RF_WAL_VAL[j]=sh.walVal[j]||0; } if(sh.operatori){for(var mk in sh.operatori){var oi=(+mk)-1; if(oi>=0&&oi<12&&_cov(oi))RF_OPERATORI[oi]=sh.operatori[mk];}} }
     // dettaglio ordini: ricostruisci solo i mesi coperti (SF + Shopify live); gli altri restano i seed
     var byM={}; if(d.sf&&d.sf.orders)d.sf.orders.forEach(function(o){var mi=(o.m||0)-1;if(mi>=0&&mi<12){(byM[mi]=byM[mi]||[]).push(o);}}); if(shOk&&d.shopify.orders)d.shopify.orders.forEach(function(o){var mi=(o.m||0)-1;if(mi>=0&&mi<12){(byM[mi]=byM[mi]||[]).push(o);}});
     for(var mm=0;mm<12;mm++){ if(!_cov(mm))continue; RF_ORDERS[mm]=(byM[mm]||[]).map(function(o){return {n:o.n,nome:o.nome,email:o.email,dpag:o.dpag,net:o.net,st:o.st,sr:o.sr};}); }
