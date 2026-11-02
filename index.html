@@ -1282,9 +1282,11 @@ var RF_PARTNER_PEND=[2000,0,0,0,0,0,0,0,0,0,0,0];   // Partner in attesa: SF RF 
    "Sconto Credito Wallet - <id>"): quando copre tutto, l'ordine va a 0,00, non ha nessuna
    transazione e resta fuori dal Fatturato Online. Giusto cosi' - l'incasso e' gia' contato come
    ricarica fra i Partner - ma sono ordini veri e vanno visti. VAL = valore PRIMA dello sconto.
-   Seed Feb-Ott letto da Shopify il 29/10/2026 (Gennaio: nessun ordine a credito). */
-var RF_WAL_ORD=[0,6,28,19,17,24,21,6,10,19,0,0];
-var RF_WAL_VAL=[0,2034.05,8290.10,5779.40,6053.85,5622.30,6740.80,1593.80,2402.40,4314.50,0,0];
+   Seed Feb-Ott letto da Shopify, Ottobre a mese chiuso il 02/11/2026 (Gennaio: nessun ordine a
+   credito). La prima lettura di Ottobre era del 29/10 a meta' giornata e si fermava a 19 ordini
+   per 4.314,50: mancavano #17161, #17162 e #17170, arrivati dopo. */
+var RF_WAL_ORD=[0,6,28,19,17,24,21,6,10,22,0,0];
+var RF_WAL_VAL=[0,2034.05,8290.10,5779.40,6053.85,5622.30,6740.80,1593.80,2402.40,5511.50,0,0];
 // Budget mensile: Gen..Giu dal Forecast originale, Lug..Dic dal Reforecast RF (scenario NORMAL)
 var RF_BUD_ONLINE =[27923.29, 33906.85, 34704.66, 35901.37, 41087.12, 35901.37, 27219, 17288, 31300, 35459, 39828, 22468];
 var RF_BUD_OFFLINE=[3926.71,  4768.15,  5299.19,  5048.63,  5777.88,  5048.63,  1897,  1200,  2158,  2296,  2841,  1530];
