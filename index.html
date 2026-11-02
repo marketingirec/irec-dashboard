@@ -677,7 +677,7 @@
       La <b>spesa ADV real</b> (Meta/Google/Altri/Extra/Eventi) &egrave; <b>editabile a mano</b> nella colonna Real finch&eacute; non si agganciano le API Meta/Google; il <b>MER</b> usa la spesa ADV inserita. &middot;
       <b>MER no Partner</b> = (Online+Offline)/Investimento&nbsp;ads; <b>MER TOT</b> = Fatturato/Investimento&nbsp;ads. Budget MER dal Reforecast (Lug 380% / 349,95%). &middot;
       <b>Gestito Venditori</b> (= Venduto Operatori) = Online con codice sconto <i>nome venditore + numero</i> (es. Massimo10, Lorenzop15, Elisap20) o referral con un nome, <b>+ tutto l&rsquo;Offline + tutto il Partner</b> (sempre gestiti dai venditori). Lo <b>Spontaneo</b> &egrave; l&rsquo;online senza codice venditore. Cos&igrave; <b>Spontaneo + Gestito = Totale Fatturato</b> del mese. &middot;
-      Il <b>credito wallet</b> &egrave; uno <b>sconto sul prezzo</b>, non un metodo di pagamento: l&rsquo;imponibile &egrave; gi&agrave; al netto del credito scalato e viene incassato per intero, quindi l&rsquo;ordine conta normalmente. Solo se il credito copre l&rsquo;intero ordine l&rsquo;imponibile &egrave; &euro;&nbsp;0 (nessuna transazione) e l&rsquo;ordine resta fuori dal fatturato: quegli ordini sono contati nelle due righe <b>pagati con Wallet</b> in fondo, col <b>valore prima dello sconto</b>, e restano esclusi dal Totale perch&eacute; l&rsquo;incasso &egrave; gi&agrave; stato registrato come <b>ricarica fra i Partner</b>. &middot;
+      Il <b>credito wallet</b> &egrave; uno <b>sconto sul prezzo</b>, non un metodo di pagamento: l&rsquo;imponibile &egrave; gi&agrave; al netto del credito scalato e viene incassato per intero, quindi l&rsquo;ordine conta normalmente. Solo se il credito copre l&rsquo;intero ordine l&rsquo;imponibile &egrave; &euro;&nbsp;0 (nessuna transazione) e l&rsquo;ordine resta fuori dal fatturato: quegli ordini sono contati nelle due righe <b>pagati con Wallet</b> in fondo, col <b>valore prima dello sconto</b>, e restano esclusi dal Totale perch&eacute; l&rsquo;incasso &egrave; gi&agrave; stato registrato come <b>ricarica fra i Partner</b>. Nelle stesse due righe finiscono anche le vendite <b>offline</b> saldate col credito (Salesforce), per lo stesso motivo. &middot;
       <b>Nota budget:</b> a Reforecast, sull&rsquo;<b>online</b> lo <b>Spontaneo</b> vale il <b>60%</b> e il <b>Guidato</b> il <b>40%</b>; nel Real invece lo split &egrave; quello effettivo dai codici venditore.
     </p>
     </section><!-- /rfpanel-pv -->
@@ -1287,6 +1287,12 @@ var RF_PARTNER_PEND=[2000,0,0,0,0,0,0,0,0,0,0,0];   // Partner in attesa: SF RF 
    per 4.314,50: mancavano #17161, #17162 e #17170, arrivati dopo. */
 var RF_WAL_ORD=[0,6,28,19,17,24,21,6,10,22,0,0];
 var RF_WAL_VAL=[0,2034.05,8290.10,5779.40,6053.85,5622.30,6740.80,1593.80,2402.40,5511.50,0,0];
+/* Stessa cosa dal lato Salesforce: anche una vendita offline puo' essere pagata col credito.
+   Sta in array separate perche' le due fonti hanno regole di copertura diverse (Shopify vede
+   solo ~60 giorni, Salesforce tutto l'anno) e sommarle in una sola si pesterebbero a vicenda.
+   Ottobre: il rintraccio inverso 3890568201, 40,00, pagato col wallet - accertato il 02/11. */
+var RF_WAL_SF_ORD=[0,0,0,0,0,0,0,0,0,1,0,0];
+var RF_WAL_SF_VAL=[0,0,0,0,0,0,0,0,0,40,0,0];
 // Budget mensile: Gen..Giu dal Forecast originale, Lug..Dic dal Reforecast RF (scenario NORMAL)
 var RF_BUD_ONLINE =[27923.29, 33906.85, 34704.66, 35901.37, 41087.12, 35901.37, 27219, 17288, 31300, 35459, 39828, 22468];
 var RF_BUD_OFFLINE=[3926.71,  4768.15,  5299.19,  5048.63,  5777.88,  5048.63,  1897,  1200,  2158,  2296,  2841,  1530];
@@ -2996,7 +3002,7 @@ function renderRF(){
     body+=line("Partner in attesa",{real:partP,indent:true,noDelta:true});
   }
   // ordini pagati col credito wallet: fuori dal fatturato, l'incasso e' gia' nei Partner come ricarica
-  var walO=RF_WAL_ORD[i]||0, walV=RF_WAL_VAL[i]||0;
+  var walO=(RF_WAL_ORD[i]||0)+(RF_WAL_SF_ORD[i]||0), walV=(RF_WAL_VAL[i]||0)+(RF_WAL_SF_VAL[i]||0);
   body+=line("N ordini pagati con Wallet",{real:(walO?walO:null),fmt:"num",noDelta:true,sep:true,sub:"credito wallet che copre l&rsquo;intero ordine"});
   body+=line("Valore ordini pagati con Wallet",{real:(walV?walV:null),noDelta:true,sub:"valore prima dello sconto &middot; fuori dal fatturato, la ricarica &egrave; gi&agrave; nei Partner"});
   body+='</tbody>';
@@ -3271,27 +3277,33 @@ function renderRFAndamento(){
     body+=row("Offline in attesa",function(m){return A.offlineP[m];},{style:ps,tdstyle:pts});
     body+=row("Partner in attesa",function(m){return A.partnerP[m];},{style:ps,tdstyle:pts});
   }
-  body+=row("N ordini pagati con Wallet",function(m){return RF_WAL_ORD[m]||null;},{num:true,sep:true,style:"color:var(--muted)",tdstyle:"color:var(--muted)"});
-  body+=row("Valore ordini pagati con Wallet",function(m){return RF_WAL_VAL[m]||null;},{style:"color:var(--muted)",tdstyle:"color:var(--muted)"});
+  body+=row("N ordini pagati con Wallet",function(m){return ((RF_WAL_ORD[m]||0)+(RF_WAL_SF_ORD[m]||0))||null;},{num:true,sep:true,style:"color:var(--muted)",tdstyle:"color:var(--muted)"});
+  body+=row("Valore ordini pagati con Wallet",function(m){return ((RF_WAL_VAL[m]||0)+(RF_WAL_SF_VAL[m]||0))||null;},{style:"color:var(--muted)",tdstyle:"color:var(--muted)"});
   body+='</tbody>';
   el.innerHTML=head+body;
   var pr=el.querySelector(".rfpend-row"); if(pr){var tg=function(){rfPendExp=!rfPendExp;renderRFAndamento();}; pr.addEventListener("click",tg); pr.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();tg();}});}
 }
 /* ===== ANDAMENTO BOOKLET RF: dati manuali ufficiali dal Google Sheet "KPI Full Funnel RF" =====
    Valori ACTUAL mese su mese (Gen..Ago disponibili; Set..Dic da compilare). Fonte: booklet, sezione Ecomm/Ecomm+SALES. */
+/* Ottobre 2026 non arriva dal foglio ma dalla CONTABILITA': registro account.move chiuso il
+   02/11/2026 (fatturato) e fatture ADV di Ottobre (speso, fee 2,5% inclusa). Riconciliato riga
+   per riga con Shopify e Salesforce. Spontaneo/Gestito restano vuoti: quello split la
+   contabilita' non ce l'ha e la stima live sta gia' nella tabella sopra.
+   Attenzione: ordTot segue la convenzione del booklet, online + offline SENZA i partner
+   (150 = 128 + 22), mentre finance conta 152 includendoli. */
 var RF_BOOKLET={
-  online:   [23931.8,22378.21,25410.52,25218.31,27538.67,25776.6,23968.2,5390.46,null,null,null,null],
-  offline:  [5488.3,4599.1,3843.0,1600.83,782.0,1308.55,3137.5,825.3,null,null,null,null],
-  partner:  [2000,2000,2000,0,4000,0,1000,2000,null,null,null,null],
-  totale:   [31420.1,28977.31,31253.52,26819.14,32320.67,27085.15,28105.7,8215.76,null,null,null,null],
-  ordOnline:[127,113,134,121,139,134,121,40,null,null,null,null],
-  ordOffline:[13,13,11,11,6,12,19,7,null,null,null,null],
-  ordTot:   [141,127,146,132,145,146,140,47,null,null,null,null],
-  aov:      [181.29,212.42,200.37,203.18,195.31,185.51,193.61,132.25,null,null,null,null],
+  online:   [23931.8,22378.21,25410.52,25218.31,27538.67,25776.6,23968.2,5390.46,null,21777.80,null,null],
+  offline:  [5488.3,4599.1,3843.0,1600.83,782.0,1308.55,3137.5,825.3,null,8714.52,null,null],
+  partner:  [2000,2000,2000,0,4000,0,1000,2000,null,2000,null,null],
+  totale:   [31420.1,28977.31,31253.52,26819.14,32320.67,27085.15,28105.7,8215.76,null,32492.32,null,null],
+  ordOnline:[127,113,134,121,139,134,121,40,null,128,null,null],
+  ordOffline:[13,13,11,11,6,12,19,7,null,22,null,null],
+  ordTot:   [141,127,146,132,145,146,140,47,null,150,null,null],
+  aov:      [181.29,212.42,200.37,203.18,195.31,185.51,193.61,132.25,null,203.28,null,null],
   spontaneo:[2979.55,10723.21,11424.64,17906.77,19669.13,17562.05,15297.15,4466.02,null,null,null,null],
   gestito:  [20952.25,11655.0,13985.88,7311.54,7869.54,8214.55,8671.05,924.44,null,null,null,null],
-  adv:      [7407.30,7695.44,9204.45,8068.91,6761.16,6739.14,7646.19,5092.05,null,null,null,null], // Investimento ads Actual (booklet)
-  merTot:   [424.18,376.55,339.55,332.38,478.03,401.91,367.58,161.34,null,null,null,null]
+  adv:      [7407.30,7695.44,9204.45,8068.91,6761.16,6739.14,7646.19,5092.05,null,9354.74,null,null], // Investimento ads Actual (booklet)
+  merTot:   [424.18,376.55,339.55,332.38,478.03,401.91,367.58,161.34,null,347.34,null,null]
 };
 function renderRFBooklet(){
   var el=document.getElementById("rfBookTable"); if(!el)return; var B=RF_BOOKLET;
@@ -4195,7 +4207,7 @@ async function doRefreshRFAPI(){
     st("RF &middot; caricamento da backend (Salesforce + ADV)...");
     var r=await fetch("api/rf",{headers:{Accept:"application/json"}}); var d=await r.json().catch(function(){return null;});
     if(!r.ok||!d||d.error)throw new Error((d&&d.error)||("Backend/Salesforce non disponibile (HTTP "+r.status+") &middot; riprova tra poco"));
-    if(d.sf){var s=d.sf; for(var i=0;i<12;i++){ if(s.offline)RF_OFFLINE[i]=s.offline[i]||0; if(s.partner)RF_PARTNER[i]=s.partner[i]||0; if(s.ordOffline)RF_ORD_OFFLINE[i]=s.ordOffline[i]||0; if(s.ordPartner)RF_ORD_PARTNER[i]=s.ordPartner[i]||0; if(s.offlineP)RF_OFFLINE_PEND[i]=s.offlineP[i]||0; if(s.partnerP)RF_PARTNER_PEND[i]=s.partnerP[i]||0; } }
+    if(d.sf){var s=d.sf; for(var i=0;i<12;i++){ if(s.offline)RF_OFFLINE[i]=s.offline[i]||0; if(s.partner)RF_PARTNER[i]=s.partner[i]||0; if(s.ordOffline)RF_ORD_OFFLINE[i]=s.ordOffline[i]||0; if(s.ordPartner)RF_ORD_PARTNER[i]=s.ordPartner[i]||0; if(s.offlineP)RF_OFFLINE_PEND[i]=s.offlineP[i]||0; if(s.partnerP)RF_PARTNER_PEND[i]=s.partnerP[i]||0; if(s.walOrd)RF_WAL_SF_ORD[i]=s.walOrd[i]||0; if(s.walVal)RF_WAL_SF_VAL[i]=s.walVal[i]||0; } }
     var shOk=(d.shopify && !d.shopify.error);
     // Shopify (scope read_orders senza read_all_orders) vede solo ~60 giorni: aggiorna i mesi COPERTI, tiene i seed sugli altri
     var _now=new Date(), _cut=_now.getTime()-60*864e5, _yr=_now.getFullYear();

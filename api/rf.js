@@ -65,15 +65,37 @@ export default async function handler(req, res) {
    questo, Settembre resterebbe 396,00 sotto il consuntivo confermato (18 ordini offline per
    6.891,14) e Ottobre li conterebbe una seconda volta. */
 const MESE_CONTABILE = { '006Mf00000YnKN0IAN': 9 };
+/* Rettifiche su singole opportunity, accertate riga per riga con la contabilita' (02/11/2026,
+   registro account.move di Ottobre). Qui entra solo cio' che e' stato verificato, con il motivo:
+   non e' un posto per far quadrare i totali a mano. Ogni voce va via quando Salesforce viene
+   corretta. Nessuna di queste tocca la regola Partner/Offline, che resta quella di ePartner.
+   006Mf00000aPzbRIAS - Holdmar: l'opportunity porta 2.000, ma 299 di quei 2.000 sono l'indagine
+     che il cliente aveva gia' comprato e pagato sul negozio il giorno prima (ordine #17104,
+     incassato il 21/10) e che gli e' stata scalata dal partner. A 2.000 quei 299 si contano due
+     volte, una da Shopify e una da qui. Il partner vale 1.701, come le due fatture (1.701 + 299).
+   006Mf00000aidIfIAI - Cammarota: imponibile accertato 77,75, in Salesforce e' rimasto 77,60.
+   006Mf00000Zdn1WIAR - rintraccio inverso 3890568201: pagato col credito wallet, percio' non e'
+     stata emessa fattura. Giusto: l'incasso era gia' stato contato quando il cliente ha
+     ricaricato. Non e' fatturato nuovo, quindi esce dall'Offline e va nelle righe wallet. */
+const RETTIFICHE = {
+  '006Mf00000aPzbRIAS': { amount: 1701 },
+  '006Mf00000aidIfIAI': { amount: 77.75 },
+  '006Mf00000Zdn1WIAR': { wallet: true }
+};
     const offline = new Array(12).fill(0), partner = new Array(12).fill(0), ordOffline = new Array(12).fill(0), ordPartner = new Array(12).fill(0);
     const offlineP = new Array(12).fill(0), partnerP = new Array(12).fill(0);
+    const walOrd = new Array(12).fill(0), walVal = new Array(12).fill(0);
     const orders = [];
     vinti.forEach((r) => {
-      const am = r.Amount == null ? 0 : +r.Amount;
+      const ret = RETTIFICHE[r.Id] || {};
+      const am = ret.amount != null ? ret.amount : (r.Amount == null ? 0 : +r.Amount);
       const m = MESE_CONTABILE[r.Id] || monthOf(r.Data_Chiusa_Vinta__c);
       if (m < 1 || m > 12) return;
+      const riga = { m, n: r.Name || '(opportunity RF)', nome: r.ContactName__c || '', email: r.ContactEmail__c || '', dpag: String(r.Data_Chiusa_Vinta__c || '').slice(0, 10), net: am, st: 'Pagato', sr: 'Salesforce' };
+      // pagato col credito wallet: fuori dal fatturato, conteggiato a parte col suo valore
+      if (ret.wallet) { walOrd[m - 1]++; walVal[m - 1] += am; riga.st = 'Wallet'; orders.push(riga); return; }
       if (ePartner(r.Name, am)) { partner[m - 1] += am; ordPartner[m - 1]++; } else { offline[m - 1] += am; ordOffline[m - 1]++; }
-      orders.push({ m, n: r.Name || '(opportunity RF)', nome: r.ContactName__c || '', email: r.ContactEmail__c || '', dpag: String(r.Data_Chiusa_Vinta__c || '').slice(0, 10), net: am, st: 'Pagato', sr: 'Salesforce' });
+      orders.push(riga);
     });
     pend.forEach((r) => {
       const am = r.Amount == null ? 0 : +r.Amount, m = monthOf(r.CloseDate);
@@ -92,7 +114,7 @@ const MESE_CONTABILE = { '006Mf00000YnKN0IAN': 9 };
 
     res.status(200).json({
       year: Y,
-      sf: { offline, partner, ordOffline, ordPartner, offlineP, partnerP, orders },
+      sf: { offline, partner, ordOffline, ordPartner, offlineP, partnerP, walOrd, walVal, orders },
       adspend,
       prevAdv,
       shopify
