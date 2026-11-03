@@ -1,0 +1,200 @@
+<!doctype html><html lang="it"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Hub Incassi Intelligenti</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+:root{
+  --bg:#F6F8FB; --surface:#FFFFFF; --ink:#0F1729; --muted:#4A5568; --line:#DFE2E7; --soft:#EEF3F9;
+  --brand:#0E1B33; --brandInk:#FFFFFF; --kicker:#1057A4; --link:#1057A4; --warn:#8A4B00; --warnBg:#FFF1DC;
+  --display:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A1428; --surface:#0E1B33; --ink:#F6F8FB; --muted:#C9D6EA; --line:#24395E; --soft:#16294A;
+  --brand:#0A1428; --brandInk:#F6F8FB; --kicker:#2CD3CE; --link:#8DBBF3; --warn:#FFC977; --warnBg:#3A2A10; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A1428; --surface:#0E1B33; --ink:#F6F8FB; --muted:#C9D6EA; --line:#24395E; --soft:#16294A;
+  --brand:#0A1428; --brandInk:#F6F8FB; --kicker:#2CD3CE; --link:#8DBBF3; --warn:#FFC977; --warnBg:#3A2A10; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+img{max-width:100%}
+[hidden]{display:none!important}
+.inner{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{background:var(--brand);color:var(--brandInk)}
+.top .inner{padding-block:28px 0;display:flex;flex-direction:column;gap:14px}
+.brandline{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:13px;font-weight:600}
+.lockup{display:flex;align-items:center;gap:14px;width:max-content;max-width:100%}
+.lockup .plate{background:#fff;border-radius:10px;padding:8px 12px;display:flex}
+.lockup .plate img{display:block;width:209px;height:30px;object-fit:contain}
+.lockup .sep{width:1px;align-self:stretch;background:#24395E}
+.lockup .pw{display:flex;flex-direction:column;font-size:12px;color:#C9D6EA;line-height:1.2}
+.lockup .pw img{display:block;width:77px;height:36px;object-fit:contain}
+@media (max-width:420px){.lockup .plate img{width:160px;height:23px}}
+h1{margin:0;font-family:var(--display);letter-spacing:-0.02em;font-size:clamp(28px,4.4vw,42px);line-height:1.1;text-wrap:balance}
+.intro{margin:0;max-width:64ch;opacity:.9}
+.allbtn{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.allbtn a{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:14.5px;min-height:44px;padding:0 18px;
+ border-radius:11px;text-decoration:none;background:#fff;color:#0E1B33;border:1px solid transparent}
+.allbtn a:hover{border-color:#0ABAB5}
+.allbtn .zsize{font-size:12.5px;font-weight:600;color:#C9D6EA}
+.stripe{display:flex;height:5px}.stripe i{flex:1}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tabs button{font:inherit;font-weight:800;font-size:15px;cursor:pointer;border:0;border-radius:12px 12px 0 0;padding:14px 22px;min-height:48px;background:transparent;color:var(--brandInk);opacity:.75;display:flex;flex-direction:column;align-items:flex-start;text-align:left}
+.tabs button span{font-size:12px;font-weight:600}
+.tabs button[aria-selected="true"]{background:var(--bg);color:var(--ink);opacity:1}
+.tabs button:focus-visible,a:focus-visible{outline:3px solid var(--link);outline-offset:2px}
+main .inner{padding-block:28px 48px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
+.groups{display:flex;flex-direction:column;gap:28px;min-width:0}
+.group{display:flex;flex-direction:column;gap:10px}
+.group h2{margin:0;font-family:var(--display);font-size:21px;color:var(--ink)}
+.group .gd{margin:0;color:var(--muted);font-size:14px}
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.item{display:flex;flex-direction:column;gap:6px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;min-width:0;transition:border-color .15s}
+.item:hover,.item:focus-within{border-color:var(--link)}
+.item .k{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.item .t{font-weight:800;font-size:15.5px;color:var(--link);text-decoration:none}
+.item .t:hover{text-decoration:underline}
+.item .d{font-size:13.5px;color:var(--muted)}
+.item .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:8px}
+.item .acts a{font-size:12.5px;font-weight:700;text-decoration:none;color:var(--ink);border:1px solid var(--line);
+ border-radius:8px;min-height:32px;padding:0 10px;display:inline-flex;align-items:center;gap:5px}
+.item .acts a:hover{border-color:var(--link);color:var(--link)}
+.tag{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--warnBg);color:var(--warn)}
+.rail{display:flex;flex-direction:column;gap:16px;min-width:0}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.box h3{margin:0;font-family:var(--display);font-size:17px}
+.box ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:800}
+td.r,th.r{text-align:right}
+.note{font-size:12.5px;color:var(--muted)}
+.media{display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.media video{width:100%;max-width:100%;border-radius:10px;display:block;background:var(--soft)}
+.media .acts{display:flex;flex-wrap:wrap;gap:8px}
+.media .acts a{font-size:12.5px;font-weight:700;text-decoration:none;color:var(--ink);border:1px solid var(--line);
+ border-radius:8px;min-height:32px;padding:0 10px;display:inline-flex;align-items:center}
+.media .acts a:hover{border-color:var(--link);color:var(--link)}
+.foot{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px;margin-top:8px}
+@media (prefers-reduced-motion: reduce){.item{transition:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="inner">
+    <div class="brandline">
+      <div class="lockup">
+        <span class="plate"><img src="assets/img/logo-incassi-intelligenti.png" alt="Incassi Intelligenti" width="209" height="30"></span>
+        <span class="sep"></span>
+        <span class="pw">powered by<img src="assets/img/logo-irec.png" alt="Irec" width="77" height="36"></span>
+      </div>
+      <span style="align-self:center">Materiali di lancio &#183; aggiornati al 3 novembre 2026</span>
+    </div>
+    <h1>Tutti i materiali di Incassi Intelligenti</h1>
+    <p class="intro">Un solo punto di accesso per marketing e vendite. Scegli la tua area: ogni voce apre il documento, la presentazione o lo strumento aggiornato.</p>
+    <div class="allbtn"><a href="download/Incassi-Intelligenti-tutti-i-materiali.zip" download>↓ Scarica tutto (ZIP)</a><span class="zsize">1.9 MB · presentazioni, one-pager, landing, calcolatore, documenti, video e immagini</span></div>
+    <div class="tabs" role="tablist" aria-label="Area">
+      <button role="tab" id="t-mkt" aria-controls="mkt" aria-selected="true" type="button">Marketing<span>strategia, landing, comunicazione</span></button>
+      <button role="tab" id="t-sales" aria-controls="sales" aria-selected="false" type="button">Sales<span>presentazioni, kit, onboarding</span></button>
+    </div>
+  </div>
+  <div class="stripe" aria-hidden="true"><i style="background:linear-gradient(90deg,#1057A4,#0ABAB5)"></i></div>
+</header>
+
+<main><div class="inner">
+
+<section id="mkt" role="tabpanel" aria-labelledby="t-mkt">
+  <div class="cols">
+    <div class="groups"><div class="group"><h2>Strategia e posizionamento</h2><p class="gd">Le basi da cui partono tutti gli altri materiali.</p><div class="list"><div class="item"><span class="k">Documento</span><a class="t" href="documenti/business-model-overview.html">Business Model Overview</a><span class="d">Target, value proposition, piani, funnel e numeri del modello. Tre schede: panoramica, schermate, copy della landing.</span><span class="acts"><a href="documenti/business-model-overview.html">Apri</a><a href="download/business-model-overview.md" download>Scarica .md (3 file)</a></span></div><div class="item"><span class="k">Documento <span class="tag">Interno</span></span><a class="t" href="documenti/mappatura-competitor.html">Mappatura competitor Italia</a><span class="d">Concorrenti per categoria, prezzi e punti deboli. Nomi reali: non va ai clienti.</span><span class="acts"><a href="documenti/mappatura-competitor.html">Apri</a><a href="download/mappatura-competitor.md" download>Scarica .md</a></span></div><div class="item"><span class="k">Documento</span><a class="t" href="documenti/prezzo-fattura-extra.html">Prezzo della fattura extra</a><span class="d">Analisi e proposta validata: 1,50 € Entry, 1,20 € Value, 0,80 € Premium.</span><span class="acts"><a href="documenti/prezzo-fattura-extra.html">Apri</a><a href="download/prezzo-fattura-extra.md" download>Scarica .md</a></span></div></div></div><div class="group"><h2>Landing page</h2><p class="gd">Il design e i testi, separati per chi lavora su grafica o copy.</p><div class="list"><div class="item"><span class="k">Design</span><a class="t" href="landing/landing.html">Landing page Incassi Intelligenti</a><span class="d">Hero, problema, come funziona, confronto, piani, FAQ e form di prova.</span><span class="acts"><a href="landing/landing.html">Apri</a></span></div><div class="item"><span class="k">Documento</span><a class="t" href="documenti/testi-landing-page.html">Testi della landing page</a><span class="d">Tutto il copy sezione per sezione, pronto per il sito.</span><span class="acts"><a href="documenti/testi-landing-page.html">Apri</a><a href="download/testi-landing-page.md" download>Scarica .md</a></span></div></div></div><div class="group"><h2>Contenuti per i canali</h2><p class="gd">Da usare in email, LinkedIn, sito e slide.</p><div class="media"><video src="assets/Demo-Incassi-Intelligenti.mp4" poster="assets/demo-poster.png" controls muted loop playsinline preload="metadata" aria-label="Mini demo della chat di Incassi Intelligenti"></video><div><b>Mini demo della chat</b> · 14 secondi, 5 passaggi: domanda, numeri, azione, conferma, esito. Esiste anche in GIF per email e LinkedIn.</div><div class="acts"><a href="assets/Demo-Incassi-Intelligenti.mp4" download>↓ Scarica il video (MP4)</a><a href="assets/demo-poster.png" download>↓ Scarica il poster (PNG)</a></div></div><div class="list"><div class="item"><span class="k">Design · A4</span><a class="t" href="one-pager/fronte.html">One-pager</a><span class="d">Fronte e retro: utile anche come allegato a newsletter ed eventi.</span><span class="acts"><a href="one-pager/fronte.html">Apri</a><a href="one-pager/retro.html">Retro</a></span></div><div class="item"><span class="k">Strumento</span><a class="t" href="calcolatore/index.html">Calcolatore dei vantaggi</a><span class="d">Lead magnet possibile per la landing: il prospect vede quanto vale il servizio per lui.</span><span class="acts"><a href="calcolatore/index.html">Apri</a></span></div></div></div></div>
+    <aside class="rail" aria-label="Regole di comunicazione">
+  <div class="box">
+    <h3>Regole di comunicazione</h3>
+    <ul>
+      <li>Prezzi sempre IVA esclusa.</li>
+      <li>Con i clienti i concorrenti restano anonimi (es. &#171;agente AI di sollecito&#187;).</li>
+      <li>Non scrivere &#171;disponibile anche su Allcore Mind&#187; nei materiali per i clienti.</li>
+      <li>Metti in primo piano il credit manager Irec e la solidit&#224; di Irec e del Gruppo Allcore.</li>
+      <li>Niente testimonianze o statistiche inventate: usa segnaposto finch&#233; non ci sono dati reali.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h3>I due titoli approvati</h3>
+    <div><b>Incassa prima. Senza inseguire nessuno.</b><div class="note">Titolo attivo di default.</div></div>
+    <div><b>Meno giorni per incassare, zero ore a sollecitare.</b><div class="note">Variante, presente in ogni presentazione.</div></div>
+  </div>
+</aside>
+  </div>
+</section>
+
+<section id="sales" role="tabpanel" aria-labelledby="t-sales" hidden>
+  <div class="cols">
+    <div class="groups"><div class="group"><h2>Presentazioni</h2><p class="gd">La versione madre e quattro versioni di settore, con la simulazione dei vantaggi e due copertine.</p><div class="list"><div class="item"><span class="k">Slide · madre</span><a class="t" href="presentazioni/presentazione-commerciale.html">Presentazione commerciale</a><span class="d">Per tutti i settori. Parti da qui se il cliente non rientra nei quattro sotto.</span><span class="acts"><a href="presentazioni/presentazione-commerciale.html">Apri</a></span></div><div class="item"><span class="k">Slide · settore</span><a class="t" href="presentazioni/horeca.html">Distributori Ho.Re.Ca.</a><span class="d">Bar, ristoranti e hotel. Piano consigliato: Value.</span><span class="acts"><a href="presentazioni/horeca.html">Apri</a></span></div><div class="item"><span class="k">Slide · settore</span><a class="t" href="presentazioni/edilizia.html">Fornitori dell&#x27;edilizia</a><span class="d">Imprese e installatori, importi alti. Piano consigliato: Premium.</span><span class="acts"><a href="presentazioni/edilizia.html">Apri</a></span></div><div class="item"><span class="k">Slide · settore</span><a class="t" href="presentazioni/servizi-b2b.html">Servizi B2B ricorrenti</a><span class="d">Canoni e abbonamenti tra aziende.</span><span class="acts"><a href="presentazioni/servizi-b2b.html">Apri</a></span></div><div class="item"><span class="k">Slide · settore</span><a class="t" href="presentazioni/gdo.html">Fornitori della GDO</a><span class="d">Produttori e fornitori della grande distribuzione.</span><span class="acts"><a href="presentazioni/gdo.html">Apri</a></span></div></div></div><div class="group"><h2>Prima, durante e dopo la call</h2><p class="gd">Nell&#x27;ordine in cui servono.</p><div class="list"><div class="item"><span class="k">Documento <span class="tag">Interno</span></span><a class="t" href="documenti/kit-vendita.html">Kit vendita</a><span class="d">Script della chiamata, 10 obiezioni, battlecard, demo in 10 minuti, calcolo vantaggi.</span><span class="acts"><a href="documenti/kit-vendita.html">Apri</a><a href="download/kit-vendita.md" download>Scarica .md</a></span></div><div class="item"><span class="k">Strumento</span><a class="t" href="calcolatore/index.html">Calcolatore dei vantaggi</a><span class="d">Inserisci i numeri del cliente in call e copia il riepilogo nella mail.</span><span class="acts"><a href="calcolatore/index.html">Apri</a></span></div><div class="item"><span class="k">Design · A4</span><a class="t" href="one-pager/fronte.html">One-pager</a><span class="d">Da lasciare dopo la call. Prima di inviarlo, inserisci i tuoi contatti.</span><span class="acts"><a href="one-pager/fronte.html">Apri</a><a href="one-pager/retro.html">Retro</a></span></div></div></div><div class="group"><h2>Dopo la firma</h2><p class="gd">Per accompagnare il cliente nel primo mese.</p><div class="list"><div class="item"><span class="k">Documento</span><a class="t" href="documenti/kit-onboarding.html">Kit onboarding e supporto</a><span class="d">Prime 10 domande all&#x27;agente, recapiti nel gestionale, lettura del report, FAQ di assistenza.</span><span class="acts"><a href="documenti/kit-onboarding.html">Apri</a><a href="download/kit-onboarding.md" download>Scarica .md</a></span></div></div></div></div>
+    <aside class="rail" aria-label="Riferimenti rapidi">
+  <div class="box">
+    <h3>Piani in breve</h3>
+    <div class="tbl">
+      <table>
+        <thead><tr><th></th><th class="r">Entry</th><th class="r">Value</th><th class="r">Premium</th></tr></thead>
+        <tbody>
+          <tr><td>Canone/mese</td><td class="r">49 &#8364;</td><td class="r">89 &#8364;</td><td class="r">149 &#8364;</td></tr>
+          <tr><td>Fatture incluse</td><td class="r">100</td><td class="r">200</td><td class="r">300</td></tr>
+          <tr><td>Fattura extra</td><td class="r">1,50 &#8364;</td><td class="r">1,20 &#8364;</td><td class="r">0,80 &#8364;</td></tr>
+          <tr><td>WhatsApp</td><td class="r">no</td><td class="r">s&#236;</td><td class="r">s&#236;</td></tr>
+          <tr><td>Chiamate del CM</td><td class="r">no</td><td class="r">no</td><td class="r">s&#236;</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">Su tutti i piani: 1% sugli importi effettivamente incassati. Prezzi IVA esclusa.</div>
+  </div>
+  <div class="box">
+    <h3>La prova</h3>
+    <ul>
+      <li>30 giorni a 0 &#8364; di canone, resta l'1% sull'incassato.</li>
+      <li>Carta o IBAN a garanzia; al 31&#176; giorno parte il piano scelto, salvo disdetta.</li>
+      <li>Ricontatto entro 48 ore dalla richiesta.</li>
+    </ul>
+  </div>
+  <div class="box">
+    <h3>Quale piano consigliare</h3>
+    <ul>
+      <li>Vuole gestirlo da solo: <b>Value</b>.</li>
+      <li>Vuole supporto o delegare: <b>Premium</b>.</li>
+      <li>Entry: non si propone in prima battuta.</li>
+    </ul>
+  </div>
+</aside>
+  </div>
+</section>
+
+<p class="foot">Le voci segnate &#171;Interno&#187; contengono nomi di concorrenti o note per il commerciale: non inoltrarle ai clienti. Per avere accesso a un materiale, chiedi al team Marketing.</p>
+</div></main>
+
+<script>
+(function(){
+  var tabs={mkt:document.getElementById("t-mkt"),sales:document.getElementById("t-sales")};
+  function show(k,focus){
+    Object.keys(tabs).forEach(function(x){
+      var on=x===k; tabs[x].setAttribute("aria-selected",String(on)); tabs[x].tabIndex=on?0:-1;
+      document.getElementById(x).hidden=!on;
+    });
+    if(focus)tabs[k].focus();
+    try{localStorage.setItem("ii-hub-tab",k)}catch(e){}
+    try{history.replaceState(null,"","#"+k)}catch(e){}
+  }
+  tabs.mkt.addEventListener("click",function(){show("mkt")});
+  tabs.sales.addEventListener("click",function(){show("sales")});
+  document.querySelector('[role="tablist"]').addEventListener("keydown",function(e){
+    if(e.key==="ArrowRight"||e.key==="ArrowLeft"){e.preventDefault();show(tabs.mkt.getAttribute("aria-selected")==="true"?"sales":"mkt",true)}
+  });
+  var h=(location.hash||"").replace("#",""),saved=null;
+  try{saved=localStorage.getItem("ii-hub-tab")}catch(e){}
+  show(h==="sales"||h==="mkt"?h:(saved==="sales"?"sales":"mkt"));
+})();
+</script>
+</body></html>

@@ -1,0 +1,186 @@
+<!doctype html><html lang="it"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>One-pager retro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+#board{margin:0;background:#ffffff}
+a{color:#1057A4}a:hover{color:#0B3F78}
+</style>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#E7EBF2;display:flex;flex-direction:column;min-height:100vh;
+ font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif}
+#sizer{margin:0 auto;flex:none}
+#board{transform-origin:0 0}
+#wrap{flex:1;overflow:auto;padding:24px 16px 40px;display:flex;justify-content:center;align-items:flex-start}
+#bar{position:sticky;top:0;z-index:5;background:#0E1B33;color:#F6F8FB;border-bottom:1px solid #24395E;
+ display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:14px;flex-wrap:wrap;
+ padding-top:calc(10px + env(safe-area-inset-top,0px))}
+#bar a.btn,#bar button{font:inherit;font-weight:700;color:#F6F8FB;background:transparent;border:1px solid #24395E;
+ border-radius:9px;min-height:36px;padding:0 12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+#bar a.btn:hover,#bar button:hover{border-color:#8DBBF3}
+#bar a.btn[aria-current="page"]{background:#16294A;border-color:#8DBBF3}
+#bar .sp{flex:1}
+#bar .ttl{font-weight:800}
+@media print{
+  body{background:#fff}
+  #bar{display:none}
+  #wrap{padding:0;overflow:visible;display:block}
+  #sizer{width:auto!important;height:auto!important;margin:0}
+  #board{transform:none!important;margin:0}
+  @page{margin:0}
+}
+@media print{@page{size:A4 portrait;margin:0}}
+#board{width:794px;min-height:1123px}
+</style>
+</head>
+<body>
+<div id="bar">
+  <a class="btn" href="../index.html">&#8592; Hub</a>
+  <span class="ttl">One-pager retro</span>
+  <a class="btn" href="fronte.html">Fronte</a><a class="btn" href="retro.html" aria-current="page">Retro</a>
+  <span class="sp"></span>
+  <button id="bz" type="button" aria-pressed="true" title="Adatta alla finestra">Adatta</button>
+  <button id="bprint" type="button" title="Stampa o salva in PDF">PDF</button>
+</div>
+<div id="wrap"><div id="sizer"><div id="board">
+<div style="width: 794px; height: 1123px; box-sizing: border-box; padding: 40px 48px 36px; display: flex; flex-direction: column; gap: 18px; background: #ffffff; font-family: 'Inter', sans-serif; color: #0F1729; overflow: hidden">
+
+<div style="display: flex; justify-content: space-between; align-items: center">
+<img src="../assets/img/logo-incassi-intelligenti.png" alt="Incassi Intelligenti" style="display: block; width: 223px; height: 32px; object-fit: contain">
+<div style="font-size: 12px; font-weight: 700; color: #1057A4; letter-spacing: 0.14em; text-transform: uppercase">Gruppo Allcore</div>
+</div>
+
+<div style="height: 5px; border-radius: 3px; background: linear-gradient(90deg, #1057A4, #0ABAB5)"></div>
+
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #1057A4">I piani</div>
+<h1 style="margin: 0; font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 700; font-size: 34px; line-height: 1.1; color: #0E1B33">Tre piani, 30 giorni senza canone</h1>
+</div>
+
+<table style="width: 100%; border-collapse: collapse; font-size: 12.5px; line-height: 1.35">
+<thead>
+<tr>
+<th style="text-align: left; padding: 10px 10px; border-bottom: 2px solid #0E1B33; width: 28%"></th>
+<th style="text-align: left; padding: 10px 10px; border-bottom: 2px solid #0E1B33; font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-size: 17px; color: #0E1B33">Entry</th>
+<th style="text-align: left; padding: 10px 10px; border-bottom: 2px solid #0E1B33; background: #F6F8FB; border-radius: 10px 10px 0 0">
+<div style="font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-size: 17px; color: #0E1B33">Value</div>
+<div style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #1057A4; margin-top: 2px">Il più scelto</div>
+</th>
+<th style="text-align: left; padding: 10px 10px; border-bottom: 2px solid #0E1B33; font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-size: 17px; color: #0E1B33">Premium</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; font-weight: 700">Canone mensile</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7"><span style="font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 700; font-size: 20px; color: #0F1729">49 €</span></td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; background: #F6F8FB"><span style="font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 700; font-size: 20px; color: #0F1729">89 €</span></td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7"><span style="font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 700; font-size: 20px; color: #0F1729">149 €</span></td>
+</tr>
+<tr>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; font-weight: 700">Commissione</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7" colspan="3">1% solo sugli importi effettivamente incassati, uguale su tutti i piani</td>
+</tr>
+<tr>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; font-weight: 700">Fatture incluse al mese</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">fino a 100</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; background: #F6F8FB">fino a 200</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">fino a 300</td>
+</tr>
+<tr>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; font-weight: 700">Fattura oltre il piano</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">1,50 €</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; background: #F6F8FB">1,20 €</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">0,80 €</td>
+</tr>
+<tr>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; font-weight: 700">Canali</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">Email, PEC</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; background: #F6F8FB">+ WhatsApp</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">+ chiamata del credit manager</td>
+</tr>
+<tr>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; font-weight: 700">Flusso di sollecito</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">Standard Irec</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; background: #F6F8FB">Personalizzato</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">Personalizzato, con tono e firma</td>
+</tr>
+<tr>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; font-weight: 700">Credit manager Irec</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">Configura con te</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7; background: #F6F8FB">Configura e personalizza</td>
+<td style="padding: 9px 10px; border-bottom: 1px solid #DFE2E7">Dedicato</td>
+</tr>
+</tbody>
+</table>
+<div style="font-size: 11.5px; line-height: 1.45; color: #5B6576; margin-top: -8px">Su tutti i piani: chat con l'agente 24/7, report mensile, passaggio al recupero crediti Irec. Prezzi IVA esclusa.</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px">
+<div style="border: 1px solid #DFE2E7; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 600; font-size: 19px; color: #0E1B33">Perché Incassi Intelligenti</h2>
+<div style="font-size: 12.5px; line-height: 1.45; color: #4A5568">Software, persone e recupero crediti in un unico servizio.</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1057A4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M4 12l5 5L20 6"></path></svg><span>Fatture lette in automatico dal cassetto fiscale</span></div>
+<div style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1057A4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M4 12l5 5L20 6"></path></svg><span>Risponde ai tuoi clienti, non manda solo promemoria</span></div>
+<div style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1057A4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M4 12l5 5L20 6"></path></svg><span>Un credit manager umano sempre raggiungibile</span></div>
+<div style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1057A4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px"><path d="M4 12l5 5L20 6"></path></svg><span>Recupero crediti e studio legale interni</span></div>
+</div>
+</div>
+<div style="background: #F6F8FB; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 600; font-size: 19px; color: #0E1B33">Come si parte</h2>
+<div style="display: flex; gap: 10px; align-items: flex-start">
+<div style="flex: none; width: 24px; height: 24px; border-radius: 12px; background: #0E1B33; color: #ffffff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center">1</div>
+<div style="font-size: 13px; line-height: 1.4"><b>Richiedi la prova.</b> Ti richiamiamo entro 48 ore.</div>
+</div>
+<div style="display: flex; gap: 10px; align-items: flex-start">
+<div style="flex: none; width: 24px; height: 24px; border-radius: 12px; background: #0E1B33; color: #ffffff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center">2</div>
+<div style="font-size: 13px; line-height: 1.4"><b>Attivi in chat</b> con il consulente Irec: delega del cassetto fiscale e collegamento dei conti, una volta sola.</div>
+</div>
+<div style="display: flex; gap: 10px; align-items: flex-start">
+<div style="flex: none; width: 24px; height: 24px; border-radius: 12px; background: #0E1B33; color: #ffffff; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center">3</div>
+<div style="font-size: 13px; line-height: 1.4"><b>30 giorni senza canone.</b> Paghi solo l'1% di quello che incassi. Al 31° giorno parte il piano scelto, salvo disdetta.</div>
+</div>
+</div>
+</div>
+
+<div style="background: #0E1B33; border-radius: 16px; padding: 22px 24px; display: flex; gap: 22px; align-items: center; color: #ffffff">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 8px">
+<div style="font-family: 'Inter', sans-serif; letter-spacing: -0.02em; font-weight: 700; font-size: 24px; line-height: 1.15">Provalo sulle tue fatture</div>
+<div style="font-size: 13px; line-height: 1.45; color: #C9D6EA">Le tue fatture stanno già scadendo. Vediamo quante rientrano in 30 giorni.</div>
+<div style="display: flex; flex-direction: column; gap: 3px; font-size: 13px; margin-top: 4px">
+<div><b>[Nome e cognome]</b> · [Ruolo], Irec</div>
+<div>[Telefono] · [email]@irec.it</div>
+<div style="color: #2CD3CE; font-weight: 700">[URL breve della landing page]</div>
+</div>
+</div>
+<div style="flex: none; width: 112px; height: 112px; border-radius: 10px; background: #ffffff; color: #5B6576; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px; box-sizing: border-box">[QR code alla landing page]</div>
+</div>
+
+<div style="margin-top: auto"></div><div style="margin: 0 -48px -36px; background: #0A1428; padding: 14px 48px; display: flex; align-items: center; justify-content: space-between; gap: 16px"><div style="display: flex; align-items: center; gap: 18px"><div style="background: #FFFFFF; border-radius: 12px; height: 40px; padding: 0 16px; display: flex; align-items: center"><img src="../assets/img/logo-incassi-intelligenti.png" alt="Incassi Intelligenti" style="display: block; width: 167px; height: 24px; object-fit: contain"></div><div style="width: 1px; align-self: stretch; background: #24395E"></div><div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 10px; color: #C9D6EA; white-space: nowrap">powered by</span><img src="../assets/img/logo-irec.png" alt="Irec" style="display: block; width: 54px; height: 25px; object-fit: contain"></div></div><div style="font-size: 10px; line-height: 1.4; color: #C9D6EA; text-align: right; max-width: 400px">Prova: 30 giorni senza canone, con l'1% sugli importi effettivamente incassati. Carta o IBAN a garanzia. Tutti i prezzi sono IVA esclusa. Incassi Intelligenti è un servizio Irec, parte del Gruppo Allcore S.p.A.</div></div>
+
+</div>
+</div></div></div>
+<script>
+(function(){
+  var W=794, board=document.getElementById('board'), sizer=document.getElementById('sizer'),
+      wrap=document.getElementById('wrap'), bz=document.getElementById('bz'), fitOn=true;
+  function fit(){
+    var h=board.offsetHeight;
+    if(!fitOn){board.style.transform='none';sizer.style.width=W+'px';sizer.style.height=h+'px';return}
+    var k=Math.min(1,(wrap.clientWidth-32)/W);
+    board.style.transform='scale('+k+')';
+    sizer.style.width=(W*k)+'px';
+    sizer.style.height=(h*k)+'px';
+  }
+  bz.onclick=function(){fitOn=!fitOn;bz.setAttribute('aria-pressed',String(fitOn));fit()};
+  document.getElementById('bprint').onclick=function(){window.print()};
+  addEventListener('resize',fit);
+  addEventListener('load',fit);
+  fit();
+})();
+</script>
+</body></html>
