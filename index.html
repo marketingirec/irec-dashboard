@@ -1027,6 +1027,64 @@ var SPESA_BUD_GOOGLE = [null,null,null,null,null,null,1940,1100,1970,2555,2555,1
 var IREC_META_REAL = [12074.23,12137.32,16678.69,12244.71,15365.41,12493.88,13715.76,9463.02,13721.69,null,null,null];
 // Google Ads IREC (account Irec-Allcore 716-426-7762), live via API. Spesa ADV real IREC = Meta + Google.
 var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,305.3,1690.12,null,null,null];
+/* ---- Meta per finalita' (le righe "di cui" sotto Meta) -------------------------
+   Ogni campagna di Gestione inserzioni e' classificata dal nome in una finalita':
+   Lead Gen / Promo prodotto (acquisizione diretta), Awareness (TOFU, traffico, content
+   blog), Webinar, Eventi, Fee agenzia (il 2,5% che l'agenzia aggiunge in fattura: compare
+   da luglio), Altro (PDF/ebook e campagne non classificabili).
+   Qui sotto c'e' la spesa classificata mese per mese, al netto della frode rimborsata di
+   giugno: cinque voci, [Lead Gen/Promo, Awareness, Webinar, Eventi, Altro]. La fee NON e'
+   in tabella perche' non e' una campagna: e' il 2,5% che l'agenzia aggiunge in fattura, e
+   quindi e' esattamente quanto il totale Meta mostrato supera la spesa delle campagne -
+   metaDiCui() la ricava da solo come scarto, e resta giusta anche quando il totale cambia.
+   Il totale della riga padre non e' una costante (API live, fattura, e su RF la dashboard
+   legge solo l'account nuovo mentre il booklet somma anche il vecchio): se e' piu' basso
+   della spesa classificata, le voci si riducono in proporzione. In ogni caso i "di cui"
+   sommano al centesimo alla riga Meta sopra, qualunque numero mostri. */
+var META_DICUI_LAB_IREC = ["Lead Gen","Awareness","Webinar","Eventi","Fee agenzia","Altro"];
+var META_DICUI_LAB_RF   = ["Promo prodotto","Awareness","Webinar","Eventi","Fee agenzia","Altro"];
+var META_DICUI_IREC = [
+  [11611.61,0,0,0,462.62],
+  [10851.36,222.04,1041.88,0,22.04],
+  [11770.38,0,746.55,3742.67,419.09],
+  [10992.81,677.54,0,574.36,0],
+  [11688.91,930.41,1063.76,1682.33,0],
+  [11067.09,892.03,534.76,0,0],
+  [12798.36,917.4,0,0,0],
+  [9463.02,0,0,0,0],
+  [12703.46,0,684.24,0,0],
+  [15553.03,488.12,1109.21,0,0],
+  null,null];
+var META_DICUI_RF = [
+  [2882.23,0,0,0,565.97],
+  [4727.25,0,0,0,0],
+  [4142.59,0,0,0,0],
+  [1202.82,197.85,786.99,0,0],
+  [1056.04,177.39,0,0,0],
+  [1097.2,149.77,0,0,0],
+  [1186.91,133.1,0,0,0],
+  [855.16,0,0,0,0],
+  [2667.55,0,0,0,0],
+  [2811.18,0,790.57,0,0],
+  null,null];
+var META_DICUI_NOTA = "Ripartizione del totale Meta del mese in proporzione alla spesa delle campagne classificate per finalita' (nome campagna in Gestione inserzioni). I \"di cui\" sommano sempre al totale Meta della riga sopra.";
+// Ripartisce `tot` fra le sei voci. La fee e' lo scarto fra il totale mostrato e la spesa
+// delle campagne; se lo scarto e' negativo (totale piu' basso del classificato) la fee e'
+// zero e le voci scalano in proporzione. Il residuo di arrotondamento va sulla voce piu'
+// grande fra quelle di campagna, cosi' la somma e' esatta al centesimo e la fee non si
+// sporca. Ordine in uscita: Lead Gen/Promo, Awareness, Webinar, Eventi, Fee agenzia, Altro.
+function metaDiCui(mix,m,tot){
+  var q=mix[m]; if(!q||tot==null)return null;
+  var i,sp=0; for(i=0;i<q.length;i++)sp+=q[i];
+  if(!sp)return null;
+  var fee=Math.round((tot-sp)*100)/100;
+  var base=sp; if(fee<0){base=tot; fee=0;}
+  var c=[],acc=0;
+  for(i=0;i<q.length;i++){var v=Math.round(q[i]/sp*base*100)/100; c.push(v); acc+=v;}
+  var res=Math.round((tot-acc-fee)*100)/100;
+  if(res){var bi=0; for(i=1;i<c.length;i++)if(c[i]>c[bi])bi=i; c[bi]=Math.round((c[bi]+res)*100)/100;}
+  return [c[0],c[1],c[2],c[3],fee,c[4]];
+}
 // Lead e Venduto per CANALE (da Sorgenti/Salesforce): Meta = LeadAds Facebook + Meta ADS; Google = Google Ads. Per CPL/ROAS per canale.
 var ADV_META_LEADS  = [830,582,628,380,398,563,706,634,793,null,null,null];
 var ADV_GOOGLE_LEADS= [23,19,11,11,25,19,24,7,37,null,null,null];
@@ -2046,6 +2104,16 @@ function renderADV(){
     {lab:'&#8627; ROAS Meta', f:'pct', sub:1, b:function(){return null;}, r:function(v){return v.roaM;}},
     {lab:'&#8627; ROAS Google', f:'pct', sub:1, b:function(){return null;}, r:function(v){return v.roaG;}}
   ];
+  /* I "di cui" di Meta: inseriti subito sotto la riga "di cui Meta" (indice 1), con la
+     ripartizione proporzionale di metaDiCui(). Niente budget per finalita': a budget
+     Meta e' un numero unico. */
+  var _dcRows=META_DICUI_LAB_IREC.map(function(lab,k){
+    return {lab:'&#187; di cui '+lab, f:'eur', sub2:1, tip:META_DICUI_NOTA,
+      b:function(){return null;},
+      r:function(v,m){var q=metaDiCui(META_DICUI_IREC,m,v.mv); return (q&&q[k])?q[k]:null;},
+      p:function(v,m){var q=metaDiCui(META_DICUI_IREC,m,v.pvM); return (q&&q[k])?q[k]:null;}};
+  });
+  SPEC.splice.apply(SPEC,[2,0].concat(_dcRows));
   var SEPL='border-left:2px solid var(--border)';
   var head='<thead><tr><th class="voce" rowspan="2">Metrica</th>';
   for(var m=0;m<12;m++)head+='<th colspan="'+((m===CUR_MONTH-1)?4:3)+'" style="text-align:center;'+SEPL+'" class="'+(m===CUR_MONTH-1?'colhdr-now':'')+'">'+MESI[m]+'</th>';
@@ -2058,7 +2126,8 @@ function renderADV(){
   head+='</tr></thead>';
   var body='';
   SPEC.forEach(function(sp){
-    var sty=sp.sub?'padding-left:24px;font-style:italic;color:var(--muted)':'font-weight:600';
+    var sty=sp.sub2?'padding-left:44px;font-style:italic;color:var(--muted);font-size:11px'
+      :(sp.sub?'padding-left:24px;font-style:italic;color:var(--muted)':'font-weight:600');
     body+='<tr'+(sp.sep?' class="sep"':'')+'><td class="voce" style="'+sty+'"'+(sp.tip?' title="'+sp.tip+'"':'')+'>'+sp.lab+'</td>';
     for(var m=0;m<12;m++){
       var v=vals(m), nowc=(m===CUR_MONTH-1), nw=nowc?' now':'', past=(m<=CUR_MONTH-1);
@@ -2953,7 +3022,7 @@ function renderRF(){
     var dN=(bud!=null&&real!=null&&!o.noDelta)?real-bud:null;
     var dP=(bud!=null&&real!=null&&bud!==0&&!o.noDelta)?(real-bud)/bud*100:null;
     var dCls=dN==null?"":(dN>=0?"cell g":"cell b");
-    var labSty=o.bold?'font-weight:680':(o.indent?'padding-left:30px;font-weight:400;color:var(--muted)':(o.muted?'font-style:italic;color:var(--muted)':''));
+    var labSty=o.bold?'font-weight:680':(o.indent2?'padding-left:52px;font-weight:400;color:var(--muted);font-size:11px':(o.indent?'padding-left:30px;font-weight:400;color:var(--muted)':(o.muted?'font-style:italic;color:var(--muted)':'')));
     var realCell = o.metaRO
       ? '<span title="Importato da API (account RF, sola lettura, al centesimo)" style="color:var(--accent);font-weight:560">'+eur2(real)+' <span style="font-size:8.5px;font-weight:700;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:0 4px;margin-left:2px;vertical-align:1px">'+(o.roLabel||"META")+'</span></span>'
       : (o.editKey!=null)
@@ -2961,7 +3030,7 @@ function renderRF(){
       : fmtv(real,f);
     var pendBadge=(o.pend&&o.pend>0)?' <span class="rfpend-jump" role="button" tabindex="0" title="Ci sono ordini in attesa di pagamento (Chiuso-Pending) su questa voce. Clic per aprire la sezione In attesa." style="cursor:pointer;font-size:10px;font-weight:700;color:var(--warn);border:1px solid var(--warn);border-radius:6px;padding:1px 6px;margin-left:7px;white-space:nowrap">&#9888; in attesa '+eur(o.pend)+'</span>':'';
     return '<tr'+(o.sep?' class="sep"':'')+'>'
-      +'<td class="voce" style="'+labSty+'">'+(o.indent?'&rsaquo; ':'')+label+(o.sub?' <span class="muted" style="font-size:11px;font-weight:400">&middot; '+o.sub+'</span>':'')+pendBadge+'</td>'
+      +'<td class="voce" style="'+labSty+'"'+(o.tip?' title="'+o.tip+'"':'')+'>'+(o.indent2?'&#187; ':(o.indent?'&rsaquo; ':''))+label+(o.sub?' <span class="muted" style="font-size:11px;font-weight:400">&middot; '+o.sub+'</span>':'')+pendBadge+'</td>'
       +'<td class="tnum muted">'+fmtv(bud,f)+'</td>'
       +'<td class="tnum"'+(o.bold?' style="font-weight:680"':'')+'>'+realCell+'</td>'
       +'<td class="tnum">'+(dN==null?'<span class="muted">&mdash;</span>':'<span class="'+dCls+'">'+fmtD(dN,f)+'</span>')+'</td>'
@@ -2973,6 +3042,9 @@ function renderRF(){
   body+=sec("ADV");
   body+=line("Investimento ads",{bud:advB,real:advR,bold:true});
   body+=line("Meta",{bud:advMetaB,real:advMetaR,indent:true,editKey:(RF_META_REAL[i]!=null?null:"meta"),metaRO:(RF_META_REAL[i]!=null),sub:(RF_META_REAL[i]!=null?(ADV_FATT.rf[i]?"da fattura (fee 2,5% inclusa)":"da Meta (account RF)"):null)});
+  var _dcRF=metaDiCui(META_DICUI_RF,i,advMetaR);
+  if(_dcRF)for(var _dk=0;_dk<_dcRF.length;_dk++)if(_dcRF[_dk])
+    body+=line("di cui "+META_DICUI_LAB_RF[_dk],{bud:null,real:_dcRF[_dk],indent2:true,tip:META_DICUI_NOTA});
   body+=line("Google",{bud:advGoogleB,real:advGoogleR,indent:true,editKey:(RF_GOOGLE_REAL[i]!=null?null:"google"),metaRO:(RF_GOOGLE_REAL[i]!=null),roLabel:"GOOGLE",sub:(RF_GOOGLE_REAL[i]!=null?(ADV_FATT.rf[i]?"da fattura (fee 2,5% inclusa)":"da Google Ads (account RF)"):null)});
   body+=line("Altri canali",{bud:advAltriB,real:advAltriR,indent:true,editKey:"altri"});
   body+=line("Extra budget",{bud:advExtraB,real:advExtraR,editKey:"extra"});
@@ -3525,18 +3597,21 @@ function renderRFAdv(){
   var pvAdv=(pvMeta==null&&pvGoogle==null)?null:((pvMeta==null?metaR:pvMeta)+(pvGoogle==null?googleR:pvGoogle)+altriR);
   var pvAdvTot=(pvAdv==null)?null:(pvAdv+extraR+eventiR);
   function fp(v,f){ if(v==null)return '<span class="muted">&mdash;</span>'; if(f==="num")return nf(v); if(f==="pct")return v.toLocaleString("it-IT",{maximumFractionDigits:1})+"%"; if(f==="aov")return "&euro; "+v.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2}); return eur(v); }
-  function ln(lab,bud,prev,real,f,editKey,bold,metaRO,roLabel,notaPrev){
+  function ln(lab,bud,prev,real,f,editKey,bold,metaRO,roLabel,notaPrev,sub2){
     var dN=(bud!=null&&real!=null)?real-bud:null, dCls=dN==null?"":(dN>=0?"cell g":"cell b");
     var indent=(editKey||metaRO);
     var pc=(prev==null)?'<span class="muted">&mdash;</span>'
       :'<span title="'+(notaPrev||"Previsione a fine mese")+'" style="color:var(--muted);font-style:italic">'+fp(prev,f)+'</span>';
     var rc=metaRO?'<span title="Importato da API (account RF, sola lettura, al centesimo)" style="color:var(--accent);font-weight:560">'+eur2(real)+' <span style="font-size:8.5px;font-weight:700;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:0 4px;margin-left:2px;vertical-align:1px">'+(roLabel||"META")+'</span></span>':(editKey?rfCurSpan(real,editKey):fp(real,f));
-    return '<tr'+(bold?' class="sep"':'')+'><td class="voce" style="'+(bold?'font-weight:680':(indent?'padding-left:26px;font-weight:400;color:var(--muted)':''))+'">'+(indent?"&rsaquo; ":"")+lab+'</td><td class="tnum muted">'+fp(bud,f)+'</td><td class="tnum">'+pc+'</td><td class="tnum"'+(bold?' style="font-weight:680"':'')+'>'+rc+'</td><td class="tnum">'+(dN==null?'<span class="muted">&mdash;</span>':'<span class="'+dCls+'">'+(dN>0?"+":"")+fp(dN,f)+'</span>')+'</td></tr>';
+    return '<tr'+(bold?' class="sep"':'')+'><td class="voce"'+(sub2?' title="'+META_DICUI_NOTA+'"':'')+' style="'+(bold?'font-weight:680':(sub2?'padding-left:48px;font-weight:400;color:var(--muted);font-size:11px':(indent?'padding-left:26px;font-weight:400;color:var(--muted)':'')))+'">'+(sub2?"&#187; ":(indent?"&rsaquo; ":""))+lab+'</td><td class="tnum muted">'+fp(bud,f)+'</td><td class="tnum">'+pc+'</td><td class="tnum"'+(bold?' style="font-weight:680"':'')+'>'+rc+'</td><td class="tnum">'+(dN==null?'<span class="muted">&mdash;</span>':'<span class="'+dCls+'">'+(dN>0?"+":"")+fp(dN,f)+'</span>')+'</td></tr>';
   }
   var head='<thead><tr><th class="voce">Voce</th><th>Budget</th><th title="Previsione a fine mese: la spesa vera del mese fino a oggi compreso, piu\' il budget giornaliero delle campagne attive per i giorni da domani a fine mese">Prev</th><th>Real</th><th>Delta</th></tr></thead>';
   var body='<tbody>';
   body+=ln("Investimento ads",advB,pvAdv,advR,"eur",null,true);
   body+=ln("Meta",metaB,pvMeta,metaR,"eur",(RF_META_REAL[i]!=null?null:"meta"),false,(RF_META_REAL[i]!=null),"META",prevNota(RF_PREV_ADV,"meta"));
+  var _dcP=metaDiCui(META_DICUI_RF,i,metaR);
+  if(_dcP)for(var _dj=0;_dj<_dcP.length;_dj++)if(_dcP[_dj])
+    body+=ln("di cui "+META_DICUI_LAB_RF[_dj],null,null,_dcP[_dj],"eur",null,false,false,null,null,true);
   body+=ln("Google",googleB,pvGoogle,googleR,"eur",(RF_GOOGLE_REAL[i]!=null?null:"google"),false,(RF_GOOGLE_REAL[i]!=null),"GOOGLE",prevNota(RF_PREV_ADV,"google"));
   body+=ln("Altri canali",altriB,null,altriR,"eur","altri");
   body+=ln("Extra budget",extraB,null,extraR,"eur","extra");
