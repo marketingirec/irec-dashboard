@@ -78,8 +78,25 @@ td.live{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 td.verifica,span.c1.verifica{background:color-mix(in srgb,var(--warn) 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 60%,transparent);border-radius:3px}
 /* Considerazioni: il commento del mese appena chiuso, con lo storico sotto. Il segno
    colorato a sinistra dice di che tipo e' la voce senza doverlo scrivere ogni volta. */
+details.considerazioni>summary{list-style:none;cursor:pointer}
+details.considerazioni>summary::-webkit-details-marker{display:none}
+details.considerazioni>summary::marker{content:""}
+details.considerazioni>summary .hint::after{content:"\25be";display:inline-block;margin-left:10px;color:var(--faint);transition:transform .15s ease}
+details.considerazioni[open]>summary .hint::after{transform:rotate(180deg)}
+details.considerazioni:not([open])>summary{border-bottom:none}
 .considerazioni .cons-corpo{padding:12px 16px 14px}
 .cons-sintesi{margin:0 0 11px;font-size:14.5px;line-height:1.55}
+.cons-and{display:flex;flex-wrap:wrap;align-items:center;gap:7px 12px;margin:0 0 12px;padding:9px 11px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);font-size:12.5px}
+.cons-and .ca-k{font-weight:700;color:var(--muted)}
+.cons-and .ca-s{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.cons-and .ca-p{color:var(--muted);font-variant-numeric:tabular-nums}
+.cons-and .ca-p b{font-weight:700;color:var(--ink)}
+.cons-and .ca-p.ora{color:var(--ink)}
+.cons-and .ca-f{color:var(--faint)}
+.cons-and .ca-v{margin-left:auto;font-weight:700;white-space:nowrap}
+.cons-and.su .ca-v{color:var(--good)}
+.cons-and.giu .ca-v{color:var(--bad)}
+.cons-and.piatto .ca-v{color:var(--muted)}
 .cons-voci{list-style:none;margin:0;padding:0;display:grid;gap:7px}
 .cv{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;line-height:1.5}
 .cv-s{flex:0 0 18px;height:18px;margin-top:2px;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;line-height:1}
@@ -1159,9 +1176,27 @@ function dataLungaCons(k){
   if(p.length!==3)return "";
   return (+p[2])+" "+String(MESI_INTERI[(+p[1])-1]||"").toLowerCase()+" "+p[0];
 }
+/* La striscia dell'andamento: lo stesso KPI negli ultimi mesi disponibili, in fila.
+   Il confronto con l'anno prima dice se siamo sopra o sotto, questa dice se stiamo
+   salendo o scendendo - due domande diverse, e dal solo anno su anno la seconda non
+   si vede. L'ultimo punto e' il mese commentato. I valori arrivano gia' formattati
+   dal file dati: sono testo, non si ricalcolano qui. */
+function strisciaCons(a){
+  if(!a||!a.punti||!a.punti.length)return "";
+  var ult=a.punti.length-1;
+  return '<div class="cons-and '+(a.verso||"piatto")+'">'
+    +'<span class="ca-k">'+(a.kpi||"")+'</span>'
+    +'<span class="ca-s">'+a.punti.map(function(p,i){
+       return (i?'<span class="ca-f" aria-hidden="true">\u203a</span>':'')
+         +'<span class="ca-p'+(i===ult?" ora":"")+'">'+p.m+' <b>'+p.v+'</b></span>';
+     }).join("")+'</span>'
+    +(a.esito?'<span class="ca-v">'+a.esito+'</span>':'')
+    +'</div>';
+}
 function corpoCons(c){
   var h="";
   if(c.sintesi)h+='<p class="cons-sintesi">'+c.sintesi+'</p>';
+  h+=strisciaCons(c.andamento);
   if(c.voci&&c.voci.length){
     h+='<ul class="cons-voci">'+c.voci.map(function(v){
       var t=v.t||"nota";
@@ -1176,9 +1211,11 @@ function cartaConsiderazioni(sez){
   var tutte=((DATI.considerazioni||{})[sez.id])||[];
   if(!tutte.length)return "";
   var ora=tutte[0], storico=tutte.slice(1);
-  var h='<div class="card considerazioni"><div class="card-h"><h2>Considerazioni</h2>'
+  /* Chiusa di default: in fondo a una tabella gia' lunga, il commento non deve imporsi.
+     Si apre chi lo vuole leggere, e resta aperta finche' non si cambia scheda. */
+  var h='<details class="card considerazioni"><summary class="card-h"><h2>Considerazioni</h2>'
     +'<span class="hint">'+etichettaMeseCons(ora.mese)
-    +(ora.scritto?' &middot; scritte il '+dataLungaCons(ora.scritto):'')+'</span></div>'
+    +(ora.scritto?' &middot; scritte il '+dataLungaCons(ora.scritto):'')+'</span></summary>'
     +'<div class="cons-corpo">'+corpoCons(ora)+'</div>';
   if(storico.length){
     h+='<details class="cons-storico"><summary>Storico &middot; '+storico.length+' '
@@ -1188,7 +1225,7 @@ function cartaConsiderazioni(sez){
     });
     h+='</details>';
   }
-  return h+'</div>';
+  return h+'</details>';
 }
 function render(){
   var host=document.getElementById("contenuto");

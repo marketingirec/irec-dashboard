@@ -1,8 +1,19 @@
 # Booklet — Considerazioni mensili
 
 Ogni sezione del booklet chiude con una scheda **Considerazioni**: il commento del mese
-appena concluso, confrontato con il mese precedente e con lo stesso mese dell'anno prima.
-Lo storico resta: la voce più recente è aperta, quelle vecchie stanno sotto, in «Storico».
+appena concluso. La scheda è **chiusa di default** — in fondo a una tabella lunga il
+commento non deve imporsi — e si apre cliccando sulla sua riga.
+
+Il confronto è su **due assi, sempre entrambi**:
+
+- **lo stesso mese dell'anno prima**, che dice se siamo sopra o sotto;
+- **i due mesi precedenti dello stesso anno**, che dicono se stiamo migliorando o
+  peggiorando. Dal solo anno su anno questa seconda cosa non si vede.
+
+Il secondo asse ha anche una resa grafica fissa, la striscia `andamento` in cima alla
+scheda: lo stesso KPI negli ultimi tre mesi disponibili, con il verdetto a destra.
+
+Lo storico resta: la voce più recente è in cima, quelle vecchie sotto, in «Storico».
 
 ## Dove stanno i dati
 
@@ -16,6 +27,12 @@ l'ordine di lettura, non si riordina a schermo.
     { "mese": "2026-10",
       "scritto": "2026-11-09",
       "sintesi": "una o due frasi: il fatto del mese, con il numero che lo regge",
+      "andamento": {
+        "kpi": "Fatturato totale",
+        "verso": "su",
+        "esito": "in ripresa",
+        "punti": [ { "m": "Ago", "v": "8.215,76" }, { "m": "Ott", "v": "32.791,32" } ]
+      },
       "voci": [ { "t": "pos", "k": "titolo breve", "v": "la frase, con i numeri" } ],
       "base": "su quali mesi è stato fatto il confronto e che cosa manca" }
   ]
@@ -34,10 +51,16 @@ l'ordine di lettura, non si riordina a schermo.
 In `sintesi` e `v` si può usare HTML semplice (`<b>`, entità). Il testo arriva dal nostro
 file, non da fuori.
 
+Nella striscia `andamento`, `verso` è `su` (verde), `giu` (rosso) o `piatto` (grigio) e
+colora solo il verdetto; `esito` sono le parole del verdetto; i valori in `punti` sono
+**già formattati come testo** e non vengono ricalcolati a schermo — se un mese manca nel
+file si scrive `"n/d"` invece di saltarlo, così il buco si vede.
+
 ## Sezioni che hanno la scheda
 
-`mkt-irec`, `ff-irec`, `tmk`, `cust-care`, `yoy-irec` (IREC) e `ff-rf`, `yoy-rf` (RF).
-Per aggiungerne un'altra basta creare la chiave con il suo id: il render la prende da sé.
+Tutte e otto: `mkt-irec`, `ff-irec`, `perf-sales`, `tmk`, `cust-care`, `yoy-irec` (IREC)
+e `ff-rf`, `yoy-rf` (RF). Se un domani si aggiunge una sezione, basta creare la chiave con
+il suo id: il render la prende da sé.
 
 ## Procedura, ogni mese
 
@@ -47,13 +70,17 @@ Per aggiungerne un'altra basta creare la chiave con il suo id: il render la pren
 2. **Usa solo i dati caricati nel booklet** (`act`, `act25`, `disdette`). Il booklet in
    pagina mostra Set–Dic dal vivo, ma quei valori non sono nel file: non si commenta
    quello che il file non porta, e non si va a prenderlo dalle API.
-3. Per ogni sezione calcola il mese contro **il mese precedente** (`act[m-1]`) e contro
-   **lo stesso mese dell'anno prima** (`act25[m]`). Dove uno dei due manca, dillo in `base`.
-4. Scrivi da 3 a 8 voci: almeno una `pos`, almeno una `neg`, e i `trend` che si vedono solo
+3. Per ogni sezione calcola il mese su entrambi gli assi: contro **lo stesso mese
+   dell'anno prima** (`act25[m]`) e contro **i due mesi precedenti** (`act[m-1]`,
+   `act[m-2]`). Dove un mese manca, dillo in `base` e scrivi `"n/d"` nella striscia.
+4. Compila `andamento` scegliendo il KPI che racconta la sezione: quello su cui si
+   decide, non il più grande. Il verdetto in `esito` deve poter essere smentito dai
+   numeri che hai appena messo accanto.
+5. Scrivi da 3 a 8 voci: almeno una `pos`, almeno una `neg`, e i `trend` che si vedono solo
    guardando la serie intera, non i due mesi. Ogni voce porta il suo numero.
-5. **Metti la voce nuova in testa all'array**, non in fondo. Non toccare quelle vecchie:
+6. **Metti la voce nuova in testa all'array**, non in fondo. Non toccare quelle vecchie:
    sono il verbale di come si leggeva il mese allora, anche se poi il dato è cambiato.
-6. Aggiorna `scritto` con la data di stesura.
+7. Aggiorna `scritto` con la data di stesura.
 
 ## Controlli prima di committare
 
