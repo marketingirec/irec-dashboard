@@ -3381,8 +3381,12 @@ var RF_BOOKLET={
   /* Celle accertate ma ancora da confermare: stesso arancione del booklet. Ottobre (indice 9)
      Partner: finance tiene Holdmar in Offline a 1.701 (l'opportunity porta 2.000, ma 299 sono
      un'indagine gia' pagata sul negozio e scalata dal partner), i venditori la contano Partner
-     a 2.000 pieni. In piu' in Salesforce i partner di Ottobre sono tre, non quattro. Finche'
-     non si decide, il numero si vede ed e' marcato. */
+     a 2.000 pieni. Il booklet tiene la lettura dei venditori, percio' la cella resta marcata.
+     Il conteggio dei partner invece e' deciso: a Ottobre sono tre, non quattro. Sono
+     006Mf00000aPzbRIAS a 2.000, un partner program da 1.500 e una ricarica wallet da 500 -
+     in tutto esattamente i 4.000 che si vedono, quindi l'importo non cambiava, era sbagliato
+     solo il numero. Il backend ne conta due perche' con la rettifica Holdmar vale 1.701, che
+     non e' un multiplo di 1.000 e finisce in Offline: per questo la cella e' fissa. */
   verifica: {partner:[9], totale:[9]}
 };
 function renderRFBooklet(){
