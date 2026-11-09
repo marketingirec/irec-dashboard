@@ -76,6 +76,22 @@ td.live{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 /* dato accertato fuori dalle API e ancora da confermare: fondo arancione. Va sempre insieme
    a r.fisso, che e' cio' che impedisce al consuntivo live di ricoprirlo. */
 td.verifica,span.c1.verifica{background:color-mix(in srgb,var(--warn) 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 60%,transparent);border-radius:3px}
+/* Considerazioni: il commento del mese appena chiuso, con lo storico sotto. Il segno
+   colorato a sinistra dice di che tipo e' la voce senza doverlo scrivere ogni volta. */
+.considerazioni .cons-corpo{padding:12px 16px 14px}
+.cons-sintesi{margin:0 0 11px;font-size:14.5px;line-height:1.55}
+.cons-voci{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.cv{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;line-height:1.5}
+.cv-s{flex:0 0 18px;height:18px;margin-top:2px;border-radius:5px;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;line-height:1}
+.cv.pos .cv-s{background:var(--good)}
+.cv.neg .cv-s{background:var(--bad)}
+.cv.trend .cv-s{background:var(--accent)}
+.cv.nota .cv-s{background:var(--faint)}
+.cons-base{margin:13px 0 0;font-size:12px;color:var(--faint);line-height:1.5}
+.cons-storico{border-top:1px solid var(--border);padding:0 16px 12px}
+.cons-storico>summary{cursor:pointer;padding:10px 0;font-size:12.5px;color:var(--muted);user-select:none}
+.cons-vecchia{border-top:1px dashed var(--border);padding-top:11px;margin-top:6px}
+.cons-vecchia h3{margin:0 0 9px;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 /* Vista compatta: una colonna per mese invece di tre. Serve dove le righe sono poche ma i
    mesi tutti interessanti - il confronto anno su anno - e dodici blocchi da tre colonne
    costringerebbero a scorrere per leggere una tabella di due righe. */
@@ -1118,6 +1134,62 @@ function cartaConfronto(sez){
     +'<span>&Delta; = '+pA.et+' meno '+pB.et+': sopra la differenza, sotto la variazione in percentuale.</span>'
     +'<span>Clic sul nome di un gruppo per chiuderlo o riaprirlo</span></div></div>';
 }
+/* ---------- Considerazioni ----------
+   Il commento del mese appena chiuso, sezione per sezione, con lo storico sotto. Non
+   aggiunge numeri alla tabella: dice che cosa e' successo rispetto al mese precedente e
+   allo stesso mese dell'anno prima, e che cosa va tenuto d'occhio. Sta nel file dati
+   sotto "considerazioni", per id di sezione, dalla voce piu' recente alla piu' vecchia:
+   la prima resta aperta, le altre si aprono a richiesta, cosi' lo storico si accumula
+   senza allungare la pagina.
+   Una voce:
+     {mese:"2026-10", scritto:"2026-11-09", sintesi:"...", base:"...",
+      voci:[{t:"pos|neg|trend|nota", k:"titolo", v:"testo"}]}
+   't' sceglie soltanto il colore del segno: pos quello che va bene, neg quello da
+   correggere, trend un andamento, nota un'avvertenza sul dato. "base" e' la riga in
+   fondo che dichiara su quali mesi il confronto e' stato fatto: serve perche' non tutte
+   le sezioni hanno gli stessi mesi caricati, e un commento senza la sua base si legge
+   come se valesse per tutti. */
+var SEGNO_CONS={pos:"+",neg:"!",trend:"\u2192",nota:"i"};
+function etichettaMeseCons(k){
+  var p=String(k||"").split("-"), i=(+p[1])-1;
+  return (MESI_INTERI[i]||String(k))+(p[0]?" "+p[0]:"");
+}
+function dataLungaCons(k){
+  var p=String(k||"").split("-");
+  if(p.length!==3)return "";
+  return (+p[2])+" "+String(MESI_INTERI[(+p[1])-1]||"").toLowerCase()+" "+p[0];
+}
+function corpoCons(c){
+  var h="";
+  if(c.sintesi)h+='<p class="cons-sintesi">'+c.sintesi+'</p>';
+  if(c.voci&&c.voci.length){
+    h+='<ul class="cons-voci">'+c.voci.map(function(v){
+      var t=v.t||"nota";
+      return '<li class="cv '+t+'"><span class="cv-s" aria-hidden="true">'+(SEGNO_CONS[t]||"i")+'</span>'
+        +'<span class="cv-t">'+(v.k?'<b>'+v.k+'</b> &middot; ':'')+(v.v||"")+'</span></li>';
+    }).join("")+'</ul>';
+  }
+  if(c.base)h+='<p class="cons-base">'+c.base+'</p>';
+  return h;
+}
+function cartaConsiderazioni(sez){
+  var tutte=((DATI.considerazioni||{})[sez.id])||[];
+  if(!tutte.length)return "";
+  var ora=tutte[0], storico=tutte.slice(1);
+  var h='<div class="card considerazioni"><div class="card-h"><h2>Considerazioni</h2>'
+    +'<span class="hint">'+etichettaMeseCons(ora.mese)
+    +(ora.scritto?' &middot; scritte il '+dataLungaCons(ora.scritto):'')+'</span></div>'
+    +'<div class="cons-corpo">'+corpoCons(ora)+'</div>';
+  if(storico.length){
+    h+='<details class="cons-storico"><summary>Storico &middot; '+storico.length+' '
+      +(storico.length===1?"mese precedente":"mesi precedenti")+'</summary>';
+    storico.forEach(function(c){
+      h+='<div class="cons-vecchia"><h3>'+etichettaMeseCons(c.mese)+'</h3>'+corpoCons(c)+'</div>';
+    });
+    h+='</details>';
+  }
+  return h+'</div>';
+}
 function render(){
   var host=document.getElementById("contenuto");
   if(!DATI){host.innerHTML='<p class="hint">Dati non disponibili.</p>';return;}
@@ -1236,6 +1308,7 @@ function render(){
     html+=h;
     // Customer Care: sotto i rinnovi, le due tabelle delle disdette, con il layout del foglio
     if(sez.id==="cust-care"&&vista==="mesi")html+=cartaDisdetteMesi()+cartaDisdetteMotivi();
+    html+=cartaConsiderazioni(sez);
   });
   host.innerHTML=html;
   host.querySelectorAll(".scroll").forEach(function(b){
