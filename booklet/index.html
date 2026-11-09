@@ -73,6 +73,9 @@ input.manuale::placeholder{color:var(--faint)}
 .ovr{box-shadow:inset 0 0 0 2px var(--ink);border-radius:4px}
 .edit{cursor:cell}
 td.live{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+/* dato accertato fuori dalle API e ancora da confermare: fondo arancione. Va sempre insieme
+   a r.fisso, che e' cio' che impedisce al consuntivo live di ricoprirlo. */
+td.verifica,span.c1.verifica{background:color-mix(in srgb,var(--warn) 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 60%,transparent);border-radius:3px}
 /* Vista compatta: una colonna per mese invece di tre. Serve dove le righe sono poche ma i
    mesi tutti interessanti - il confronto anno su anno - e dodici blocchi da tre colonne
    costringerebbero a scorrere per leggere una tabella di due righe. */
@@ -553,10 +556,19 @@ var LIVE_MKT={
 var ULTIMO_LIVE=(new Date()).getMonth()+1;
 /* Scrive una serie su una riga, solo dai mesi live in poi. Unico punto che tocca .act:
    il Math.max blinda Gennaio-Agosto anche se una mappa contenesse valori nei primi mesi. */
+/* Celle bloccate a mano: r.fisso elenca gli indici di mese il cui consuntivo e' stato
+   accertato fuori dalle API e non va riscritto dal vivo. Serve quando la fonte e la lettura
+   condivisa divergono e la divergenza e' una decisione presa, non un errore da correggere:
+   il valore resta in .act come tutti gli altri, qui si impedisce solo che il consuntivo live
+   lo ricopra a ogni render. Le celle bloccate ancora da confermare si elencano anche in
+   r.verifica, che le colora in arancione. */
 function scriviLive(r,serie){
   if(!serie)return 0;
   var n=0, fine=Math.min(12,ULTIMO_LIVE);
-  for(var i=Math.max(PRIMO_LIVE,8);i<fine;i++)if(serie[i]!=null){r.act[i]=serie[i];r.liveOn=true;n++;}
+  for(var i=Math.max(PRIMO_LIVE,8);i<fine;i++)if(serie[i]!=null){
+    if(r.fisso&&r.fisso.indexOf(i)>=0)continue;
+    r.act[i]=serie[i];r.liveOn=true;n++;
+  }
   return n;
 }
 /* Le righe dei prodotti non esistono nel booklet, quindi su Gennaio-Agosto non c'e' niente da
@@ -1187,8 +1199,9 @@ function render(){
           var bb=valore(sez.id,r,cB(),c.i,sez.righe), aa=valore(sez.id,r,cA(),c.i,sez.righe);
           var kb=chiave(sez.id,r,cB(),c.i), ka=chiave(sez.id,r,cA(),c.i);
           var live=(ANNO===2026&&c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
+          var vfc=(ANNO===2026&&r.verifica&&r.verifica.indexOf(c.i)>=0)?" verifica":"";
           h+='<td class="tnum comp gsep'+live+'">'
-            +'<span class="c1 edit'+((ka in OVR)?" ovr":"")+'" data-k="'+ka+'" title="consuntivo">'+fmtComp(aa,r,cA())+'</span>'
+            +'<span class="c1 edit'+((ka in OVR)?" ovr":"")+vfc+'" data-k="'+ka+'" title="'+(vfc?'consuntivo da verificare':'consuntivo')+'">'+fmtComp(aa,r,cA())+'</span>'
             +'<span class="c2 edit'+((kb in OVR)?" ovr":"")+'" data-k="'+kb+'" title="budget">'+fmtComp(bb,r,cB())+'</span>'
             +'<span class="c3" title="scostamento">'+deltaComp(aa,bb,r)+'</span></td>';
         });
@@ -1201,8 +1214,9 @@ function render(){
           b=valore(sez.id,r,cB(),c.i,sez.righe); a=valore(sez.id,r,cA(),c.i,sez.righe);
           var kb=chiave(sez.id,r,cB(),c.i), ka=chiave(sez.id,r,cA(),c.i);
           var cl=(ANNO===2026&&c.i>=PRIMO_LIVE&&(r.live||r.liveOn))?" live":"";
+          var vf=(ANNO===2026&&r.verifica&&r.verifica.indexOf(c.i)>=0)?" verifica":"";
           h+='<td class="tnum bud gsep edit'+((kb in OVR)?" ovr":"")+cl+'" data-k="'+kb+'">'+fmt(b,r,cB())+'</td>'
-            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+'" data-k="'+ka+'">'+fmt(a,r,cA())+'</td>'
+            +'<td class="tnum edit'+((ka in OVR)?" ovr":"")+cl+vf+'" data-k="'+ka+'"'+(vf?' title="da verificare"':'')+'>'+fmt(a,r,cA())+'</td>'
             +'<td class="tnum">'+delta(a,b,r)+'</td>';
           return;
         }
@@ -1216,6 +1230,7 @@ function render(){
       +'<span>&Delta; = Actual vs Budget: sopra lo scostamento, sotto lo scostamento in percentuale</span>'
       +'<span>Clic sull\'intestazione di un mese o sul nome di un gruppo per chiuderlo o riaprirlo</span>'
       +'<span><span style="display:inline-block;width:12px;height:12px;box-shadow:inset 0 0 0 2px var(--ink);border-radius:3px;vertical-align:-2px"></span> modificato a mano &middot; doppio clic su una cella per cambiarla</span>'
+      +'<span><span style="display:inline-block;width:12px;height:12px;background:color-mix(in srgb,var(--warn) 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 60%,transparent);border-radius:3px;vertical-align:-2px"></span> da verificare</span>'
       +(vista==="aggr"?'<span>Rapporti aggregati come rapporto fra numeratori e denominatori del periodo, non come media dei mesi. &#8220;&mdash;&#8221; dove la coppia non &egrave; ricostruibile dai dati del foglio.</span>':'')
       +'</div></div>';
     html+=h;
