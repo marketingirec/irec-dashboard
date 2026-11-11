@@ -11,15 +11,18 @@
 <style>
   /* banda di stato della sorgente dati: sta qui e non nel css copiato dall'artefatto,
      cosi' quel file resta identico e si puo' risostituire senza perdere nulla */
+  /* usa solo i token che tokens.css definisce davvero (--color-*), altrimenti in dark
+     il fondo resta chiaro e il testo bianco: il tasto diventa illeggibile */
   #bo-avviso{margin:16px;padding:10px 14px;border-radius:8px;font:500 14px/1.4 system-ui,sans-serif;
-    background:var(--cds-bg-subtle,#f1f1ef);color:var(--cds-text-muted,#555)}
-  #bo-avviso.err{background:#fdecea;color:#8a1c12}
-  #bo-stato{color:var(--cds-text-muted,#777);font-weight:400}
+    background:var(--color-panel,#f1f1ef);color:var(--color-fg-muted,#555);
+    border:1px solid var(--color-border-line,#e0ddd7)}
+  #bo-avviso.err{color:var(--color-bad,#8a1c12);border-color:var(--color-bad,#8a1c12)}
+  #bo-stato{color:var(--color-fg-muted,#777);font-weight:400}
   .bo-head{position:relative}
   #bo-aggiorna{position:absolute;top:0;right:0;z-index:2;
     font:500 13px/1 system-ui,sans-serif;padding:8px 14px;border-radius:8px;cursor:pointer;
-    color:var(--cds-text,inherit);background:var(--cds-bg-subtle,#f1f1ef);
-    border:1px solid var(--cds-border,rgba(128,128,128,.35))}
+    color:var(--color-fg,#1c1b1a);background:var(--color-panel,#f1f1ef);
+    border:1px solid var(--color-border-line,rgba(128,128,128,.35))}
   #bo-aggiorna:hover:not(:disabled){filter:brightness(1.12)}
   #bo-aggiorna:disabled{opacity:.55;cursor:default}
   @media (max-width:640px){
