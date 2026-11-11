@@ -1039,8 +1039,10 @@ var IREC_GOOGLE_REAL = [2097.72,2129.81,1407.21,1595.08,1665.65,1680.49,1660.51,
    metaDiCui() la ricava da solo come scarto, e resta giusta anche quando il totale cambia.
    Il totale della riga padre non e' una costante (API live, fattura, e su RF la dashboard
    legge solo l'account nuovo mentre il booklet somma anche il vecchio): se e' piu' basso
-   della spesa classificata, le voci si riducono in proporzione. In ogni caso i "di cui"
-   sommano al centesimo alla riga Meta sopra, qualunque numero mostri. */
+   della spesa classificata la differenza si toglie dalla voce piu' grande, non si spalma in
+   proporzione, cosi' le altre finalita' restano al valore vero di Gestione inserzioni e il
+   numero coincide con quello del booklet. In ogni caso i "di cui" sommano al centesimo alla
+   riga Meta sopra, qualunque numero mostri. */
 var META_DICUI_LAB_IREC = ["Lead Gen","Awareness","Webinar","Eventi","Fee agenzia","Altro"];
 var META_DICUI_LAB_RF   = ["Promo prodotto","Awareness","Webinar","Eventi","Fee agenzia","Altro"];
 var META_DICUI_IREC = [
@@ -1067,20 +1069,25 @@ var META_DICUI_RF = [
   [2667.55,0,0,0,0],
   [2811.18,0,790.57,0,0],
   null,null];
-var META_DICUI_NOTA = "Ripartizione del totale Meta del mese in proporzione alla spesa delle campagne classificate per finalita' (nome campagna in Gestione inserzioni). I \"di cui\" sommano sempre al totale Meta della riga sopra.";
-// Ripartisce `tot` fra le sei voci. La fee e' lo scarto fra il totale mostrato e la spesa
-// delle campagne; se lo scarto e' negativo (totale piu' basso del classificato) la fee e'
-// zero e le voci scalano in proporzione. Il residuo di arrotondamento va sulla voce piu'
-// grande fra quelle di campagna, cosi' la somma e' esatta al centesimo e la fee non si
-// sporca. Ordine in uscita: Lead Gen/Promo, Awareness, Webinar, Eventi, Fee agenzia, Altro.
+var META_DICUI_NOTA = "Spesa delle campagne Meta del mese classificate per finalita' dal nome in Gestione inserzioni. La fee agenzia e' lo scarto fra il totale Meta e la spesa delle campagne; se il totale e' piu' basso del classificato la differenza si toglie dalla voce piu' grande. I \"di cui\" sommano sempre al totale Meta della riga sopra.";
+// Ripartisce `tot` fra le sei voci. Le campagne restano al loro importo reale; la fee e' lo
+// scarto in piu' fra il totale mostrato e la spesa delle campagne. Quello che avanza - lo
+// scarto in meno quando il totale e' piu' basso del classificato, piu' il centesimo di
+// arrotondamento - si scarica tutto sulla voce di campagna piu' grande, che e' la regola
+// usata a mano sul booklet: cosi' i due posti mostrano gli stessi numeri e le finalita'
+// piccole (webinar, eventi) non vengono limate. Solo se quello scarto si mangerebbe l'intera
+// voce piu' grande si torna alla riduzione proporzionale, per non scendere sotto zero.
+// Ordine in uscita: Lead Gen/Promo, Awareness, Webinar, Eventi, Fee agenzia, Altro.
 function metaDiCui(mix,m,tot){
   var q=mix[m]; if(!q||tot==null)return null;
   var i,sp=0; for(i=0;i<q.length;i++)sp+=q[i];
   if(!sp)return null;
-  var fee=Math.round((tot-sp)*100)/100;
-  var base=sp; if(fee<0){base=tot; fee=0;}
+  var fee=Math.round((tot-sp)*100)/100; if(fee<0)fee=0;
+  var base=sp, prop=false;
+  if(tot<sp){ var mx=0; for(i=0;i<q.length;i++)if(q[i]>mx)mx=q[i];
+              if(sp-tot>mx){base=tot; prop=true;} }
   var c=[],acc=0;
-  for(i=0;i<q.length;i++){var v=Math.round(q[i]/sp*base*100)/100; c.push(v); acc+=v;}
+  for(i=0;i<q.length;i++){var v=Math.round((prop?q[i]/sp*base:q[i])*100)/100; c.push(v); acc+=v;}
   var res=Math.round((tot-acc-fee)*100)/100;
   if(res){var bi=0; for(i=1;i<c.length;i++)if(c[i]>c[bi])bi=i; c[bi]=Math.round((c[bi]+res)*100)/100;}
   return [c[0],c[1],c[2],c[3],fee,c[4]];
