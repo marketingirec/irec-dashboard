@@ -3368,26 +3368,24 @@ function renderRFAndamento(){
 var RF_BOOKLET={
   online:   [23931.8,22378.21,25410.52,25218.31,27538.67,25776.6,23968.2,5390.46,null,21777.80,null,null],
   offline:  [5488.3,4599.1,3843.0,1600.83,782.0,1308.55,3137.5,825.3,null,7013.52,null,null],
-  partner:  [2000,2000,2000,0,4000,0,1000,2000,null,4000,null,null],
-  totale:   [31420.1,28977.31,31253.52,26819.14,32320.67,27085.15,28105.7,8215.76,null,32791.32,null,null],
+  partner:  [2000,2000,2000,0,4000,0,1000,2000,null,3701,null,null],
+  totale:   [31420.1,28977.31,31253.52,26819.14,32320.67,27085.15,28105.7,8215.76,null,32492.32,null,null],
   ordOnline:[127,113,134,121,139,134,121,40,null,128,null,null],
-  ordOffline:[13,13,11,11,6,12,19,7,null,22,null,null],
-  ordTot:   [141,127,146,132,145,146,140,47,null,150,null,null],
-  aov:      [181.29,212.42,200.37,203.18,195.31,185.51,193.61,132.25,null,191.94,null,null],
+  ordOffline:[13,13,11,11,6,12,19,7,null,21,null,null],
+  ordTot:   [141,127,146,132,145,146,140,47,null,152,null,null],
+  aov:      [181.29,212.42,200.37,203.18,195.31,185.51,193.61,132.25,null,189.42,null,null],
   spontaneo:[2979.55,10723.21,11424.64,17906.77,19669.13,17562.05,15297.15,4466.02,null,17256.61,null,null],
   gestito:  [20952.25,11655.0,13985.88,7311.54,7869.54,8214.55,8671.05,924.44,null,4521.19,null,null],
   adv:      [7407.30,7695.44,9204.45,8068.91,6761.16,6739.14,7646.19,5092.05,null,9354.74,null,null], // Investimento ads Actual (booklet)
-  merTot:   [424.18,376.55,339.55,332.38,478.03,401.91,367.58,161.34,null,350.53,null,null],
-  /* Celle accertate ma ancora da confermare: stesso arancione del booklet. Ottobre (indice 9)
-     Partner: finance tiene Holdmar in Offline a 1.701 (l'opportunity porta 2.000, ma 299 sono
-     un'indagine gia' pagata sul negozio e scalata dal partner), i venditori la contano Partner
-     a 2.000 pieni. Il booklet tiene la lettura dei venditori, percio' la cella resta marcata.
-     Il conteggio dei partner invece e' deciso: a Ottobre sono tre, non quattro. Sono
-     006Mf00000aPzbRIAS a 2.000, un partner program da 1.500 e una ricarica wallet da 500 -
-     in tutto esattamente i 4.000 che si vedono, quindi l'importo non cambiava, era sbagliato
-     solo il numero. Il backend ne conta due perche' con la rettifica Holdmar vale 1.701, che
-     non e' un multiplo di 1.000 e finisce in Offline: per questo la cella e' fissa. */
-  verifica: {partner:[9], totale:[9]}
+  merTot:   [424.18,376.55,339.55,332.38,478.03,401.91,367.58,161.34,null,347.34,null,null],
+  /* Ottobre (indice 9), Partner: la questione Holdmar e' chiusa. L'opportunity
+     006Mf00000aPzbRIAS porta 2.000, ma 299 di quei 2.000 sono un'indagine che il cliente
+     aveva gia' comprato e pagato sul negozio il giorno prima e che gli e' stata scalata dal
+     partner: a 2.000 quei 299 si conterebbero due volte, una da Shopify e una da qui. Vale
+     1.701, come le due fatture (1.701 + 299), ma resta un Partner, non un Offline. Ottobre
+     fa quindi tre partner per 3.701: 006Mf00000aPzbRIAS a 1.701, un partner program da 1.500
+     e una ricarica wallet da 500. Il totale del mese scende di quei 299, da 32.791,32 a
+     32.492,32. Niente piu' celle marcate: i numeri sono quelli confermati. */
 };
 function renderRFBooklet(){
   var el=document.getElementById("rfBookTable"); if(!el)return; var B=RF_BOOKLET;

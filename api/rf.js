@@ -68,17 +68,20 @@ const MESE_CONTABILE = { '006Mf00000YnKN0IAN': 9 };
 /* Rettifiche su singole opportunity, accertate riga per riga con la contabilita' (02/11/2026,
    registro account.move di Ottobre). Qui entra solo cio' che e' stato verificato, con il motivo:
    non e' un posto per far quadrare i totali a mano. Ogni voce va via quando Salesforce viene
-   corretta. Nessuna di queste tocca la regola Partner/Offline, che resta quella di ePartner.
+   corretta. Solo Holdmar tocca la regola Partner/Offline, con partner:true; per le altre vale ePartner.
    006Mf00000aPzbRIAS - Holdmar: l'opportunity porta 2.000, ma 299 di quei 2.000 sono l'indagine
      che il cliente aveva gia' comprato e pagato sul negozio il giorno prima (ordine #17104,
      incassato il 21/10) e che gli e' stata scalata dal partner. A 2.000 quei 299 si contano due
      volte, una da Shopify e una da qui. Il partner vale 1.701, come le due fatture (1.701 + 299).
+     Serve anche partner:true: a 1.701 l'importo non e' piu' un multiplo di 1.000 e il nome non
+     dice nulla, percio' ePartner da solo lo manderebbe fra gli Offline. Resta un partner, solo
+     contato all'importo giusto: a Ottobre e' uno dei tre che fanno 3.701.
    006Mf00000aidIfIAI - Cammarota: imponibile accertato 77,75, in Salesforce e' rimasto 77,60.
    006Mf00000Zdn1WIAR - rintraccio inverso 3890568201: pagato col credito wallet, percio' non e'
      stata emessa fattura. Giusto: l'incasso era gia' stato contato quando il cliente ha
      ricaricato. Non e' fatturato nuovo, quindi esce dall'Offline e va nelle righe wallet. */
 const RETTIFICHE = {
-  '006Mf00000aPzbRIAS': { amount: 1701 },
+  '006Mf00000aPzbRIAS': { amount: 1701, partner: true },
   '006Mf00000aidIfIAI': { amount: 77.75 },
   '006Mf00000Zdn1WIAR': { wallet: true }
 };
@@ -94,7 +97,7 @@ const RETTIFICHE = {
       const riga = { m, n: r.Name || '(opportunity RF)', nome: r.ContactName__c || '', email: r.ContactEmail__c || '', dpag: String(r.Data_Chiusa_Vinta__c || '').slice(0, 10), net: am, st: 'Pagato', sr: 'Salesforce' };
       // pagato col credito wallet: fuori dal fatturato, conteggiato a parte col suo valore
       if (ret.wallet) { walOrd[m - 1]++; walVal[m - 1] += am; riga.st = 'Wallet'; orders.push(riga); return; }
-      if (ePartner(r.Name, am)) { partner[m - 1] += am; ordPartner[m - 1]++; } else { offline[m - 1] += am; ordOffline[m - 1]++; }
+      if (ret.partner || ePartner(r.Name, am)) { partner[m - 1] += am; ordPartner[m - 1]++; } else { offline[m - 1] += am; ordOffline[m - 1]++; }
       orders.push(riga);
     });
     pend.forEach((r) => {
