@@ -1,0 +1,4 @@
+# I dati contengono nomi di clienti: non entrano nel repo pubblico.
+# In produzione arrivano da /api/bo-pratiche; in locale si rigenerano con lo script del progetto originale.
+*
+!.gitignore

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BO – Analisi Pratiche</title>
+<link rel="stylesheet" href="/altri-reparti/bo/css/tokens.css">
+<link rel="stylesheet" href="/altri-reparti/bo/css/dashboard.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="/altri-reparti/bo/js/dash-shim.js"></script>
+<style>
+  /* banda di stato della sorgente dati: sta qui e non nel css copiato dall'artefatto,
+     cosi' quel file resta identico e si puo' risostituire senza perdere nulla */
+  #bo-avviso{margin:16px;padding:10px 14px;border-radius:8px;font:500 14px/1.4 system-ui,sans-serif;
+    background:var(--cds-bg-subtle,#f1f1ef);color:var(--cds-text-muted,#555)}
+  #bo-avviso.err{background:#fdecea;color:#8a1c12}
+  #bo-stato{color:var(--cds-text-muted,#777);font-weight:400}
+  .bo-head{position:relative}
+  #bo-aggiorna{position:absolute;top:0;right:0;z-index:2;
+    font:500 13px/1 system-ui,sans-serif;padding:8px 14px;border-radius:8px;cursor:pointer;
+    color:var(--cds-text,inherit);background:var(--cds-bg-subtle,#f1f1ef);
+    border:1px solid var(--cds-border,rgba(128,128,128,.35))}
+  #bo-aggiorna:hover:not(:disabled){filter:brightness(1.12)}
+  #bo-aggiorna:disabled{opacity:.55;cursor:default}
+  @media (max-width:640px){
+    #bo-aggiorna{position:static;display:block;margin:0 0 12px}
+  }
+</style>
+</head>
+<body>
+<div id="bo-avviso" hidden></div>
+<div id="dash-root">
+<div class="bo" lang="it" data-read>
+  <header class="bo-head" id="intestazione">
+    <button type="button" id="bo-aggiorna" title="Rilegge subito il foglio. Si aggiorna comunque da solo ogni 4 ore.">Aggiorna</button>
+    <h1>BO – Analisi Pratiche</h1>
+    <p class="bo-take" id="sintesi">Dei <b data-draw="t-attivati" data-source="kpi" data-field="attivati" data-row="0">—</b> clienti attivati da giugno, il <b data-draw="t-tasso" data-source="kpi" data-field="tasso_affido" data-row="0">—</b> ha affidato pratiche. Il collo di bottiglia è dopo l'affido: la review a 45 giorni risulta fatta per il <b data-draw="t-rev" data-source="kpi" data-field="copertura_45" data-row="0">—</b> dei clienti che l'avrebbero già dovuta ricevere, e <b data-draw="t-soll" data-source="kpi" data-field="da_sollecitare" data-row="0">—</b> clienti non hanno ancora affidato.</p>
+    <p class="bo-sub">Fonte: foglio “Gestione da W.C. a C.A.” del file Cross-Up Selling – Credit Advisor Review, letto dal vivo a ogni apertura. Giorni calcolati alla data di apertura della pagina. <span id="bo-stato"></span></p>
+  </header>
+
+  <section class="bo-tiles" id="kpi">
+    <div class="bo-card bo-tile" id="kpi-attivati"><div class="lab">Clienti attivati</div><div class="val" data-draw="k-attivati" data-source="kpi" data-field="attivati" data-row="0">—</div><div class="note">Giugno → oggi</div></div>
+    <div class="bo-card bo-tile" id="kpi-wc"><div class="lab">Welcome call riuscite</div><div class="val" data-draw="k-wc" data-source="kpi" data-field="tasso_wc" data-row="0">—</div><div class="note">Le altre: WC negativa, inviata mail</div></div>
+    <div class="bo-card bo-tile" id="kpi-affido"><div class="lab">Tasso di affido</div><div class="val" data-draw="k-affido" data-source="kpi" data-field="tasso_affido" data-row="0">—</div><div class="note">Clienti con almeno una pratica affidata</div></div>
+    <div class="bo-card bo-tile" id="kpi-15"><div class="lab">Call 15 gg fatte</div><div class="val" data-draw="k-15" data-source="kpi" data-field="copertura_15" data-row="0">—</div><div class="note">Su clienti attivati da più di 15 giorni</div></div>
+    <div class="bo-card bo-tile" id="kpi-45"><div class="lab">Review 45 gg fatte</div><div class="val" data-draw="k-45" data-source="kpi" data-field="copertura_45" data-row="0">—</div><div class="note">Su clienti attivati da più di 45 giorni</div></div>
+    <div class="bo-card bo-tile" id="kpi-soll"><div class="lab">Da sollecitare per l'affido</div><div class="val" data-draw="k-soll" data-source="kpi" data-field="da_sollecitare" data-row="0">—</div><div class="note">Valore dichiarato in WC: <span data-draw="k-soll-val" data-source="kpi" data-field="valore_da_sollecitare" data-row="0">—</span></div></div>
+  </section>
+
+  <section class="bo-grid2">
+    <div class="bo-card" id="funnel">
+      <h2>Funnel post-vendita</h2>
+      <p class="hint">Solo clienti attivati da più di 45 giorni, così ogni fase ha avuto il tempo di avvenire. Chi ha avuto una WC negativa può comunque affidare dopo la mail, per questo gli affidi superano le WC riuscite.</p>
+      <div class="bo-chart" data-draw="funnel-chart" data-source="funnel"></div>
+    </div>
+    <div class="bo-card" id="mesi">
+      <h2>Attivazioni e affidi per mese</h2>
+      <p class="hint">Mese di attivazione del cliente. Novembre è in corso.</p>
+      <div class="bo-chart" data-draw="mesi-chart" data-source="mesi"></div>
+      <div class="bo-legend"><span><i style="background: var(--cds-chart-muted)"></i>Attivati</span><span><i data-draw="leg-aff"></i>Hanno affidato</span></div>
+    </div>
+  </section>
+
+  <section class="bo-card" id="agenti">
+    <h2>Per agente</h2>
+    <p class="hint">Agente indicato nel foglio. Le coperture 15/45 gg contano solo i clienti abbastanza “vecchi” da doverle aver ricevute.</p>
+    <div class="bo-tablewrap">
+      <table data-source="agenti" data-row-key="agente">
+        <thead><tr>
+          <th data-field="agente">Agente</th>
+          <th class="num" data-field="clienti">Clienti</th>
+          <th class="num" data-field="tasso_wc">WC riuscite</th>
+          <th class="num" data-field="tasso_affido">Affido</th>
+          <th class="num" data-field="copertura_15">Call 15 gg</th>
+          <th class="num" data-field="copertura_45">Review 45 gg</th>
+          <th class="num" data-field="non_affidati">Da sollecitare</th>
+        </tr></thead>
+        <tbody data-draw="agenti-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="bo-card" id="sollecitare">
+    <h2>Clienti da sollecitare per l'affido</h2>
+    <p class="hint">Clienti che non hanno ancora affidato pratiche, dal più vecchio. Il valore è quello dichiarato nella nota della welcome call, quando c'è.</p>
+    <div class="tabs" role="group" aria-label="Filtra per agente" id="tabs-soll">
+      <button type="button" data-agente="" aria-pressed="true">Tutti</button>
+      <button type="button" data-agente="Massimiliano" aria-pressed="false">Massimiliano</button>
+      <button type="button" data-agente="Elisa" aria-pressed="false">Elisa</button>
+      <button type="button" data-agente="Federica" aria-pressed="false">Federica</button>
+    </div>
+    <div class="bo-tablewrap">
+      <table data-source="sollecitare" data-row-key="cliente,data_attivazione">
+        <thead><tr>
+          <th data-field="agente">Agente</th>
+          <th data-field="cliente">Cliente</th>
+          <th data-field="data_attivazione">Attivato il</th>
+          <th class="num" data-field="giorni">Giorni</th>
+          <th class="num" data-field="valore_dichiarato">Valore dichiarato</th>
+          <th data-field="stato">Stato</th>
+          <th data-field="ultima_nota">Ultima nota</th>
+        </tr></thead>
+        <tbody data-draw="soll-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="bo-card" id="followup">
+    <h2>Call 15 giorni mancanti</h2>
+    <p class="hint">Clienti che hanno affidato, attivati da più di 15 giorni, senza la prima call registrata: <b data-draw="fu-n" data-source="kpi" data-field="call15_mancanti" data-row="0">—</b> in tutto.</p>
+    <div class="tabs" role="group" aria-label="Filtra per agente" id="tabs-fu">
+      <button type="button" data-agente="" aria-pressed="true">Tutti</button>
+      <button type="button" data-agente="Massimiliano" aria-pressed="false">Massimiliano</button>
+      <button type="button" data-agente="Elisa" aria-pressed="false">Elisa</button>
+      <button type="button" data-agente="Federica" aria-pressed="false">Federica</button>
+    </div>
+    <div class="bo-tablewrap">
+      <table data-source="followup" data-row-key="cliente,data_attivazione">
+        <thead><tr>
+          <th data-field="agente">Agente</th>
+          <th data-field="cliente">Cliente</th>
+          <th data-field="data_attivazione">Attivato il</th>
+          <th class="num" data-field="giorni">Giorni</th>
+          <th class="num" data-field="valore_dichiarato">Valore dichiarato</th>
+          <th data-field="ultima_nota">Ultima nota</th>
+        </tr></thead>
+        <tbody data-draw="fu-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details id="definizioni">
+    <summary>Come sono calcolati i numeri</summary>
+    <dl>
+      <dt>Welcome call riuscita</dt><dd>Colonna “Welcome call” che inizia con “ok”. “WC neg / invio mail” conta come negativa.</dd>
+      <dt>Affidato</dt><dd>Colonna “Affidato pratiche” che inizia con “si”, oppure una nota successiva che dice esplicitamente che il cliente ha affidato. I clienti Radar senza pratiche sono esclusi dal tasso di affido.</dd>
+      <dt>Call 15 gg / Review 45 gg</dt><dd>Colonne “Prima call” e “Review 45 gg” con “si”. La copertura si calcola solo sui clienti attivati da più di 15 o 45 giorni.</dd>
+      <dt>Valore dichiarato</dt><dd>Importo letto dalla nota della welcome call (es. “1 pratica 16k” → 16.000 €). È quanto il cliente ha detto in call, non quanto è stato caricato: va preso come indicazione.</dd>
+      <dt>Agente</dt><dd>“Massimo” è unito a Massimiliano; le righe senza agente sono “Non assegnato”.</dd>
+    </dl>
+  </details>
+</div>
+
+</div>
+<script src="/altri-reparti/bo/js/dashboard.js"></script>
+<script src="/altri-reparti/bo/js/bo-fonte.js"></script>
+</body>
+</html>

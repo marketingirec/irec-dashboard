@@ -16,3 +16,5 @@ adv-vars.txt
 rf-adv-vars.txt
 .shopify-oauth
 shopify-vars.txt
+altri-reparti/bo/data/*
+!altri-reparti/bo/data/.gitignore

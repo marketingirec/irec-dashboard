@@ -12,6 +12,9 @@
     },
     "api/disdette.js": {
       "maxDuration": 30
+    },
+    "api/bo-pratiche.js": {
+      "maxDuration": 30
     }
   }
 }
