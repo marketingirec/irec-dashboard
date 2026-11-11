@@ -53,6 +53,7 @@
     <div class="bo-card bo-tile" id="kpi-attivati"><div class="lab">Clienti attivati</div><div class="val" data-draw="k-attivati" data-source="kpi" data-field="attivati" data-row="0">—</div><div class="note">Giugno → oggi</div></div>
     <div class="bo-card bo-tile" id="kpi-wc"><div class="lab">Welcome call riuscite</div><div class="val" data-draw="k-wc" data-source="kpi" data-field="tasso_wc" data-row="0">—</div><div class="note">Le altre: WC negativa, inviata mail</div></div>
     <div class="bo-card bo-tile" id="kpi-affido"><div class="lab">Tasso di affido</div><div class="val" data-draw="k-affido" data-source="kpi" data-field="tasso_affido" data-row="0">—</div><div class="note">Clienti con almeno una pratica affidata</div></div>
+    <div class="bo-card bo-tile" id="kpi-prat"><div class="lab">Pratiche per cliente</div><div class="val" data-draw="k-prat">&mdash;</div><div class="note" data-draw="k-prat-nota">&mdash;</div></div>
     <div class="bo-card bo-tile" id="kpi-15"><div class="lab">Call 15 gg fatte</div><div class="val" data-draw="k-15" data-source="kpi" data-field="copertura_15" data-row="0">—</div><div class="note">Su clienti attivati da più di 15 giorni</div></div>
     <div class="bo-card bo-tile" id="kpi-45"><div class="lab">Review 45 gg fatte</div><div class="val" data-draw="k-45" data-source="kpi" data-field="copertura_45" data-row="0">—</div><div class="note">Su clienti attivati da più di 45 giorni</div></div>
     <div class="bo-card bo-tile" id="kpi-soll"><div class="lab">Da sollecitare per l'affido</div><div class="val" data-draw="k-soll" data-source="kpi" data-field="da_sollecitare" data-row="0">—</div><div class="note">Valore dichiarato in WC: <span data-draw="k-soll-val" data-source="kpi" data-field="valore_da_sollecitare" data-row="0">—</span></div></div>
@@ -69,6 +70,26 @@
       <p class="hint">Mese di attivazione del cliente. Novembre è in corso.</p>
       <div class="bo-chart" data-draw="mesi-chart" data-source="mesi"></div>
       <div class="bo-legend"><span><i style="background: var(--cds-chart-muted)"></i>Attivati</span><span><i data-draw="leg-aff"></i>Hanno affidato</span></div>
+    </div>
+  </section>
+
+  <section class="bo-card" id="per-mese">
+    <h2>Mese su mese</h2>
+    <p class="hint">Per mese di attivazione del cliente. <b>Pratiche per cliente</b> &egrave; la media di quante pratiche il cliente ha dichiarato in welcome call, contata solo su chi ha poi affidato <i>e</i> il numero l&rsquo;ha detto: non &egrave; il numero di pratiche davvero caricate, quel dato nel foglio non c&rsquo;&egrave;. Accanto c&rsquo;&egrave; la mediana, perch&eacute; un singolo &ldquo;200 pratiche circa&rdquo; scritto in nota alza la media di tutto il mese. Novembre &egrave; in corso.</p>
+    <div class="bo-tablewrap">
+      <table data-source="pratiche_mese" data-row-key="mese">
+        <thead><tr>
+          <th data-field="mese">Mese</th>
+          <th class="num" data-field="attivati">Attivati</th>
+          <th class="num" data-field="affidati">Hanno affidato</th>
+          <th class="num" data-field="tasso_affido">Affido</th>
+          <th class="num" data-field="pratiche_media">Pratiche per cliente</th>
+          <th class="num" data-field="pratiche_mediana">Mediana</th>
+          <th class="num" data-field="dichiarate_da">Dichiarate da</th>
+          <th class="num" data-field="da_sollecitare">Da sollecitare</th>
+        </tr></thead>
+        <tbody data-draw="mesi-rows"></tbody>
+      </table>
     </div>
   </section>
 
@@ -161,6 +182,7 @@
 </div>
 <script src="/altri-reparti/bo/js/dashboard.js"></script>
 <script src="/altri-reparti/bo/js/bo-cerca.js"></script>
+<script src="/altri-reparti/bo/js/bo-mesi.js"></script>
 <script src="/altri-reparti/bo/js/bo-fonte.js"></script>
 </body>
 </html>
