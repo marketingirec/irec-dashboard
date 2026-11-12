@@ -13,7 +13,13 @@ const YEAR = Number(process.env.SF_YEAR || 2026);
 const API_V = 'v60.0';
 
 /* ---------- WHERE clauses (identiche alla dashboard) ---------- */
-const LB = "RecordType.DeveloperName='IREC' AND utm_source__c!=null AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=" + YEAR;
+/* I lead si contano tutti, anche quelli senza utm_source. Il filtro c'era e teneva fuori
+   chi non arriva da un link tracciato: innocuo sui canali paid, dove l'utm c'e' sempre,
+   ma devastante sul NO PAID, dove quasi nessuno ce l'ha. Il denominatore spariva e il
+   numeratore no, cosi' la % MQL del NO PAID usciva sopra il 100% (Ottobre: 10 lead
+   contati su 70 veri, con 49 MQL). Quanti siano i lead non tracciati resta leggibile:
+   e' la nona voce del funnel qui sotto. */
+const LB = "RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=" + YEAR;
 const OB = "RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(CloseDate)=" + YEAR;
 const NP = "'NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','HA GIÀ RISOLTO / LO HANNO PAGATO','NON GENERA INSOLUTI'";
 const NT = "'VUOLE COLLABORARE CON NOI','NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER AZIONE LEGALE IN CORSO','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON IN TARGET PER FALLIMENTO/LIQUIDAZIONE/CONCORDATO','NON IN TARGET CERCA FINANZIAMENTO PERSONALE','NON IN TARGET CERCA FINANZIAMENTO AZIENDA','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','NON GENERA INSOLUTI','HA GIÀ RISOLTO / LO HANNO PAGATO'";
@@ -32,7 +38,9 @@ const VW = [
   { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null)" },                          // MQL senza Reopen
   { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND (Amount!=null OR StageName='Trattativa' OR "+SQLSUB+")" }, // SQL: Amount valorizzato (anche 0) o Trattativa o Chiuso-Perso-motivo
   { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND Amount!=null" },          // Trattative: Amount valorizzato (0,00 o >0)
-  { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')", won:true }
+  { o:'Opp', w:OB, extra:" AND (LeadSource!='Reopen' OR LeadSource=null) AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')", won:true },
+  // 8: non e' un passo del funnel ma un "di cui" del primo: i lead arrivati senza link tracciato
+  { o:'Lead', w:LB, extra:" AND utm_source__c=null" }
 ];
 const monthGrp = (i)=>{ const g = VW[i].o==='Lead'?CM:CMC; const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t'; const from = VW[i].o==='Lead'?'Lead':'Opportunity'; return `SELECT ${g} m,${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} GROUP BY ${g}`; };
 /* La vista Sorgenti raggruppa per LeadSource (la sorgente dichiarata in Salesforce) oppure per
@@ -56,10 +64,12 @@ const srcGrp   = (i,m,by)=>{
 const UTM_LIV = ['LeadSource','utm_source__c','utm_medium__c','utm_campaign__c','utm_content__c'];
 const utmGrp = (i,m)=>{
   const dcol = VW[i].o==='Lead'?'Data_Compilazione_Questionario__c':'CloseDate';
+  // qui i lead senza utm non hanno posto: l'albero e' fatto dei parametri del link
+  const soloTracciati = VW[i].o==='Lead' ? ' AND utm_source__c!=null' : '';
   const sel = VW[i].won?'COUNT(Id) c,SUM(Amount) a':'COUNT(Id) t';
   const from = VW[i].o==='Lead'?'Lead':'Opportunity';
   const campi = UTM_LIV.map((f,k)=>`${f} l${k}`).join(',');
-  return `SELECT ${campi},${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} AND CALENDAR_MONTH(${dcol})=${m} GROUP BY ${UTM_LIV.join(', ')}`;
+  return `SELECT ${campi},${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra}${soloTracciati} AND CALENDAR_MONTH(${dcol})=${m} GROUP BY ${UTM_LIV.join(', ')}`;
 };
 function buildUtm(recsByVoce){
   const map={};
@@ -133,12 +143,14 @@ const iso = (d)=>d.toISOString().slice(0,10);
 function dayList(day0, n){ const a=[]; const base=new Date(day0+'T00:00:00Z'); for(let i=0;i<n;i++){ const d=new Date(base); d.setUTCDate(d.getUTCDate()+i); a.push(iso(d)); } return a; }
 function buildMonthly(recs, key, curM){ const pr={}; recs.forEach(r=>{ pr[+r.m]= r[key]==null?0:+r[key]; }); const a=new Array(12).fill(null); for(let m=1;m<=12;m++){ a[m-1]= pr[m]!=null?pr[m]:(m<=curM?0:null); } return a; }
 function buildDaily(recs, key, days){ const mp={}; recs.forEach(r=>{ mp[(r.d||'').slice(0,10)]= r[key]==null?0:+r[key]; }); return days.map(d=>mp[d]||0); }
+/* v[0..7] sono le otto voci del funnel, v[8] l'importo dei vinti (c'era gia' e va lasciato
+   dov'e': lo legge il venduto per canale), v[9] i lead senza utm_source. */
 function buildSrc(recsByVoce, by){
-  const map={}; const ens=(k)=>{ if(!map[k]) map[k]=[0,0,0,0,0,0,0,0,0]; return map[k]; };
-  for(let i=0;i<8;i++){ (recsByVoce[i]||[]).forEach(r=>{
+  const map={}; const ens=(k)=>{ if(!map[k]) map[k]=[0,0,0,0,0,0,0,0,0,0]; return map[k]; };
+  for(let i=0;i<VW.length;i++){ (recsByVoce[i]||[]).forEach(r=>{
     const s=(r.s==null||r.s==='')?srcVuoto(by==='both'?'lead':by):r.s;
     const k=by==='both' ? s+SRC_SEP+((r.u==null||r.u==='')?srcVuoto('utm'):r.u) : s;
-    const row=ens(k); row[i]= r[VW[i].won?'c':'t']==null?0:+r[VW[i].won?'c':'t']; if(VW[i].won) row[8]= r.a==null?0:+r.a; }); }
+    const row=ens(k); row[i===8?9:i]= r[VW[i].won?'c':'t']==null?0:+r[VW[i].won?'c':'t']; if(VW[i].won) row[8]= r.a==null?0:+r.a; }); }
   return Object.keys(map).map(k=>{ const p=k.split(SRC_SEP); return by==='both' ? { src:p[0], utm:p[1], v:map[k] } : { src:k, v:map[k] }; });
 }
 
@@ -243,7 +255,7 @@ export default async function handler(req, res){
       const m = Math.max(1, Math.min(12, Number(req.query.month)||curM));
       const by = (req.query.by==='utm'||req.query.by==='both') ? req.query.by : 'lead';
       const recsByVoce = [];
-      for(let i=0;i<8;i++){ recsByVoce[i] = await soql(ctx, srcGrp(i,m,by)); }
+      for(let i=0;i<VW.length;i++){ recsByVoce[i] = await soql(ctx, srcGrp(i,m,by)); }
       res.status(200).json({ month:m, year:YEAR, by, rows:buildSrc(recsByVoce, by) });
       return;
     }
@@ -326,10 +338,12 @@ export default async function handler(req, res){
     for(let i=0;i<8;i++){ const recs=await soql(ctx, monthGrp(i));
       if(VW[i].won){ contratti=buildMonthly(recs,'c',curM); fatturato=buildMonthly(recs,'a',curM); real[i]=contratti; }
       else real[i]=buildMonthly(recs,'t',curM); }
+    // di cui senza utm_source, mese per mese: non entra in real[] perche' non e' un passo del funnel
+    const noutm=buildMonthly(await soql(ctx, monthGrp(8)),'t',curM);
     const dtot=buildDaily(await soql(ctx,QD_TOT),'t',days);
     const dmql=buildDaily(await soql(ctx,QD_MQL),'t',days);
     const dwrec=await soql(ctx,QD_WON); const dwon=buildDaily(dwrec,'c',days), dfat=buildDaily(dwrec,'a',days);
-    const recsByVoce=[]; for(let i=0;i<8;i++){ recsByVoce[i]=await soql(ctx, srcGrp(i,curM)); }
+    const recsByVoce=[]; for(let i=0;i<VW.length;i++){ recsByVoce[i]=await soql(ctx, srcGrp(i,curM)); }
 
     // reopen (voci Opportunity con LeadSource='Reopen'; Lead reopen = 0)
     const rExtra=[" AND LeadSource='Reopen'"," AND LeadSource='Reopen' AND (Amount>0 OR (StageName='Chiuso - Perso' AND Amount=null))"," AND LeadSource='Reopen' AND Amount>0"," AND LeadSource='Reopen' AND StageName IN ('Chiuso - Vinto','Chiuso - Pending')"];
@@ -368,7 +382,7 @@ export default async function handler(req, res){
 
     res.status(200).json({
       snapshot: today, curMonth: curM, year: YEAR, day0, dayN: n, prevAdv,
-      real, fatturato, contratti, reopen,
+      real, noutm, fatturato, contratti, reopen,
       nuovi: split && split.nuovi, upsell: split && split.upsell, wonbrk: split && split.wonbrk,
       prodotti: split && split.prodotti,
       daily: { tot:dtot, mql:dmql, won:dwon, fat:dfat },

@@ -28,18 +28,24 @@ NON toccare (sono dal forecast, statici): `FORECAST_GEN`, `SPESA_BUD`,
 
 ## Query SOQL
 
+> I lead si contano tutti, anche quelli senza `utm_source`. Il filtro `utm_source__c!=null`
+> c'era fino a Novembre 2026 e teneva fuori chi non arriva da un link tracciato: invisibile
+> sui canali paid, dove l'utm c'e' sempre, ma sul NO PAID cancellava quasi tutti i lead
+> lasciando intatti gli MQL, tanto che la % MQL usciva sopra il 100%. Quanti siano i lead
+> non tracciati si legge nella riga "- Lead senza utm_source" del booklet.
+
 ### Mensili — voci funnel (GROUP BY CALENDAR_MONTH)
 
 ```sql
 -- REAL.general[0] Totali entrati
 SELECT CALENDAR_MONTH(Data_Compilazione_Questionario__c) m, COUNT(Id) t
-FROM Lead WHERE RecordType.DeveloperName='IREC' AND utm_source__c!=null
+FROM Lead WHERE RecordType.DeveloperName='IREC'
 AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=YEAR
 GROUP BY CALENDAR_MONTH(Data_Compilazione_Questionario__c);
 
 -- REAL.general[1] In target da Policy
 SELECT CALENDAR_MONTH(Data_Compilazione_Questionario__c) m, COUNT(Id) t
-FROM Lead WHERE RecordType.DeveloperName='IREC' AND utm_source__c!=null
+FROM Lead WHERE RecordType.DeveloperName='IREC'
 AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=YEAR
 AND (Scartato_Substage__c NOT IN ('NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','HA GIÀ RISOLTO / LO HANNO PAGATO','NON GENERA INSOLUTI') OR Scartato_Substage__c=null)
 AND (Scartato_Substage_Answered__c!='NON IN TARGET - MARKETING' OR Scartato_Substage_Answered__c=null)
@@ -47,7 +53,7 @@ GROUP BY CALENDAR_MONTH(Data_Compilazione_Questionario__c);
 
 -- REAL.general[2] In target criteri sec. TMK
 SELECT CALENDAR_MONTH(Data_Compilazione_Questionario__c) m, COUNT(Id) t
-FROM Lead WHERE RecordType.DeveloperName='IREC' AND utm_source__c!=null AND Data_Compilazione_Questionario__c!=null
+FROM Lead WHERE RecordType.DeveloperName='IREC' AND Data_Compilazione_Questionario__c!=null
 AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=YEAR
 AND (Scartato_Substage_Answered__c!='NON IN TARGET - MARKETING' OR Scartato_Substage_Answered__c=null)
 AND (Scartato_Substage__c NOT IN ('VUOLE COLLABORARE CON NOI','NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER AZIONE LEGALE IN CORSO','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON IN TARGET PER FALLIMENTO/LIQUIDAZIONE/CONCORDATO','NON IN TARGET CERCA FINANZIAMENTO PERSONALE','NON IN TARGET CERCA FINANZIAMENTO AZIENDA','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','NON GENERA INSOLUTI','HA GIÀ RISOLTO / LO HANNO PAGATO') OR Scartato_Substage__c=null)
@@ -55,7 +61,7 @@ GROUP BY CALENDAR_MONTH(Data_Compilazione_Questionario__c);
 
 -- REAL.general[3] Contattabili TMK  (come [2] + esclude irrintracciabili)
 SELECT CALENDAR_MONTH(Data_Compilazione_Questionario__c) m, COUNT(Id) t
-FROM Lead WHERE RecordType.DeveloperName='IREC' AND utm_source__c!=null AND Data_Compilazione_Questionario__c!=null
+FROM Lead WHERE RecordType.DeveloperName='IREC' AND Data_Compilazione_Questionario__c!=null
 AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=YEAR
 AND (Scartato_Substage_Answered__c!='NON IN TARGET - MARKETING' OR Scartato_Substage_Answered__c=null)
 AND (Scartato_Substage_Answered__c NOT IN ('DATI NON CORRETTI','NON HA MAI RISPOSTO') OR Scartato_Substage_Answered__c=null)
@@ -90,7 +96,7 @@ GROUP BY CALENDAR_MONTH(CloseDate);
 ```sql
 -- DTOT (Totali entrati per giorno)
 SELECT DAY_ONLY(Data_Compilazione_Questionario__c) d, COUNT(Id) t
-FROM Lead WHERE RecordType.DeveloperName='IREC' AND utm_source__c!=null
+FROM Lead WHERE RecordType.DeveloperName='IREC'
 AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=YEAR
 GROUP BY DAY_ONLY(Data_Compilazione_Questionario__c) ORDER BY DAY_ONLY(Data_Compilazione_Questionario__c);
 

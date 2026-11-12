@@ -231,8 +231,8 @@ var BUD_MKT={
   17:BUD_REFORECAST["N Lead In Target da Policy"],
   19:BUD_REFORECAST["N Lead - In target Criteri Sec TMK"],
   21:BUD_REFORECAST["N Lead - TMK lavorabili"],
-  23:BUD_REFORECAST["N MQL - appuntamento fissato"],
-  25:diffSerie(BUD_REFORECAST["N Lead totali"],BUD_REFORECAST["N Lead In Target da Policy"]),
+  24:BUD_REFORECAST["N MQL - appuntamento fissato"],
+  26:diffSerie(BUD_REFORECAST["N Lead totali"],BUD_REFORECAST["N Lead In Target da Policy"]),
   /* Blocchi per canale, dal foglio "IREC - ReForecast Monthly - NOR" del file ReForecast 2026:
      META - Paid (85% dei lead), Google - Paid (9%), NO PAID (6%). "Altri canali Paid" non ha un
      blocco nel reforecast e resta vuoto, coerente con il booklet che da Luglio lo lascia a zero.
@@ -240,24 +240,24 @@ var BUD_MKT={
      e MQL; i fuori target sono il complemento di quelli in target. Verificato su Luglio e Agosto,
      dove il booklet ha gia' il budget: 30 confronti su 30 coincidono (Meta 529/330, Google 56/35,
      No paid 37/23). I valori sono arrotondati come fa il booklet, che conta persone. */
-  27:[null,null,null,null,null,null,529,330,530,699,660,419],
-  28:[null,null,null,null,null,null,353,220,353,466,440,279],
-  30:[null,null,null,null,null,null,259,162,260,343,323,205],
-  32:[null,null,null,null,null,null,125,78,125,165,156,99],
-  34:[null,null,null,null,null,null,93,58,93,122,115,73],
-  36:[null,null,null,null,null,null,176,110,177,233,220,140],
-  38:[null,null,null,null,null,null,56,35,56,74,70,44],
-  39:[null,null,null,null,null,null,37,23,37,49,47,30],
-  41:[null,null,null,null,null,null,27,17,28,36,34,22],
-  43:[null,null,null,null,null,null,13,8,13,17,16,10],
-  45:[null,null,null,null,null,null,10,6,10,13,12,8],
-  47:[null,null,null,null,null,null,19,12,19,25,23,15],
-  60:[null,null,null,null,null,null,37,23,37,49,47,30],
-  61:[null,null,null,null,null,null,25,16,25,33,31,20],
-  63:[null,null,null,null,null,null,18,11,18,24,23,14],
-  65:[null,null,null,null,null,null,9,5,9,12,11,7],
-  67:[null,null,null,null,null,null,7,4,7,9,8,5],
-  69:[null,null,null,null,null,null,12,8,12,16,16,10]
+  28:[null,null,null,null,null,null,529,330,530,699,660,419],
+  29:[null,null,null,null,null,null,353,220,353,466,440,279],
+  31:[null,null,null,null,null,null,259,162,260,343,323,205],
+  33:[null,null,null,null,null,null,125,78,125,165,156,99],
+  36:[null,null,null,null,null,null,93,58,93,122,115,73],
+  38:[null,null,null,null,null,null,176,110,177,233,220,140],
+  40:[null,null,null,null,null,null,56,35,56,74,70,44],
+  41:[null,null,null,null,null,null,37,23,37,49,47,30],
+  43:[null,null,null,null,null,null,27,17,28,36,34,22],
+  45:[null,null,null,null,null,null,13,8,13,17,16,10],
+  48:[null,null,null,null,null,null,10,6,10,13,12,8],
+  50:[null,null,null,null,null,null,19,12,19,25,23,15],
+  64:[null,null,null,null,null,null,37,23,37,49,47,30],
+  65:[null,null,null,null,null,null,25,16,25,33,31,20],
+  67:[null,null,null,null,null,null,18,11,18,24,23,14],
+  69:[null,null,null,null,null,null,9,5,9,12,11,7],
+  72:[null,null,null,null,null,null,7,4,7,9,8,5],
+  74:[null,null,null,null,null,null,12,8,12,16,16,10]
 };
 /* Budget da Reforecast per la sezione RF (Full Funnel RF). Stesse cifre che la dashboard usa
    nelle schede RF, qui mappate per INDICE di riga come il campo .live. La mappatura e' stata
@@ -580,8 +580,9 @@ var LIVE_MKT={
   17:function(d){return d.real[1];},
   19:function(d){return d.real[2];},
   21:function(d){return d.real[3];},
-  23:function(d){return d.real[4];},
-  25:function(d){return sottrai(d.real[0],d.real[1]);}
+  23:function(d){return d.noutm;},
+  24:function(d){return d.real[4];},
+  26:function(d){return sottrai(d.real[0],d.real[1]);}
 };
 /* Mese piu' recente che ha senso mostrare a consuntivo. Le API riempiono di zeri i mesi non
    ancora arrivati, e uno zero si legge come "non abbiamo venduto niente" invece che "non e'
@@ -624,11 +625,14 @@ function innestaMkt(d){
 /* Blocchi per canale del Marketing: il funnel per sorgente arriva da ?view=sources&month=M,
    un mese per chiamata. Le sorgenti si raggruppano nei canali del booklet; "Altri canali Paid"
    resta vuoto perche' nessuna sorgente ci ricade e la spesa su quel canale e' zero. */
-var CANALI=[{base:27,test:function(s){return /leadads|facebook|meta/i.test(s);}},
-            {base:38,test:function(s){return /google/i.test(s);}},
-            {base:60,test:function(s){return !/leadads|facebook|meta|google/i.test(s);}}];
-// posizione nel blocco -> colonna del funnel per sorgente (0 lead, 1 policy, 2 TMK, 3 lavorabili, 4 MQL)
-var POS_CANALE=[[0,0],[1,1],[3,2],[5,3],[7,4]];
+var CANALI=[{base:28,test:function(s){return /leadads|facebook|meta/i.test(s);}},
+            {base:40,test:function(s){return /google/i.test(s);}},
+            {base:64,test:function(s){return !/leadads|facebook|meta|google/i.test(s);}}];
+/* posizione nel blocco -> colonna del funnel per sorgente (0 lead, 1 policy, 2 TMK,
+   3 lavorabili, 4 MQL, 9 lead senza utm_source). I lead non tracciati sono gia' dentro il
+   totale della riga 0: questa riga dice solo quanti sono, perche' sul NO PAID sono la quasi
+   totalita' e senza saperlo il confronto con gli MQL non si legge. */
+var POS_CANALE=[[0,0],[1,1],[3,2],[5,3],[7,9],[8,4]];
 function innestaSorgenti(perMese){
   var sez=sezione("mkt-irec"); if(!sez)return 0;
   var n=0;
@@ -638,16 +642,16 @@ function innestaSorgenti(perMese){
     var noTarget=serieVuota();
     Object.keys(perMese).forEach(function(m){
       var i=(+m)-1; if(i<Math.max(PRIMO_LIVE,8))return;
-      var somma=[0,0,0,0,0];
+      var somma=[0,0,0,0,0,0,0,0,0,0];
       (perMese[m]||[]).forEach(function(r){
         if(!c.test(r.src||""))return;
-        for(var j=0;j<5;j++)somma[j]+=(r.v&&r.v[j])||0;
+        for(var j=0;j<10;j++)somma[j]+=(r.v&&r.v[j])||0;
       });
       POS_CANALE.forEach(function(pc){serie[pc[0]][i]=somma[pc[1]];});
       noTarget[i]=somma[0]-somma[1];
     });
     POS_CANALE.forEach(function(pc){var r=sez.righe[c.base+pc[0]]; if(r)n+=scriviLive(r,serie[pc[0]]);});
-    var rn=sez.righe[c.base+9]; if(rn)n+=scriviLive(rn,noTarget);
+    var rn=sez.righe[c.base+10]; if(rn)n+=scriviLive(rn,noTarget);
   });
   return n;
 }

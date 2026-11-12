@@ -4049,7 +4049,10 @@ function mapErr(e){var c=e&&e.code;
   if(c==="server_unavailable")return "Salesforce momentaneamente irraggiungibile: riprova tra poco.";
   if(c==="tool_error")return "Errore query Salesforce: "+((e&&e.message)||"");
   return "Errore aggiornamento"+(c?" ("+c+")":"")+".";}
-var _LB="RecordType.DeveloperName='IREC' AND utm_source__c!=null AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)="+Y_R;
+/* I lead si contano tutti, anche senza utm_source: il filtro teneva fuori chi non arriva da
+   un link tracciato, invisibile sui canali paid e devastante sull'organico. Stessa regola in
+   api/dashboard.js, cosi' dashboard e booklet contano la stessa cosa. */
+var _LB="RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)="+Y_R;
 var _OB="RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(CloseDate)="+Y_R;
 var _NP="'NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','HA GI\u00C0 RISOLTO / LO HANNO PAGATO','NON GENERA INSOLUTI'";
 var _NT="'VUOLE COLLABORARE CON NOI','NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER AZIONE LEGALE IN CORSO','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON IN TARGET PER FALLIMENTO/LIQUIDAZIONE/CONCORDATO','NON IN TARGET CERCA FINANZIAMENTO PERSONALE','NON IN TARGET CERCA FINANZIAMENTO AZIENDA','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','NON GENERA INSOLUTI','HA GI\u00C0 RISOLTO / LO HANNO PAGATO'";
