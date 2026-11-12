@@ -1227,7 +1227,7 @@ function cartaConsiderazioni(sez){
   }
   return h+'</details>';
 }
-function render(){
+function disegna(){
   var host=document.getElementById("contenuto");
   if(!DATI){host.innerHTML='<p class="hint">Dati non disponibili.</p>';return;}
   var html="";
@@ -1388,6 +1388,33 @@ function render(){
       render();
     });
   });
+}
+/* ---------- il ridisegno non deve spostare la pagina ----------
+   disegna() rifa' da zero l'HTML di #contenuto: il browser, davanti a un contenuto nuovo e
+   spesso piu' corto, riporta la pagina in cima e le tabelle a gennaio. Chi leggeva a meta' di
+   una tabella perdeva il punto a ogni clic: un mese da aprire, un'altra sezione, ma anche il
+   semplice arrivo dei dati live. Quindi la posizione si rileva prima e si rimette dopo.
+   Le tabelle scorrono dentro .scroll, non con la pagina, percio' va ripreso lo scorrimento di
+   ognuna e non solo quello della finestra. Cambiando scheda le righe non sono piu' le stesse:
+   la tabella riparte dall'alto, mentre il mese che si stava guardando resta in vista. */
+var SCHEDA="";
+function render(){
+  var scheda=[grpAttivo,sezAttiva,vista,ANNO,SUBANA].join("|");
+  var stessa=(scheda===SCHEDA); SCHEDA=scheda;
+  var y=window.pageYOffset, x=window.pageXOffset;
+  var box=[].map.call(document.querySelectorAll("#contenuto .scroll"),function(b){
+    return [b.scrollLeft,b.scrollTop];});
+  var ap=[].map.call(document.querySelectorAll("#contenuto details"),function(d){return d.open;});
+  disegna();
+  // prima i pannelli aperti, che cambiano l'altezza, poi le posizioni
+  if(stessa)[].forEach.call(document.querySelectorAll("#contenuto details"),function(d,i){
+    if(i<ap.length)d.open=ap[i];});
+  [].forEach.call(document.querySelectorAll("#contenuto .scroll"),function(b,i){
+    if(i>=box.length)return;
+    b.scrollLeft=box[i][0];
+    if(stessa)b.scrollTop=box[i][1];
+  });
+  window.scrollTo(x,y);
 }
 /* ---------- modifica manuale ----------
    Doppio clic su una cella. Se non e' gia' sovrascritta chiede conferma (con la possibilita' di
