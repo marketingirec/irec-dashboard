@@ -56,6 +56,30 @@ const srcGrp   = (i,m,by)=>{
   const from = VW[i].o==='Lead'?'Lead':'Opportunity';
   return `SELECT ${campi},${sel} FROM ${from} WHERE ${VW[i].w}${VW[i].extra} AND CALENDAR_MONTH(${dcol})=${m} GROUP BY ${grp}`;
 };
+/* ---------- Incassi Intelligenti: il terzo prodotto ----------
+   Un lead o un'opportunity e' di Incassi Intelligenti quando "incassi intelligenti" compare
+   nella sorgente dichiarata (LeadSource) o in uno dei parametri utm del link. Le grafie in
+   giro sono piu' d'una - con lo spazio, col trattino, attaccate - percio' si cercano tutte;
+   LIKE in SOQL non distingue maiuscole e minuscole, quindi basta la forma minuscola.
+   Il RecordType qui NON si filtra, al contrario del funnel IREC: non e' accertato sotto quale
+   record type vengano registrati questi contatti, e stringere su 'IREC' rischierebbe di
+   restituire zero senza che si capisca perche'. La risposta porta con se' l'elenco delle
+   sorgenti intercettate (fonti), cosi' si vede a colpo d'occhio se il filtro prende le cose
+   giuste e se ne sta perdendo qualcuna.
+   Le voci sono cinque e non otto: lead, MQL, SQL, Trattative, Chiuso-Vinto, cioe' le posizioni
+   0,4,5,6,7 del funnel generale, con gli stessi identici criteri (si riusa VW[i].extra). */
+const II_CAMPI = ['LeadSource','utm_source__c','utm_medium__c','utm_campaign__c','utm_content__c'];
+const II_PAT   = ['%incassi intelligenti%','%incassi-intelligenti%','%incassi_intelligenti%','%incassiintelligenti%'];
+const II_W = '(' + II_CAMPI.map(c => II_PAT.map(p => `${c} LIKE '${p}'`).join(' OR ')).join(' OR ') + ')';
+const II_VOCI = [{ i:0, v:'Lead totali' },{ i:4, v:'MQL' },{ i:5, v:'SQL' },{ i:6, v:'Trattative' },{ i:7, v:'Chiuso vinto' }];
+const iiGrp = (i)=>{
+  const lead = VW[i].o==='Lead';
+  const g = lead?CM:CMC, from = lead?'Lead':'Opportunity';
+  const anno = lead ? `CALENDAR_YEAR(Data_Compilazione_Questionario__c)=${YEAR}` : `CALENDAR_YEAR(CloseDate)=${YEAR}`;
+  return `SELECT ${g} m,COUNT(Id) t FROM ${from} WHERE ${anno}${VW[i].extra} AND ${II_W} GROUP BY ${g}`;
+};
+const iiFonti = ()=> `SELECT LeadSource s,COUNT(Id) t FROM Lead WHERE CALENDAR_YEAR(Data_Compilazione_Questionario__c)=${YEAR} AND ${II_W} GROUP BY LeadSource ORDER BY COUNT(Id) DESC LIMIT 50`;
+
 /* Albero UTM: una riga per combinazione dei quattro parametri. Le voci Lead sono ancorate alla
    data di compilazione, quelle Opportunity alla CloseDate, come in tutte le altre viste. */
 const UTM_LIV = ['LeadSource','utm_source__c','utm_medium__c','utm_campaign__c','utm_content__c'];
@@ -252,6 +276,20 @@ export default async function handler(req, res){
       const recsByVoce = [];
       for(let i=0;i<8;i++){ recsByVoce[i] = await soql(ctx, srcGrp(i,m,by)); }
       res.status(200).json({ month:m, year:YEAR, by, rows:buildSrc(recsByVoce, by) });
+      return;
+    }
+
+    // vista "incassi" (?view=incassi): funnel a 5 voci di Incassi Intelligenti, mese per mese
+    if((req.query.view||'')==='incassi'){
+      const voci=[];
+      for(const v of II_VOCI){
+        const recs = await soql(ctx, iiGrp(v.i));
+        voci.push({ v:v.v, data: buildMonthly(recs,'t',curM) });
+      }
+      // a che sorgenti corrisponde il filtro: serve a vedere se prende le cose giuste
+      let fonti=[];
+      try{ fonti = (await soql(ctx, iiFonti())).map(r=>({ s:r.s||'(sorgente non indicata)', t:+(r.t||0) })); }catch(_e){ fonti=[]; }
+      res.status(200).json({ year:YEAR, curMonth:curM, snapshot:today, voci, fonti });
       return;
     }
 

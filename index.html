@@ -122,7 +122,10 @@
      scorre in orizzontale non puo' ancorare le sue intestazioni alla pagina, quindi il riquadro
      deve scorrere anche in verticale. Le tabelle corte non se ne accorgono. */
   .scroll{overflow:auto;max-height:calc(100vh - 96px)}
-  table{border-collapse:collapse;width:100%;font-size:13px}
+  /* il colore del testo va detto alla tabella: la pagina gira in quirks mode (manca il DOCTYPE)
+     e li' una <table> non eredita in modo affidabile il colore dal body: al buio restava scritta
+     in blu notte su fondo blu notte, cioe' invisibile. */
+  table{border-collapse:collapse;width:100%;font-size:13px;color:var(--ink)}
   th,td{padding:9px 12px;text-align:right;white-space:nowrap}
   th.voce,td.voce{text-align:left;position:sticky;left:0;background:var(--surface);z-index:2;font-weight:560;min-width:140px}
   /* La prima colonna resta ferma mentre le altre le scorrono sotto. Il filo e l'ombra compaiono
@@ -213,6 +216,8 @@
   .mm-group{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:11px}
   .mm-irec{background:linear-gradient(90deg,rgba(240,140,40,.20),rgba(240,140,40,.05))}
   .mm-rf{background:linear-gradient(90deg,rgba(34,170,90,.20),rgba(34,170,90,.05))}
+  /* terzo prodotto: celeste, come arancio sta a IREC e verde sta a RF */
+  .mm-incassi{background:linear-gradient(90deg,rgba(56,170,220,.22),rgba(56,170,220,.05))}
   /* collegamento al booklet: sta a destra, bianco, perche' non e' una sezione della dashboard
      ma un'altra pagina */
   .mm-link{margin-left:auto;display:inline-flex;align-items:center;gap:7px;text-decoration:none;
@@ -279,6 +284,10 @@
       <span class="mm-title">RF</span>
       <button class="mm-item" data-view="rf-dash">Dashboard</button>
       <button class="mm-item" data-view="rf-tax">Tassonomia RF</button>
+    </div>
+    <div class="mm-group mm-incassi">
+      <span class="mm-title">Incassi</span>
+      <button class="mm-item" data-view="incassi-dash">Dashboard</button>
     </div>
     <a class="mm-link" href="/booklet" title="Apri il KPI Booklet 2026">KPI Booklet 2026 <span class="frec">&rarr;</span></a>
   </nav>
@@ -867,6 +876,37 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
   AND RecordTypeId = '012Mf000000oReaIAE'</pre>
         <p class="taxintro" style="margin-top:10px">RecordType <b>Rintraccio Facile</b> (<code>012Mf000000oReaIAE</code>). Il <b>Fatturato</b> (<code>Chiuso - Vinto</code>) usa <code>Data_Chiusa_Vinta__c</code> (data di pagamento), non <code>CloseDate</code>; i confini del mese sono calcolati in <b>ora locale Europe/Rome</b> (gestisce CET/CEST) e convertiti in UTC, per non spostare gli ordini vicino alla mezzanotte nel mese sbagliato. Le righe <b>in attesa di pagamento</b> (<code>Chiuso - Pending</code>, escluse dal Fatturato) restano su <code>CloseDate</code>. Per <b>importo</b>: tondo (multiplo di 1.000&euro;) &rarr; <b>Partner</b>, altrimenti <b>Offline</b>. Tutto al netto IVA.</p>
       </div>
+    </div>
+  </div>
+
+  <div id="view-incassi-dash" class="view" style="display:none">
+    <div id="incStato" style="font-size:13px;font-weight:560;margin:0 2px 16px;min-height:18px;color:var(--muted)"></div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-h">
+        <h2>Funnel Incassi Intelligenti &middot; gennaio &rarr; dicembre</h2>
+        <span class="hint">Lead per data questionario &middot; MQL e seguenti per CloseDate</span>
+      </div>
+      <div class="card-b scroll"><table id="incTable"></table></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-h">
+        <h2>Budget vs Real &middot; dettaglio mese</h2>
+        <label class="fld" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;color:var(--muted)">Mese <select id="incMese"></select></label>
+      </div>
+      <div class="card-b scroll"><table id="incPiv"></table></div>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:0;padding:0 16px 16px">
+        Il <b>budget di Incassi Intelligenti non &egrave; ancora stato definito</b>: la colonna c&rsquo;&egrave; ed &egrave; scrivibile, e quello che scrivi resta su questo browser finch&eacute; non arriver&agrave; un forecast vero.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h2>Da dove arrivano</h2>
+        <span class="hint">Sorgenti intercettate dal filtro, sui lead dell&rsquo;anno</span>
+      </div>
+      <div class="card-b scroll"><table id="incFonti"></table></div>
     </div>
   </div>
 </div>
@@ -3655,6 +3695,103 @@ function setGroupsLoading(){groupReady={general:false,marketing:false,tmk:false,
 function groupDone(g){groupReady[g]=true;updateOverlay();}
 function allGroupsReady(){groupReady={general:true,marketing:true,tmk:true,sales:true};updateOverlay();}
 
+/* ---------- Incassi Intelligenti: il terzo prodotto ----------
+   A differenza di IREC e RF non ha uno snapshot scritto nel file: i numeri si chiedono
+   all'API la prima volta che si apre la scheda e restano per il resto della sessione.
+   Il budget non esiste ancora - la colonna c'e', e' scrivibile e si ricorda nel browser,
+   cosi' quando il forecast arrivera' c'e' gia' dove metterlo; finche' e' vuota, Delta e
+   percentuali restano un trattino invece di fingere uno scostamento. */
+var INC=null, INC_ERR="", INC_INCORSO=false, incMese=Math.max(0,CUR_MONTH-1), INC_BUD={};
+try{INC_BUD=JSON.parse(localStorage.getItem("incassi_budget")||"{}")||{};}catch(e){INC_BUD={};}
+function incSalvaBud(){try{localStorage.setItem("incassi_budget",JSON.stringify(INC_BUD));}catch(e){}}
+function incStato(t,err){var el=document.getElementById("incStato"); if(!el)return;
+  el.textContent=t||""; el.style.color=err?"var(--bad)":"var(--muted)";}
+function caricaIncassi(){
+  if(INC||INC_INCORSO)return;
+  INC_INCORSO=true; incStato("Carico da Salesforce…");
+  fetch("api/dashboard?view=incassi",{headers:{Accept:"application/json"}})
+    .then(function(r){return r.json().catch(function(){return null;}).then(function(j){
+      if(!r.ok||!j||j.error)throw new Error((j&&j.error)||("HTTP "+r.status)); return j;});})
+    .then(function(j){INC=j; INC_ERR=""; INC_INCORSO=false;
+      incStato(j.snapshot?("Aggiornato: "+j.snapshot):""); renderIncassi();})
+    .catch(function(e){INC=null; INC_ERR=String((e&&e.message)||e); INC_INCORSO=false;
+      incStato("Dati non disponibili: "+INC_ERR,true); renderIncassi();});
+}
+function incBud(voce,m){var r=INC_BUD[voce]; var v=r?r[m]:null;
+  return (v==null||v==="")?null:+v;}
+function renderIncassi(){
+  var t1=document.getElementById("incTable"), t2=document.getElementById("incPiv"), t3=document.getElementById("incFonti");
+  if(!t1)return;
+  var voci=(INC&&INC.voci)||[];
+  if(!voci.length){
+    var msg=INC_ERR?"Nessun dato: "+INC_ERR:"Carico…";
+    t1.innerHTML='<tbody><tr><td class="muted" style="padding:16px">'+msg+'</td></tr></tbody>';
+    if(t2)t2.innerHTML=""; if(t3)t3.innerHTML="";
+    return;
+  }
+  /* --- andamento: voci in riga, mesi in colonna --- */
+  var h='<thead><tr><th class="voce">Voce funnel</th>';
+  for(var m=0;m<12;m++)h+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+'</th>';
+  h+='</tr></thead><tbody>';
+  voci.forEach(function(r){
+    h+='<tr><td class="voce">'+r.v+'</td>';
+    for(var m=0;m<12;m++){
+      var v=r.data?r.data[m]:null;
+      h+='<td class="'+(m===CUR_MONTH-1?"now":"")+'">'+(v==null?'<span class="muted">&mdash;</span>':nf(v))+'</td>';
+    }
+    h+='</tr>';
+  });
+  t1.innerHTML=h+'</tbody>';
+
+  /* --- dettaglio del mese scelto: qui vive la colonna Budget, per ora vuota --- */
+  var sel=document.getElementById("incMese");
+  if(sel&&!sel.options.length){
+    var o="";
+    for(var k=0;k<12;k++)o+='<option value="'+k+'"'+(k===incMese?" selected":"")+'>'+MESI[k]+' '+(INC.year||"")+(k===CUR_MONTH-1?" (in corso)":"")+'</option>';
+    sel.innerHTML=o;
+    sel.addEventListener("change",function(){incMese=+sel.value; renderIncassi();});
+  }
+  var base=voci[0]&&voci[0].data?voci[0].data[incMese]:null;   // i Lead totali: denominatore delle %
+  var p='<thead><tr><th class="voce">Voce funnel</th><th>Budget</th><th>Real</th><th>% sui lead</th><th>Delta N</th><th>Delta %</th></tr></thead><tbody>';
+  voci.forEach(function(r){
+    var v=r.data?r.data[incMese]:null, b=incBud(r.v,incMese);
+    var pr=(v!=null&&base)?v/base*100:null;
+    var dN=(v!=null&&b!=null)?v-b:null;
+    var dP=(v!=null&&b!=null&&b!==0)?(v-b)/b*100:null;
+    var cls=dN==null?"":(dN>=0?"cell g":"cell b");
+    p+='<tr><td class="voce">'+r.v+'</td>'
+      +'<td><input class="bud tnum" type="number" inputmode="numeric" placeholder="&mdash;" data-voce="'+r.v.replace(/"/g,"")+'" value="'+(b==null?"":b)+'"></td>'
+      +'<td class="tnum">'+(v==null?'<span class="muted">&mdash;</span>':nf(v))+'</td>'
+      +'<td class="tnum" style="color:var(--accent)">'+(pr==null?'<span class="muted">&mdash;</span>':pr.toLocaleString("it-IT",{maximumFractionDigits:1})+"%")+'</td>'
+      +'<td class="tnum">'+(dN==null?'<span class="muted">&mdash;</span>':'<span class="'+cls+'">'+(dN>0?"+":"")+nf(dN)+'</span>')+'</td>'
+      +'<td class="tnum">'+(dP==null?'<span class="muted">&mdash;</span>':'<span class="'+cls+'">'+pct(dP)+'</span>')+'</td></tr>';
+  });
+  t2.innerHTML=p+'</tbody>';
+  t2.querySelectorAll("input.bud").forEach(function(inp){
+    inp.addEventListener("change",function(){
+      var voce=inp.getAttribute("data-voce");
+      if(!INC_BUD[voce])INC_BUD[voce]={};
+      INC_BUD[voce][incMese]=(inp.value===""?null:+inp.value);
+      incSalvaBud(); renderIncassi();
+      // il ridisegno butta via l'input su cui si stava scrivendo: lo si rimette a fuoco,
+      // altrimenti chi compila il budget col tasto Tab riparte ogni volta da capo
+      var di=t2.querySelector('input.bud[data-voce="'+voce.replace(/"/g,"")+'"]');
+      if(di){ skipGuardOnce=true; di.focus(); }
+    });
+  });
+
+  /* --- a che sorgenti corrisponde il filtro: serve per fidarsi del numero --- */
+  if(t3){
+    var f=(INC&&INC.fonti)||[];
+    if(!f.length){ t3.innerHTML='<tbody><tr><td class="muted" style="padding:16px">Nessuna sorgente intercettata.</td></tr></tbody>'; }
+    else{
+      var ft='<thead><tr><th class="voce">Sorgente (LeadSource)</th><th>Lead</th></tr></thead><tbody>';
+      f.forEach(function(x){ ft+='<tr><td class="voce">'+String(x.s).replace(/</g,"&lt;")+'</td><td class="tnum">'+nf(x.t)+'</td></tr>'; });
+      t3.innerHTML=ft+'</tbody>';
+    }
+  }
+}
+
 /* ---------- ROUTER VISTE (menu IREC / RF) ---------- */
 /* ---------- indirizzo condivisibile ----------
    Ogni punto della dashboard ha un suo indirizzo: #irec/sources, #rf/wallet, #irec-tax.
@@ -3664,6 +3801,7 @@ function allGroupsReady(){groupReady={general:true,marketing:true,tmk:true,sales
 function ancoraCorrente(){
   if(currentView==="irec-dash")return "irec/"+(currentTab||"mom");
   if(currentView==="rf-dash")return "rf/"+(rfTab||"andamento");
+  if(currentView==="incassi-dash")return "incassi";
   return currentView;   // irec-tax, rf-tax
 }
 var ancoraFerma=false;
@@ -3680,6 +3818,7 @@ function vaiAdAncora(h){
   ancoraFerma=true;
   try{
     if(area==="irec-tax"||area==="rf-tax"){ showView(area); return true; }
+    if(area==="incassi"){ showView("incassi-dash"); return true; }
     if(area==="irec"||area==="rf"){
       showView(area==="irec"?"irec-dash":"rf-dash");
       if(!tab)return true;
@@ -3697,7 +3836,7 @@ function vaiAdAncora(h){
   return false;
 }
 function showView(v){
-  var views=["irec-dash","irec-tax","rf-dash","rf-tax"];
+  var views=["irec-dash","irec-tax","rf-dash","rf-tax","incassi-dash"];
   if(views.indexOf(v)<0)v="irec-dash";
   currentView=v;
   views.forEach(function(id){var el=document.getElementById("view-"+id); if(el)el.style.display=(id===v)?"":"none";});
@@ -3712,6 +3851,7 @@ function showView(v){
   var rbar=document.getElementById("refreshBar"); if(rbar&&!onDash)rbar.style.display="none";
   if(v==="irec-tax")renderTaxonomyIREC();
   if(v==="rf-dash")renderRFActive();
+  if(v==="incassi-dash"){renderIncassi();caricaIncassi();}
   updateOverlay();
   try{localStorage.setItem("irec_view",v);}catch(e){}
   scriviAncora();
