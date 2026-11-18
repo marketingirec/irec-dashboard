@@ -31,8 +31,15 @@ NON toccare (sono dal forecast, statici): `FORECAST_GEN`, `SPESA_BUD`,
 > I lead si contano tutti, anche quelli senza `utm_source`. Il filtro `utm_source__c!=null`
 > c'era fino a Novembre 2026 e teneva fuori chi non arriva da un link tracciato: invisibile
 > sui canali paid, dove l'utm c'e' sempre, ma sul NO PAID cancellava quasi tutti i lead
-> lasciando intatti gli MQL, tanto che la % MQL usciva sopra il 100%. Quanti siano i lead
-> non tracciati si legge nella riga "- Lead senza utm_source" del booklet.
+> lasciando intatti gli MQL, tanto che la % MQL usciva sopra il 100%.
+
+> **Incassi Intelligenti e' fuori da IREC.** Dal 18 Novembre 2026 la base IREC (`LB` e `OB`)
+> porta in coda un'esclusione: chi ha la dicitura "incassi intelligenti" in `LeadSource` o in
+> uno degli utm non entra nel funnel IREC, perche' ha una sezione sua (`?view=incassi`).
+> L'esclusione e' scritta campo per campo, non come `NOT` sull'intera parentesi: in SOQL un
+> `NOT ... LIKE` **non restituisce i record che hanno quel campo vuoto**, e un `NOT` globale
+> farebbe sparire tutti i lead a cui manca anche un solo utm. Le query qui sotto mostrano la
+> base **senza** questa coda, per leggibilita': aggiungila come la scrive `api/dashboard.js`.
 
 ### Mensili — voci funnel (GROUP BY CALENDAR_MONTH)
 

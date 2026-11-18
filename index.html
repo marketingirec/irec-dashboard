@@ -627,7 +627,7 @@
     <div class="card" style="margin-bottom:18px">
       <div class="card-h"><h2>Tassonomia IREC &middot; come sono filtrati i KPI</h2></div>
       <div class="card-b" style="padding:16px 18px 6px">
-        <p class="taxintro"><b>Base comune.</b> Solo record con <code>RecordType.DeveloperName='IREC'</code> e anno 2026. Le voci <b>Lead</b> (marketing/TMK) sono ancorate a <code>Data_Compilazione_Questionario__c</code> e si contano <b>tutte</b>, anche senza <code>utm_source__c</code> (prima il filtro c&rsquo;era e teneva fuori chi non arriva da un link tracciato: irrilevante sui canali paid, devastante sull&rsquo;organico); le voci <b>Opportunity</b> (rete vendita) sono ancorate a <code>CloseDate</code> ed escludono sempre <code>LeadSource='Reopen'</code>. Ogni voce &egrave; un sotto-insieme della precedente (funnel cumulativo).</p>
+        <p class="taxintro"><b>Base comune.</b> Solo record con <code>RecordType.DeveloperName='IREC'</code> e anno 2026, <b>esclusi i contatti di Incassi Intelligenti</b> (hanno una sezione tutta loro: vedi <i>Tassonomia Incassi</i>). Le voci <b>Lead</b> (marketing/TMK) sono ancorate a <code>Data_Compilazione_Questionario__c</code> e si contano <b>tutte</b>, anche senza <code>utm_source__c</code> (prima il filtro c&rsquo;era e teneva fuori chi non arriva da un link tracciato: irrilevante sui canali paid, devastante sull&rsquo;organico); le voci <b>Opportunity</b> (rete vendita) sono ancorate a <code>CloseDate</code> ed escludono sempre <code>LeadSource='Reopen'</code>. Ogni voce &egrave; un sotto-insieme della precedente (funnel cumulativo).</p>
       </div>
       <div class="card-b" style="padding:6px 8px 14px"><table id="taxIrecBody"></table></div>
     </div>
@@ -919,6 +919,7 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
       <div class="card-h"><h2>Tassonomia Incassi &middot; come sono filtrate le voci</h2></div>
       <div class="card-b" style="padding:16px 18px 6px">
         <p class="taxintro"><b>Base comune.</b> Un contatto &egrave; di <b>Incassi Intelligenti</b> quando la dicitura compare nella <b>sorgente dichiarata</b> (<code>LeadSource</code>) oppure in uno dei <b>parametri utm del link</b> (<code>utm_source__c</code>, <code>utm_medium__c</code>, <code>utm_campaign__c</code>, <code>utm_content__c</code>). Basta che la trovi in <b>uno solo</b> di questi cinque campi. Anno 2026. Le voci <b>Lead</b> sono ancorate a <code>Data_Compilazione_Questionario__c</code>, le voci <b>Opportunity</b> a <code>CloseDate</code>: sono le stesse date del funnel IREC, cos&igrave; i due prodotti si leggono allo stesso modo. Ogni voce &egrave; un sotto-insieme della precedente (funnel cumulativo).</p>
+        <p class="taxintro"><b>I due prodotti non si contano a vicenda.</b> Chi passa questo filtro &egrave; <b>tolto dal funnel IREC</b>: Incassi Intelligenti &egrave; un prodotto diverso e non deve gonfiare i lead di IREC. L&rsquo;esclusione &egrave; scritta campo per campo e non come un <code>NOT</code> sull&rsquo;intera parentesi, perch&eacute; in SOQL un <code>NOT &hellip; LIKE</code> <b>non restituisce i record che hanno quel campo vuoto</b>: con un <code>NOT</code> globale si perderebbero tutti i lead a cui manca anche un solo utm, cio&egrave; quasi tutti.</p>
         <p class="taxintro"><b>Qui il RecordType non si filtra</b>, al contrario del funnel IREC. Non &egrave; accertato sotto quale record type vengano registrati questi contatti: imporre <code>IREC</code> rischierebbe di restituire zero senza dirlo. Se si scoprisse che vivono tutti sotto un record type preciso, il filtro va stretto.</p>
       </div>
       <div class="card-b" style="padding:6px 14px 16px"><table class="rftaxtbl">
@@ -946,7 +947,7 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
  OR utm_medium__c   LIKE '%incassi intelligenti%' OR &hellip;
  OR utm_campaign__c LIKE '%incassi intelligenti%' OR &hellip;
  OR utm_content__c  LIKE '%incassi intelligenti%' OR &hellip;  )</pre>
-        <p class="taxintro" style="margin-top:10px">Le grafie cercate sono <b>quattro</b> per ogni campo: con lo spazio, col trattino, con l&rsquo;underscore e tutto attaccato (<code>incassi intelligenti</code>, <code>incassi-intelligenti</code>, <code>incassi_intelligenti</code>, <code>incassiintelligenti</code>). <code>LIKE</code> in SOQL <b>non distingue maiuscole e minuscole</b>, e i <code>%</code> ai lati fanno s&igrave; che la dicitura venga trovata anche in mezzo a un nome pi&ugrave; lungo, per esempio <i>LeadAds Facebook | Incassi Intelligenti</i>. Non vengono trovate le abbreviazioni (<i>II</i>, <i>inc.int.</i>): se in campagna si usano sigle, vanno aggiunte qui.</p>
+        <p class="taxintro" style="margin-top:10px">Le grafie cercate sono <b>quattro</b> per ogni campo. In SOQL <code>LIKE</code> <b>non distingue maiuscole e minuscole</b>, i <code>%</code> ai lati fanno s&igrave; che la dicitura venga trovata anche in mezzo a un nome pi&ugrave; lungo (per esempio <i>LeadAds Facebook | Incassi Intelligenti</i>) e l&rsquo;<b><code>_</code> &egrave; un jolly che vale un carattere qualsiasi</b>: <code>%incassi_intelligenti%</code> da solo prende gi&agrave; lo spazio, il trattino, il punto e qualunque altro separatore singolo, e <code>%incassiintelligenti%</code> copre il caso senza separatore. Non vengono trovate le abbreviazioni (<i>II</i>, <i>inc.int.</i>): se in campagna si usano sigle, vanno aggiunte qui.</p>
       </div>
     </div>
 
@@ -4287,8 +4288,18 @@ function mapErr(e){var c=e&&e.code;
 /* I lead si contano tutti, anche senza utm_source: il filtro teneva fuori chi non arriva da
    un link tracciato, invisibile sui canali paid e devastante sull'organico. Stessa regola in
    api/dashboard.js, cosi' dashboard e booklet contano la stessa cosa. */
-var _LB="RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)="+Y_R;
-var _OB="RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(CloseDate)="+Y_R;
+/* Incassi Intelligenti e' un altro prodotto e sta in un'altra sezione: i suoi contatti non
+   devono gonfiare il funnel IREC. L'esclusione e' scritta campo per campo e non come NOT su
+   tutta la parentesi, perche' in SOQL un "NOT ... LIKE" non restituisce i record che hanno
+   quel campo vuoto: con un NOT globale si perderebbero tutti i lead a cui manca anche solo un
+   utm, cioe' quasi tutti. Stessa regola in api/dashboard.js. */
+var _II_C=["LeadSource","utm_source__c","utm_medium__c","utm_campaign__c","utm_content__c"];
+var _II_P=["%incassi intelligenti%","%incassi-intelligenti%","%incassi_intelligenti%","%incassiintelligenti%"];
+var _NON_II=" AND "+_II_C.map(function(c){
+  return "("+c+"=null OR ("+_II_P.map(function(p){return "(NOT "+c+" LIKE '"+p+"')";}).join(" AND ")+"))";
+}).join(" AND ");
+var _LB="RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)="+Y_R+_NON_II;
+var _OB="RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(CloseDate)="+Y_R+_NON_II;
 var _NP="'NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','HA GI\u00C0 RISOLTO / LO HANNO PAGATO','NON GENERA INSOLUTI'";
 var _NT="'VUOLE COLLABORARE CON NOI','NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER AZIONE LEGALE IN CORSO','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON IN TARGET PER FALLIMENTO/LIQUIDAZIONE/CONCORDATO','NON IN TARGET CERCA FINANZIAMENTO PERSONALE','NON IN TARGET CERCA FINANZIAMENTO AZIENDA','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','NON GENERA INSOLUTI','HA GI\u00C0 RISOLTO / LO HANNO PAGATO'";
 var _CM="CALENDAR_MONTH(Data_Compilazione_Questionario__c)", _CMC="CALENDAR_MONTH(CloseDate)", _DD="DAY_ONLY(Data_Compilazione_Questionario__c)";

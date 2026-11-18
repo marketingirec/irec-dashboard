@@ -18,8 +18,24 @@ const API_V = 'v60.0';
    ma devastante sul NO PAID, dove quasi nessuno ce l'ha. Il denominatore spariva e il
    numeratore no, cosi' la % MQL del NO PAID usciva sopra il 100% (Ottobre: 10 lead
    contati su 70 veri, con 49 MQL). */
-const LB = "RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=" + YEAR;
-const OB = "RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(CloseDate)=" + YEAR;
+/* Riconoscere un contatto di Incassi Intelligenti: la dicitura nella sorgente dichiarata o in
+   uno dei parametri utm del link, in quattro grafie. Serve in due posti opposti: per tenere
+   dentro la vista Incassi e per tenere fuori il funnel IREC, che e' un altro prodotto e non
+   deve vedersi gonfiare i lead da una campagna che non e' sua. */
+const II_CAMPI = ['LeadSource','utm_source__c','utm_medium__c','utm_campaign__c','utm_content__c'];
+const II_PAT   = ['%incassi intelligenti%','%incassi-intelligenti%','%incassi_intelligenti%','%incassiintelligenti%'];
+const II_W = '(' + II_CAMPI.map(c => II_PAT.map(p => `${c} LIKE '${p}'`).join(' OR ')).join(' OR ') + ')';
+/* L'esclusione va scritta campo per campo, non come NOT sull'intera parentesi: in SOQL un
+   "NOT ... LIKE" non restituisce i record che hanno quel campo vuoto, e con un NOT globale si
+   perderebbero tutti i lead a cui manca anche solo un utm, cioe' quasi tutti. Qui ogni campo
+   dice "o sei vuoto, o non contieni la dicitura", e il record resta dentro IREC solo se questo
+   vale per tutti e cinque. */
+const NON_II = ' AND ' + II_CAMPI.map(c =>
+  `(${c}=null OR (` + II_PAT.map(p => `(NOT ${c} LIKE '${p}')`).join(' AND ') + '))'
+).join(' AND ');
+
+const LB = "RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(Data_Compilazione_Questionario__c)=" + YEAR + NON_II;
+const OB = "RecordType.DeveloperName='IREC' AND CALENDAR_YEAR(CloseDate)=" + YEAR + NON_II;
 const NP = "'NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','HA GIÀ RISOLTO / LO HANNO PAGATO','NON GENERA INSOLUTI'";
 const NT = "'VUOLE COLLABORARE CON NOI','NON IN TARGET PER MANCANZA DOCUMENTAZIONE','NON IN TARGET PER AZIONE LEGALE IN CORSO','NON IN TARGET PER TRADING ONLINE','NON IN TARGET - VITTIMA DI TRUFFA','NON IN TARGET CERCA CESSIONE DEL CREDITO','NON IN TARGET CERCA ASSICURAZIONE DEL CREDITO','NON IN TARGET CERCA RECUPERO CREDITI FISCALI','NON IN TARGET PER FALLIMENTO/LIQUIDAZIONE/CONCORDATO','NON IN TARGET CERCA FINANZIAMENTO PERSONALE','NON IN TARGET CERCA FINANZIAMENTO AZIENDA','NON HA CREDITI DA RECUPERARE/ VUOLE SOLO INFO','NON GENERA INSOLUTI','HA GIÀ RISOLTO / LO HANNO PAGATO'";
 const CM = "CALENDAR_MONTH(Data_Compilazione_Questionario__c)";
@@ -68,9 +84,6 @@ const srcGrp   = (i,m,by)=>{
    giuste e se ne sta perdendo qualcuna.
    Le voci sono cinque e non otto: lead, MQL, SQL, Trattative, Chiuso-Vinto, cioe' le posizioni
    0,4,5,6,7 del funnel generale, con gli stessi identici criteri (si riusa VW[i].extra). */
-const II_CAMPI = ['LeadSource','utm_source__c','utm_medium__c','utm_campaign__c','utm_content__c'];
-const II_PAT   = ['%incassi intelligenti%','%incassi-intelligenti%','%incassi_intelligenti%','%incassiintelligenti%'];
-const II_W = '(' + II_CAMPI.map(c => II_PAT.map(p => `${c} LIKE '${p}'`).join(' OR ')).join(' OR ') + ')';
 const II_VOCI = [{ i:0, v:'Lead totali' },{ i:4, v:'MQL' },{ i:5, v:'SQL' },{ i:6, v:'Trattative' },{ i:7, v:'Chiuso vinto \u00b7 trial attivato con contratto' }];
 const iiGrp = (i)=>{
   const lead = VW[i].o==='Lead';
