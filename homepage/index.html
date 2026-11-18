@@ -1,0 +1,195 @@
+<!doctype html><html lang="it"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>IREC &middot; Punto di partenza</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%AD%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Stessi colori e stesso carattere dell'Hub Incassi Intelligenti: questa pagina sta davanti
+   a tutte le altre, se parlasse una lingua diversa sembrerebbe di un altro sito. */
+:root{
+  --bg:#F6F8FB; --surface:#FFFFFF; --ink:#0F1729; --muted:#4A5568; --line:#DFE2E7; --soft:#EEF3F9;
+  --brand:#0E1B33; --brandInk:#FFFFFF; --kicker:#1057A4; --link:#1057A4; --teal:#0ABAB5;
+  --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0A1428; --surface:#0E1B33; --ink:#F6F8FB; --muted:#C9D6EA; --line:#24395E; --soft:#16294A;
+  --brand:#070F1F; --brandInk:#F6F8FB; --kicker:#2CD3CE; --link:#8DBBF3; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A1428; --surface:#0E1B33; --ink:#F6F8FB; --muted:#C9D6EA; --line:#24395E; --soft:#16294A;
+  --brand:#070F1F; --brandInk:#F6F8FB; --kicker:#2CD3CE; --link:#8DBBF3; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+.inner{max-width:1040px;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* ---------- testata ---------- */
+.top{background:var(--brand);color:var(--brandInk)}
+.top .inner{padding-block:30px 34px;display:flex;flex-direction:column;gap:12px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mark{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:13px;letter-spacing:.1em;text-transform:uppercase}
+.mark i{width:9px;height:9px;border-radius:50%;background:var(--teal);display:block}
+#tema{font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:var(--brandInk);
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:10px;
+  min-height:38px;padding:0 14px}
+#tema:hover{border-color:var(--teal)}
+h1{margin:0;font-size:clamp(27px,4.2vw,40px);line-height:1.1;letter-spacing:-.022em;text-wrap:balance}
+.sub{margin:0;max-width:62ch;opacity:.86;font-size:15.5px}
+.stripe{display:flex;height:5px}
+.stripe i{flex:1}
+
+/* ---------- gruppi di link ---------- */
+main .inner{padding-block:30px 56px;display:flex;flex-direction:column;gap:34px}
+.group{display:flex;flex-direction:column;gap:12px}
+.group h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:14px}
+
+/* La card intera e' cliccabile: il link copre la card con uno pseudo-elemento, cosi' resta
+   un solo link vero per la tastiera e per chi legge con lo schermo. */
+.item{position:relative;display:flex;flex-direction:column;gap:7px;padding:17px 18px;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  transition:border-color .15s,transform .15s}
+.item:hover{border-color:var(--link);transform:translateY(-1px)}
+.item:focus-within{border-color:var(--link);outline:3px solid var(--link);outline-offset:2px}
+.item .k{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--kicker)}
+.item .t{font-size:16.5px;font-weight:800;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
+.item .t::after{content:"";position:absolute;inset:0;border-radius:14px}
+.item .t:focus-visible{outline:none}
+.item .d{margin:0;color:var(--muted);font-size:14px}
+.item .u{font-size:12.5px;color:var(--muted);opacity:.8;word-break:break-all;
+  font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+
+/* I collegamenti diretti dentro una card devono stare sopra la zona cliccabile della card,
+   altrimenti li coprirebbe e non si potrebbero premere. */
+.deep{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:7px;margin-top:3px}
+.deep a{font-size:12.5px;font-weight:700;text-decoration:none;color:var(--link);
+  background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:4px 11px}
+.deep a:hover{border-color:var(--link)}
+.ext{display:inline-block;margin-left:5px;font-size:12px;opacity:.7;font-weight:700}
+
+footer .inner{padding-block:0 40px;color:var(--muted);font-size:13px}
+footer p{margin:0}
+</style>
+</head><body>
+
+<header class="top">
+  <div class="inner">
+    <div class="topbar">
+      <span class="mark"><i></i>IREC</span>
+      <button id="tema" type="button">Tema</button>
+    </div>
+    <h1>Punto di partenza</h1>
+    <p class="sub">Tutto quello che serve, in un posto solo: i numeri, il booklet e i materiali di vendita. Se un link ti serve spesso, mettilo tra i preferiti direttamente da qui.</p>
+  </div>
+</header>
+<div class="stripe"><i style="background:#0ABAB5"></i><i style="background:#1057A4"></i><i style="background:#F08C28"></i><i style="background:#22AA5A"></i><i style="background:#38AADC"></i></div>
+
+<main>
+  <div class="inner">
+
+    <section class="group">
+      <h2>I numeri</h2>
+      <div class="list">
+
+        <article class="item">
+          <span class="k">Dashboard</span>
+          <a class="t" href="/">Funnel commerciale IREC &amp; RF</a>
+          <p class="d">Il funnel mese per mese: lead, MQL, SQL, trattative e venduto. Real da Salesforce, budget dal forecast. Da qui si aggiornano i dati.</p>
+          <div class="deep">
+            <a href="/#irec/mom">IREC</a>
+            <a href="/#rf/andamento">RF</a>
+            <a href="/#incassi">Incassi</a>
+            <a href="/#irec-tax">Tassonomie</a>
+          </div>
+          <span class="u">/</span>
+        </article>
+
+        <article class="item">
+          <span class="k">Booklet</span>
+          <a class="t" href="/booklet/">KPI Booklet 2026</a>
+          <p class="d">La fotografia dell&rsquo;anno, KPI per KPI, con le considerazioni mensili. &Egrave; il documento che si porta in riunione.</p>
+          <span class="u">/booklet</span>
+        </article>
+
+        <article class="item">
+          <span class="k">Altri reparti</span>
+          <a class="t" href="/altri-reparti/bo">BO &middot; Analisi pratiche</a>
+          <p class="d">Le pratiche del Back Office: stato, tempi di lavorazione e andamento.</p>
+          <span class="u">/altri-reparti/bo</span>
+        </article>
+
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>La vendita</h2>
+      <div class="list">
+
+        <article class="item">
+          <span class="k">Wiki<span class="ext">&#8599; esterno</span></span>
+          <a class="t" href="https://wiki.irec.it/login" target="_blank" rel="noopener">Sales Second Brain</a>
+          <p class="d">Il sapere della rete vendita: script, obiezioni, procedure. Chiede di entrare con le proprie credenziali.</p>
+          <span class="u">wiki.irec.it</span>
+        </article>
+
+        <article class="item">
+          <span class="k">Materiali</span>
+          <a class="t" href="/hub-incassi-intelligenti/">Hub Incassi Intelligenti</a>
+          <p class="d">Presentazioni, one-pager, kit di vendita e calcolatore del terzo prodotto, divisi per settore.</p>
+          <div class="deep">
+            <a href="/hub-incassi-intelligenti/calcolatore/">Calcolatore</a>
+          </div>
+          <span class="u">/hub-incassi-intelligenti</span>
+        </article>
+
+        <article class="item">
+          <span class="k">Materiali<span class="ext">&#8599; esterno</span></span>
+          <a class="t" href="https://claude.ai/artifact/WXJguP5QoGnq1Vzj2bKkdw#mkt" target="_blank" rel="noopener">Hub Incassi &middot; link condivisibile</a>
+          <p class="d">Gli stessi materiali di lancio, divisi in Marketing e Sales. Sta su claude.ai e si apre con il solo link, senza la password del sito: &egrave; questo che si manda fuori.</p>
+          <div class="deep">
+            <a href="https://claude.ai/artifact/WXJguP5QoGnq1Vzj2bKkdw#mkt" target="_blank" rel="noopener">Marketing</a>
+            <a href="https://claude.ai/artifact/WXJguP5QoGnq1Vzj2bKkdw#sales" target="_blank" rel="noopener">Sales</a>
+          </div>
+          <span class="u">claude.ai/artifact</span>
+        </article>
+
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer><div class="inner"><p>Pagine interne IREC. Se un link non si apre, probabilmente non sei entrata: la dashboard e il booklet chiedono la password di Vercel, la wiki la sua.</p></div></footer>
+
+<script>
+/* Il tema scelto vale per tutte le pagine del sito: si scrive nella stessa chiave che usano
+   la dashboard e il booklet, cosi' chi mette lo scuro lo trova scuro ovunque. */
+(function(){
+  var CH="irec_theme";
+  function leggi(){try{return localStorage.getItem(CH);}catch(e){return null;}}
+  function metti(t){
+    if(t)document.documentElement.setAttribute("data-theme",t);
+    else document.documentElement.removeAttribute("data-theme");
+    var b=document.getElementById("tema");
+    if(b)b.textContent=(t==="dark")?"Chiaro":(t==="light")?"Scuro":"Tema";
+  }
+  metti(leggi());
+  document.addEventListener("DOMContentLoaded",function(){
+    metti(leggi());
+    document.getElementById("tema").addEventListener("click",function(){
+      // senza una scelta salvata si segue il sistema: il primo clic prende il verso opposto
+      var ora=leggi();
+      if(!ora)ora=matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light";
+      var nuovo=(ora==="dark")?"light":"dark";
+      try{localStorage.setItem(CH,nuovo);}catch(e){}
+      metti(nuovo);
+    });
+  });
+})();
+</script>
+</body></html>
