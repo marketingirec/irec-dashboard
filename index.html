@@ -157,6 +157,8 @@
     border:1px solid var(--border);background:var(--surface-2);color:var(--ink);border-radius:7px;padding:5px 8px}
   input.bud:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
   input.bud::placeholder{color:var(--faint)}
+  /* la riga scritta a mano ha una casella per mese: dodici da 78px non ci stanno */
+  input.bud.pag{width:54px;padding:4px 6px}
 
   select,input.txt{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--surface);color:var(--ink);
     border-radius:9px;padding:7px 10px}
@@ -288,6 +290,7 @@
     <div class="mm-group mm-incassi">
       <span class="mm-title">Incassi</span>
       <button class="mm-item" data-view="incassi-dash">Dashboard</button>
+      <button class="mm-item" data-view="incassi-tax">Tassonomia Incassi</button>
     </div>
     <a class="mm-link" href="/booklet" title="Apri il KPI Booklet 2026">KPI Booklet 2026 <span class="frec">&rarr;</span></a>
   </nav>
@@ -624,7 +627,7 @@
     <div class="card" style="margin-bottom:18px">
       <div class="card-h"><h2>Tassonomia IREC &middot; come sono filtrati i KPI</h2></div>
       <div class="card-b" style="padding:16px 18px 6px">
-        <p class="taxintro"><b>Base comune.</b> Solo record con <code>RecordType.DeveloperName='IREC'</code> e anno 2026. Le voci <b>Lead</b> (marketing/TMK) sono ancorate a <code>Data_Compilazione_Questionario__c</code> e richiedono <code>utm_source__c</code> valorizzato; le voci <b>Opportunity</b> (rete vendita) sono ancorate a <code>CloseDate</code> ed escludono sempre <code>LeadSource='Reopen'</code>. Ogni voce &egrave; un sotto-insieme della precedente (funnel cumulativo).</p>
+        <p class="taxintro"><b>Base comune.</b> Solo record con <code>RecordType.DeveloperName='IREC'</code> e anno 2026. Le voci <b>Lead</b> (marketing/TMK) sono ancorate a <code>Data_Compilazione_Questionario__c</code> e si contano <b>tutte</b>, anche senza <code>utm_source__c</code> (prima il filtro c&rsquo;era e teneva fuori chi non arriva da un link tracciato: irrilevante sui canali paid, devastante sull&rsquo;organico); le voci <b>Opportunity</b> (rete vendita) sono ancorate a <code>CloseDate</code> ed escludono sempre <code>LeadSource='Reopen'</code>. Ogni voce &egrave; un sotto-insieme della precedente (funnel cumulativo).</p>
       </div>
       <div class="card-b" style="padding:6px 8px 14px"><table id="taxIrecBody"></table></div>
     </div>
@@ -897,7 +900,7 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
       </div>
       <div class="card-b scroll"><table id="incPiv"></table></div>
       <p class="hint" style="color:var(--muted);font-size:12px;margin:0;padding:0 16px 16px">
-        Il <b>budget di Incassi Intelligenti non &egrave; ancora stato definito</b>: la colonna c&rsquo;&egrave; ed &egrave; scrivibile, e quello che scrivi resta su questo browser finch&eacute; non arriver&agrave; un forecast vero.
+        Il <b>budget di Incassi Intelligenti non &egrave; ancora stato definito</b>: la colonna c&rsquo;&egrave; ed &egrave; scrivibile, e quello che scrivi resta su questo browser finch&eacute; non arriver&agrave; un forecast vero. Vale lo stesso per i <b>Paganti al 31&deg; giorno</b>, che si scrivono a mano nella tabella qui sopra: quel dato non sta in Salesforce.
       </p>
     </div>
 
@@ -907,6 +910,75 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
         <span class="hint">Sorgenti intercettate dal filtro, sui lead dell&rsquo;anno</span>
       </div>
       <div class="card-b scroll"><table id="incFonti"></table></div>
+    </div>
+  </div>
+
+  <!-- ============ TASSONOMIA INCASSI ============ -->
+  <div id="view-incassi-tax" class="view" style="display:none">
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-h"><h2>Tassonomia Incassi &middot; come sono filtrate le voci</h2></div>
+      <div class="card-b" style="padding:16px 18px 6px">
+        <p class="taxintro"><b>Base comune.</b> Un contatto &egrave; di <b>Incassi Intelligenti</b> quando la dicitura compare nella <b>sorgente dichiarata</b> (<code>LeadSource</code>) oppure in uno dei <b>parametri utm del link</b> (<code>utm_source__c</code>, <code>utm_medium__c</code>, <code>utm_campaign__c</code>, <code>utm_content__c</code>). Basta che la trovi in <b>uno solo</b> di questi cinque campi. Anno 2026. Le voci <b>Lead</b> sono ancorate a <code>Data_Compilazione_Questionario__c</code>, le voci <b>Opportunity</b> a <code>CloseDate</code>: sono le stesse date del funnel IREC, cos&igrave; i due prodotti si leggono allo stesso modo. Ogni voce &egrave; un sotto-insieme della precedente (funnel cumulativo).</p>
+        <p class="taxintro"><b>Qui il RecordType non si filtra</b>, al contrario del funnel IREC. Non &egrave; accertato sotto quale record type vengano registrati questi contatti: imporre <code>IREC</code> rischierebbe di restituire zero senza dirlo. Se si scoprisse che vivono tutti sotto un record type preciso, il filtro va stretto.</p>
+      </div>
+      <div class="card-b" style="padding:6px 14px 16px"><table class="rftaxtbl">
+        <thead><tr><th>Voce</th><th>Oggetto e data</th><th>Come &egrave; calcolata</th></tr></thead>
+        <tbody>
+          <tr><td class="voce">Lead totali</td><td>Lead &middot; <code>Data_Compilazione_Questionario__c</code></td><td>Tutti i lead dell&rsquo;anno che passano il filtro Incassi Intelligenti. Nessuna esclusione: si contano anche quelli <b>senza</b> <code>utm_source</code>, cio&egrave; chi non arriva da un link tracciato. &Egrave; il denominatore della colonna <b>% sui lead</b>.</td></tr>
+          <tr><td class="voce">MQL</td><td>Opportunity &middot; <code>CloseDate</code></td><td>Opportunity nate dal lead, con <code>LeadSource != 'Reopen'</code> (le riaperture non sono contatti nuovi).</td></tr>
+          <tr><td class="voce">SQL</td><td>Opportunity &middot; <code>CloseDate</code></td><td>MQL che hanno <b>un importo valorizzato</b> (anche 0,00), oppure sono in <code>StageName='Trattativa'</code>, oppure sono Chiuso-Perso con un motivo di perdita commerciale. &Egrave; il momento in cui la rete vendita ha preso in mano il contatto.</td></tr>
+          <tr><td class="voce">Trattative</td><td>Opportunity &middot; <code>CloseDate</code></td><td>MQL con <b>importo valorizzato</b> (0,00 oppure maggiore di zero): c&rsquo;&egrave; una proposta sul tavolo.</td></tr>
+          <tr><td class="voce">Chiuso vinto<br><span class="muted" style="font-weight:400">trial attivato con contratto</span></td><td>Opportunity &middot; <code>CloseDate</code></td><td><code>StageName</code> in <b>Chiuso - Vinto</b> o <b>Chiuso - Pending</b>. Su Incassi Intelligenti il chiuso-vinto &egrave; il <b>trial attivato con contratto</b>: il contratto c&rsquo;&egrave;, i soldi non ancora. Il <i>Pending</i> &egrave; venduto in attesa di incasso: nel conteggio dei contratti ci sta, in un fatturato no.</td></tr>
+          <tr><td class="voce">Pagante al 31&deg; giorno</td><td>&mdash; &middot; scritto a mano</td><td><b>Non arriva da Salesforce.</b> Il trial che al trentunesimo giorno diventa pagante &egrave; l&rsquo;unico passo del funnel che si decide fuori dal CRM, quindi la riga &egrave; <b>scrivibile a mano</b>, una casella per mese, nella tabella del funnel. Quello che si scrive <b>resta sul browser di chi lo scrive</b>: finch&eacute; i numeri non vengono scritti nel codice, esistono su un computer solo.</td></tr>
+          <tr><td class="voce">% sui lead</td><td>&mdash;</td><td>La voce divisa per i <b>Lead totali dello stesso mese</b>, non per la voce precedente: si legge &ldquo;di 100 lead, quanti arrivano fin qui&rdquo;.</td></tr>
+          <tr><td class="voce">Budget</td><td>&mdash;</td><td><b>Non ancora definito.</b> La colonna c&rsquo;&egrave; ed &egrave; scrivibile, ma nasce vuota e quello che si scrive <b>resta sul browser di chi lo scrive</b>: non &egrave; un dato condiviso e non arriva da nessun forecast. Finch&eacute; &egrave; vuota, Delta N e Delta % restano a trattino.</td></tr>
+          <tr><td class="voce">Da dove arrivano</td><td>Lead &middot; <code>LeadSource</code></td><td>Le sorgenti dichiarate che il filtro ha intercettato, coi lead dell&rsquo;anno per ciascuna. Non &egrave; un KPI: serve a controllare a occhio che il filtro stia prendendo le cose giuste.</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-h"><h2>Il filtro &mdash; Salesforce (SOQL)</h2><span class="hint">cosa conta come &ldquo;Incassi Intelligenti&rdquo;</span></div>
+      <div class="card-b" style="padding:8px 18px 16px">
+        <pre style="margin:0;overflow-x:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink)">(   LeadSource      LIKE '%incassi intelligenti%' OR LeadSource      LIKE '%incassi-intelligenti%'
+ OR LeadSource      LIKE '%incassi_intelligenti%' OR LeadSource      LIKE '%incassiintelligenti%'
+ OR utm_source__c   LIKE '%incassi intelligenti%' OR &hellip;
+ OR utm_medium__c   LIKE '%incassi intelligenti%' OR &hellip;
+ OR utm_campaign__c LIKE '%incassi intelligenti%' OR &hellip;
+ OR utm_content__c  LIKE '%incassi intelligenti%' OR &hellip;  )</pre>
+        <p class="taxintro" style="margin-top:10px">Le grafie cercate sono <b>quattro</b> per ogni campo: con lo spazio, col trattino, con l&rsquo;underscore e tutto attaccato (<code>incassi intelligenti</code>, <code>incassi-intelligenti</code>, <code>incassi_intelligenti</code>, <code>incassiintelligenti</code>). <code>LIKE</code> in SOQL <b>non distingue maiuscole e minuscole</b>, e i <code>%</code> ai lati fanno s&igrave; che la dicitura venga trovata anche in mezzo a un nome pi&ugrave; lungo, per esempio <i>LeadAds Facebook | Incassi Intelligenti</i>. Non vengono trovate le abbreviazioni (<i>II</i>, <i>inc.int.</i>): se in campagna si usano sigle, vanno aggiunte qui.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>Le voci &mdash; Salesforce (SOQL)</h2><span class="hint">una query per voce, raggruppata per mese</span></div>
+      <div class="card-b" style="padding:8px 18px 16px">
+        <pre style="margin:0;overflow-x:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink)">-- Lead totali
+SELECT CALENDAR_MONTH(Data_Compilazione_Questionario__c) m, COUNT(Id) t
+FROM Lead
+WHERE CALENDAR_YEAR(Data_Compilazione_Questionario__c) = 2026
+  AND [filtro Incassi Intelligenti]
+GROUP BY CALENDAR_MONTH(Data_Compilazione_Questionario__c)
+
+-- MQL / SQL / Trattative / Chiuso vinto
+SELECT CALENDAR_MONTH(CloseDate) m, COUNT(Id) t
+FROM Opportunity
+WHERE CALENDAR_YEAR(CloseDate) = 2026
+  AND (LeadSource != 'Reopen' OR LeadSource = null)
+  AND [condizione della voce]          -- SQL: Amount!=null OR Trattativa OR perso-con-motivo
+                                       -- Trattative: Amount != null
+                                       -- Chiuso vinto: StageName IN ('Chiuso - Vinto','Chiuso - Pending')
+  AND [filtro Incassi Intelligenti]
+GROUP BY CALENDAR_MONTH(CloseDate)
+
+-- Da dove arrivano
+SELECT LeadSource s, COUNT(Id) t
+FROM Lead
+WHERE CALENDAR_YEAR(Data_Compilazione_Questionario__c) = 2026
+  AND [filtro Incassi Intelligenti]
+GROUP BY LeadSource ORDER BY COUNT(Id) DESC LIMIT 50</pre>
+        <p class="taxintro" style="margin-top:10px">Le condizioni delle voci sono <b>le stesse del funnel IREC</b>, riusate parola per parola: cambia solo il filtro di prodotto che si aggiunge in fondo. Cos&igrave; se un domani si corregge la definizione di SQL, si corregge in un punto solo e vale per tutti e due i prodotti.</p>
+      </div>
     </div>
   </div>
 </div>
@@ -3704,6 +3776,15 @@ function allGroupsReady(){groupReady={general:true,marketing:true,tmk:true,sales
 var INC=null, INC_ERR="", INC_INCORSO=false, incMese=Math.max(0,CUR_MONTH-1), INC_BUD={};
 try{INC_BUD=JSON.parse(localStorage.getItem("incassi_budget")||"{}")||{};}catch(e){INC_BUD={};}
 function incSalvaBud(){try{localStorage.setItem("incassi_budget",JSON.stringify(INC_BUD));}catch(e){}}
+/* I paganti al 31esimo giorno non stanno in Salesforce: il trial diventa pagante fuori dal CRM,
+   quindi questa riga si scrive a mano, un numero per mese. Resta sul browser di chi la scrive,
+   come il budget: quando i numeri saranno stabili vanno scritti nel codice, altrimenti
+   esistono su un computer solo. */
+var INC_PAG=[null,null,null,null,null,null,null,null,null,null,null,null];
+try{var _p=JSON.parse(localStorage.getItem("incassi_paganti")||"null");
+    if(_p&&_p.length===12)INC_PAG=_p;}catch(e){}
+function incSalvaPag(){try{localStorage.setItem("incassi_paganti",JSON.stringify(INC_PAG));}catch(e){}}
+var INC_VOCE_PAG="Pagante al 31\u00b0 giorno";
 function incStato(t,err){var el=document.getElementById("incStato"); if(!el)return;
   el.textContent=t||""; el.style.color=err?"var(--bad)":"var(--muted)";}
 function caricaIncassi(){
@@ -3722,7 +3803,8 @@ function incBud(voce,m){var r=INC_BUD[voce]; var v=r?r[m]:null;
 function renderIncassi(){
   var t1=document.getElementById("incTable"), t2=document.getElementById("incPiv"), t3=document.getElementById("incFonti");
   if(!t1)return;
-  var voci=(INC&&INC.voci)||[];
+  var voci=((INC&&INC.voci)||[]).slice();
+  if(voci.length)voci.push({v:INC_VOCE_PAG,data:INC_PAG,manuale:true});
   if(!voci.length){
     var msg=INC_ERR?"Nessun dato: "+INC_ERR:"Carico…";
     t1.innerHTML='<tbody><tr><td class="muted" style="padding:16px">'+msg+'</td></tr></tbody>';
@@ -3737,11 +3819,24 @@ function renderIncassi(){
     h+='<tr><td class="voce">'+r.v+'</td>';
     for(var m=0;m<12;m++){
       var v=r.data?r.data[m]:null;
-      h+='<td class="'+(m===CUR_MONTH-1?"now":"")+'">'+(v==null?'<span class="muted">&mdash;</span>':nf(v))+'</td>';
+      h+='<td class="'+(m===CUR_MONTH-1?"now":"")+'">'
+        +(r.manuale
+          ? '<input class="bud pag tnum" type="number" inputmode="numeric" placeholder="&mdash;" data-pag="'+m+'" value="'+(v==null?"":v)+'">'
+          : (v==null?'<span class="muted">&mdash;</span>':nf(v)))
+        +'</td>';
     }
     h+='</tr>';
   });
   t1.innerHTML=h+'</tbody>';
+  t1.querySelectorAll("input.pag").forEach(function(inp){
+    inp.addEventListener("change",function(){
+      var m=+inp.getAttribute("data-pag");
+      INC_PAG[m]=(inp.value===""?null:+inp.value);
+      incSalvaPag(); renderIncassi();
+      var di=t1.querySelector('input.pag[data-pag="'+m+'"]');
+      if(di){ skipGuardOnce=true; di.focus(); }
+    });
+  });
 
   /* --- dettaglio del mese scelto: qui vive la colonna Budget, per ora vuota --- */
   var sel=document.getElementById("incMese");
@@ -3802,7 +3897,7 @@ function ancoraCorrente(){
   if(currentView==="irec-dash")return "irec/"+(currentTab||"mom");
   if(currentView==="rf-dash")return "rf/"+(rfTab||"andamento");
   if(currentView==="incassi-dash")return "incassi";
-  return currentView;   // irec-tax, rf-tax
+  return currentView;   // irec-tax, rf-tax, incassi-tax
 }
 var ancoraFerma=false;
 function scriviAncora(){
@@ -3817,7 +3912,7 @@ function vaiAdAncora(h){
   var p=v.split("/"), area=p[0], tab=p[1]||"";
   ancoraFerma=true;
   try{
-    if(area==="irec-tax"||area==="rf-tax"){ showView(area); return true; }
+    if(area==="irec-tax"||area==="rf-tax"||area==="incassi-tax"){ showView(area); return true; }
     if(area==="incassi"){ showView("incassi-dash"); return true; }
     if(area==="irec"||area==="rf"){
       showView(area==="irec"?"irec-dash":"rf-dash");
@@ -3836,7 +3931,7 @@ function vaiAdAncora(h){
   return false;
 }
 function showView(v){
-  var views=["irec-dash","irec-tax","rf-dash","rf-tax","incassi-dash"];
+  var views=["irec-dash","irec-tax","rf-dash","rf-tax","incassi-dash","incassi-tax"];
   if(views.indexOf(v)<0)v="irec-dash";
   currentView=v;
   views.forEach(function(id){var el=document.getElementById("view-"+id); if(el)el.style.display=(id===v)?"":"none";});

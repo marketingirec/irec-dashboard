@@ -71,7 +71,7 @@ const srcGrp   = (i,m,by)=>{
 const II_CAMPI = ['LeadSource','utm_source__c','utm_medium__c','utm_campaign__c','utm_content__c'];
 const II_PAT   = ['%incassi intelligenti%','%incassi-intelligenti%','%incassi_intelligenti%','%incassiintelligenti%'];
 const II_W = '(' + II_CAMPI.map(c => II_PAT.map(p => `${c} LIKE '${p}'`).join(' OR ')).join(' OR ') + ')';
-const II_VOCI = [{ i:0, v:'Lead totali' },{ i:4, v:'MQL' },{ i:5, v:'SQL' },{ i:6, v:'Trattative' },{ i:7, v:'Chiuso vinto' }];
+const II_VOCI = [{ i:0, v:'Lead totali' },{ i:4, v:'MQL' },{ i:5, v:'SQL' },{ i:6, v:'Trattative' },{ i:7, v:'Chiuso vinto \u00b7 trial attivato con contratto' }];
 const iiGrp = (i)=>{
   const lead = VW[i].o==='Lead';
   const g = lead?CM:CMC, from = lead?'Lead':'Opportunity';
