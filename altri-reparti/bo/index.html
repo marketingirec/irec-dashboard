@@ -53,7 +53,6 @@
     <div class="bo-card bo-tile" id="kpi-attivati"><div class="lab">Clienti attivati</div><div class="val" data-draw="k-attivati" data-source="kpi" data-field="attivati" data-row="0">—</div><div class="note">Giugno → oggi</div></div>
     <div class="bo-card bo-tile" id="kpi-wc"><div class="lab">Welcome call riuscite</div><div class="val" data-draw="k-wc" data-source="kpi" data-field="tasso_wc" data-row="0">—</div><div class="note">Le altre: WC negativa, inviata mail</div></div>
     <div class="bo-card bo-tile" id="kpi-affido"><div class="lab">Tasso di affido</div><div class="val" data-draw="k-affido" data-source="kpi" data-field="tasso_affido" data-row="0">—</div><div class="note">Clienti con almeno una pratica affidata</div></div>
-    <div class="bo-card bo-tile" id="kpi-prat"><div class="lab">Pratiche per cliente</div><div class="val" data-draw="k-prat">&mdash;</div><div class="note" data-draw="k-prat-nota">&mdash;</div></div>
     <div class="bo-card bo-tile" id="kpi-15"><div class="lab">Call 15 gg fatte</div><div class="val" data-draw="k-15" data-source="kpi" data-field="copertura_15" data-row="0">—</div><div class="note">Su clienti attivati da più di 15 giorni</div></div>
     <div class="bo-card bo-tile" id="kpi-45"><div class="lab">Review 45 gg fatte</div><div class="val" data-draw="k-45" data-source="kpi" data-field="copertura_45" data-row="0">—</div><div class="note">Su clienti attivati da più di 45 giorni</div></div>
     <div class="bo-card bo-tile" id="kpi-soll"><div class="lab">Da sollecitare per l'affido</div><div class="val" data-draw="k-soll" data-source="kpi" data-field="da_sollecitare" data-row="0">—</div><div class="note">Valore dichiarato in WC: <span data-draw="k-soll-val" data-source="kpi" data-field="valore_da_sollecitare" data-row="0">—</span></div></div>
@@ -75,7 +74,7 @@
 
   <section class="bo-card" id="per-mese">
     <h2>Mese su mese</h2>
-    <p class="hint">Per mese di attivazione del cliente. <b>Pratiche per cliente</b> &egrave; la media di quante pratiche il cliente ha dichiarato in welcome call, contata solo su chi ha poi affidato <i>e</i> il numero l&rsquo;ha detto: non &egrave; il numero di pratiche davvero caricate, quel dato nel foglio non c&rsquo;&egrave;. Accanto c&rsquo;&egrave; la mediana, perch&eacute; un singolo &ldquo;200 pratiche circa&rdquo; scritto in nota alza la media di tutto il mese. Novembre &egrave; in corso.</p>
+    <p class="hint">Per mese di attivazione del cliente. L&rsquo;affido &egrave; un s&igrave;/no: dice quanti clienti hanno affidato, non quante pratiche. Novembre &egrave; in corso.</p>
     <div class="bo-tablewrap">
       <table data-source="pratiche_mese" data-row-key="mese">
         <thead><tr>
@@ -83,9 +82,6 @@
           <th class="num" data-field="attivati">Attivati</th>
           <th class="num" data-field="affidati">Hanno affidato</th>
           <th class="num" data-field="tasso_affido">Affido</th>
-          <th class="num" data-field="pratiche_media">Pratiche per cliente</th>
-          <th class="num" data-field="pratiche_mediana">Mediana</th>
-          <th class="num" data-field="dichiarate_da">Dichiarate da</th>
           <th class="num" data-field="da_sollecitare">Da sollecitare</th>
         </tr></thead>
         <tbody data-draw="mesi-rows"></tbody>
@@ -174,6 +170,7 @@
       <dt>Affidato</dt><dd>Colonna “Affidato pratiche” che inizia con “si”, oppure una nota successiva che dice esplicitamente che il cliente ha affidato. I clienti Radar senza pratiche sono esclusi dal tasso di affido.</dd>
       <dt>Call 15 gg / Review 45 gg</dt><dd>Colonne “Prima call” e “Review 45 gg” con “si”. La copertura si calcola solo sui clienti attivati da più di 15 o 45 giorni.</dd>
       <dt>Valore dichiarato</dt><dd>Importo letto dalla nota della welcome call (es. “1 pratica 16k” → 16.000 €). È quanto il cliente ha detto in call, non quanto è stato caricato: va preso come indicazione.</dd>
+      <dt>Numero di pratiche</dt><dd>Non viene mostrato da nessuna parte. Il numero che compare nel foglio &egrave; quello che il cliente <b>dice di avere</b> in welcome call, non quante ne ha poi affidate, ed &egrave; spesso una stima a voce (&ldquo;una quindicina&rdquo;, &ldquo;forse arrivo intorno a 10&rdquo;). Una media costruita su numeri cos&igrave; sembra una misura e non lo &egrave;: meglio nessun numero che uno che non regge.</dd>
       <dt>Agente</dt><dd>“Massimo” è unito a Massimiliano; le righe senza agente sono “Non assegnato”.</dd>
     </dl>
   </details>

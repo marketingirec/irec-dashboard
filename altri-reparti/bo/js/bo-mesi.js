@@ -1,120 +1,78 @@
-/* Pratiche per cliente e quadro mese su mese.
+/* Quadro mese su mese.
    Sta in un file a parte, come bo-cerca.js: dashboard.js e' la copia identica
    dell'artefatto e va potuto risostituire. Si aggancia solo all'API pubblica dello
    shim (dash.calc / dash.draw / dash.data), registrando calcoli e disegni nuovi
    prima che bo-fonte.js chiami dash.start().
 
-   ATTENZIONE AL DATO. Il foglio non ha una colonna con il numero di pratiche
-   affidate: la colonna "AFFIDATO PRATICHE" e' un si/no. L'unico posto dove il
-   numero compare e' la nota della welcome call ("2 pratiche", "10 pratiche circa"),
-   quindi quella che si misura qui e' la media delle pratiche DICHIARATE IN WC dai
-   clienti che poi hanno affidato - non quelle davvero caricate, e solo per chi il
-   numero l'ha detto (circa sei su dieci). Per questo accanto alla media c'e' la
-   mediana: basta un "200 pratiche circa" scritto in nota per gonfiare la media di
-   un mese intero. */
+   QUI NON SI CONTANO LE PRATICHE. Il foglio non ha una colonna col numero di pratiche
+   affidate: "AFFIDATO PRATICHE" e' un si/no, e l'unico numero che compare - nella nota
+   della welcome call - e' quante pratiche il cliente DICE DI AVERE, non quante ne ha poi
+   affidate. Fino al 23 novembre 2026 questo file ne ricavava "Pratiche per cliente",
+   mediana e "Dichiarate da": numeri che sembravano misurare il lavoro affidato e invece
+   misuravano una dichiarazione, per di piu' solo di chi il numero l'aveva detto. Sono
+   stati tolti. Resta l'affido come si/no, che il foglio lo dice davvero. */
 (function () {
   'use strict';
 
-  var MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-
-  // "2 pratiche" -> 2; "pratica da 16k" -> 1; nessun cenno alle pratiche -> niente,
-  // che e' diverso da zero: vuol dire che non lo sappiamo.
-  function nPratiche(nota) {
-    var s = String(nota == null ? '' : nota);
-    var m = s.match(/(\d+)\s*pratic/i);
-    if (m) return +m[1];
-    return /pratic/i.test(s) ? 1 : null;
-  }
-
-  function mediana(v) {
-    if (!v.length) return null;
-    var a = v.slice().sort(function (x, y) { return x - y; });
-    var h = a.length >> 1;
-    return a.length % 2 ? a[h] : (a[h - 1] + a[h]) / 2;
-  }
-
-  // clienti (classificati) non porta con se' la nota della welcome call, che invece
-  // serve per il numero di pratiche: la riprendo da clienti_raw con la stessa
-  // chiave cliente+data usata dalle tabelle.
-  function conNota(clienti, raw) {
-    var map = {};
-    raw.forEach(function (r) { map[r.cliente + '|' + r.data_attivazione] = r.nota_wc; });
-    return clienti.map(function (c) {
-      return { c: c, n: nPratiche(map[c.cliente + '|' + c.data_attivazione]) };
-    });
-  }
-
-  function perMese(clienti, raw) {
-    var righe = conNota(clienti, raw), per = {};
-    righe.forEach(function (x) {
-      var k = x.c.mese_ord;
-      if (!per[k]) per[k] = { mese_ord: k, mese: x.c.mese, attivati: 0, con_affido: 0, affidati: 0, da_sollecitare: 0, numeri: [] };
+  function perMese(clienti) {
+    var per = {};
+    clienti.forEach(function (c) {
+      var k = c.mese_ord;
+      if (!per[k]) per[k] = { mese_ord: k, mese: c.mese, attivati: 0, con_affido: 0, affidati: 0, da_sollecitare: 0 };
       var p = per[k];
       p.attivati++;
-      if (x.c.stato_affido === 'Radar senza pratiche') return; // non devono affidare
+      if (c.stato_affido === 'Radar senza pratiche') return; // non devono affidare
       p.con_affido++;
-      if (x.c.stato_affido === 'Affidato') { p.affidati++; if (x.n != null) p.numeri.push(x.n); }
+      if (c.stato_affido === 'Affidato') p.affidati++;
       else p.da_sollecitare++;
     });
     return Object.keys(per).map(Number).sort(function (a, b) { return a - b; }).map(function (k) {
-      var p = per[k], n = p.numeri.length, somma = 0;
-      p.numeri.forEach(function (v) { somma += v; });
+      var p = per[k];
       return {
         mese: p.mese, mese_ord: p.mese_ord, attivati: p.attivati, affidati: p.affidati,
         tasso_affido: p.con_affido ? p.affidati / p.con_affido : null,
-        pratiche_media: n ? somma / n : null,
-        pratiche_mediana: mediana(p.numeri),
-        dichiarate_da: n,
         da_sollecitare: p.da_sollecitare
       };
     });
   }
 
-  dash.calc('pratiche_mese', {
-    inputs: ['clienti', 'clienti_raw'],
-    title: 'Quadro mese su mese',
-    description: 'Per mese di attivazione: clienti attivati, quanti hanno affidato, pratiche per cliente dichiarate in welcome call e clienti ancora da sollecitare.',
-    fn: perMese
+  /* Il funnel chiamava la sua terza fase "Pratiche affidate", ma il numero sono CLIENTI
+     che hanno affidato, non pratiche: il foglio le pratiche non le conta. Si riscrive qui
+     invece che in dashboard.js perche' quello e' la copia identica dell'artefatto e va
+     potuto risostituire; lo shim tiene l'ultima registrazione per ogni id, e questo file
+     viene caricato dopo. Il resto del calcolo e' uguale all'originale. */
+  dash.calc('funnel', {
+    inputs: ['clienti'],
+    title: 'Funnel post-vendita (clienti attivati da più di 45 giorni)',
+    description: 'Quanti clienti superano ogni fase, sullo stesso gruppo di clienti.',
+    fn: function (clienti) {
+      var pct = function (n, d) { return d ? n / d : null; };
+      var g = clienti.filter(function (c) { return c.giorni > 45 && c.stato_affido !== 'Radar senza pratiche'; });
+      var wc = g.filter(function (c) { return c.stato_wc === 'Riuscita'; });
+      var aff = g.filter(function (c) { return c.stato_affido === 'Affidato'; });
+      var c15 = aff.filter(function (c) { return c.call_15gg === 'si'; });
+      var r45 = aff.filter(function (c) { return c.review_45gg === 'si'; });
+      var tot = g.length;
+      return [
+        { fase: 'Attivati', clienti: tot, quota: 1 },
+        { fase: 'Welcome call riuscita', clienti: wc.length, quota: pct(wc.length, tot) },
+        { fase: 'Hanno affidato', clienti: aff.length, quota: pct(aff.length, tot) },
+        { fase: 'Call 15 gg fatta', clienti: c15.length, quota: pct(c15.length, tot) },
+        { fase: 'Review 45 gg fatta', clienti: r45.length, quota: pct(r45.length, tot) }
+      ];
+    }
   });
 
-  dash.calc('pratiche_kpi', {
-    inputs: ['clienti', 'clienti_raw'],
-    title: 'Pratiche per cliente',
-    description: 'Media e mediana delle pratiche dichiarate in welcome call dai clienti che hanno affidato.',
-    fn: function (clienti, raw) {
-      var numeri = [], affidati = 0, somma = 0;
-      conNota(clienti, raw).forEach(function (x) {
-        if (x.c.stato_affido !== 'Affidato') return;
-        affidati++;
-        if (x.n != null) { numeri.push(x.n); somma += x.n; }
-      });
-      return [{
-        media: numeri.length ? somma / numeri.length : null,
-        mediana: mediana(numeri),
-        dichiarate_da: numeri.length,
-        affidati: affidati
-      }];
-    }
+  dash.calc('pratiche_mese', {
+    inputs: ['clienti'],
+    title: 'Quadro mese su mese',
+    description: 'Per mese di attivazione: clienti attivati, quanti hanno affidato e quanti sono ancora da sollecitare.',
+    fn: perMese
   });
 
   // ---------- Formati (quelli di dashboard.js sono chiusi nella sua closure) ----------
   function fInt(v) { return v == null ? '—' : String(Math.round(v)); }
-  function fDec(v) { return v == null ? '—' : v.toFixed(1).replace('.', ','); }
   function fPct(v) { return v == null ? '—' : Math.round(v * 100) + '%'; }
-
-  function uno(id) { var s = dash.data(id); return (s.status === 'ok' && s.data && s.data[0]) ? s.data[0] : null; }
-
-  dash.draw('k-prat', function (el) {
-    var k = uno('pratiche_kpi');
-    el.textContent = k ? fDec(k.media) : '—';
-  });
-
-  dash.draw('k-prat-nota', function (el) {
-    var k = uno('pratiche_kpi');
-    el.textContent = k && k.dichiarate_da
-      ? 'Mediana ' + fDec(k.mediana) + ' · dichiarate da ' + k.dichiarate_da + ' dei ' + k.affidati + ' che hanno affidato'
-      : '—';
-  });
 
   dash.draw('mesi-rows', function (tb) {
     var s = dash.data('pratiche_mese');
@@ -124,9 +82,6 @@
       function (d) { return [fInt(d.attivati), 'num']; },
       function (d) { return [fInt(d.affidati), 'num']; },
       function (d) { return [fPct(d.tasso_affido), 'num']; },
-      function (d) { return [fDec(d.pratiche_media), 'num']; },
-      function (d) { return [fDec(d.pratiche_mediana), 'num']; },
-      function (d) { return [fInt(d.dichiarate_da), 'num']; },
       function (d) { return [fInt(d.da_sollecitare), 'num']; }
     ];
     tb.replaceChildren();
