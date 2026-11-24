@@ -110,7 +110,7 @@
 
   <section class="bo-card" id="sollecitare">
     <h2>Clienti da sollecitare per l'affido</h2>
-    <p class="hint">Clienti che non hanno ancora affidato pratiche, dal più vecchio. Il valore è quello dichiarato nella nota della welcome call, quando c'è.</p>
+    <p class="hint">Clienti che non hanno ancora affidato pratiche, dal più vecchio. Numero e valore sono quelli che il cliente ha dichiarato nella welcome call, quando li ha detti: una casella vuota vuol dire che non li ha detti, non che sono zero.</p>
     <div class="tabs" role="group" aria-label="Filtra per agente" id="tabs-soll">
       <button type="button" data-agente="" aria-pressed="true">Tutti</button>
       <button type="button" data-agente="Massimiliano" aria-pressed="false">Massimiliano</button>
@@ -130,6 +130,7 @@
           <th data-field="cliente">Cliente</th>
           <th data-field="data_attivazione">Attivato il</th>
           <th class="num" data-field="giorni">Giorni</th>
+          <th class="num" data-field="n_dichiarate">N. dichiarate</th>
           <th class="num" data-field="valore_dichiarato">Valore dichiarato</th>
           <th data-field="stato">Stato</th>
           <th data-field="ultima_nota">Ultima nota</th>
@@ -155,6 +156,7 @@
           <th data-field="cliente">Cliente</th>
           <th data-field="data_attivazione">Attivato il</th>
           <th class="num" data-field="giorni">Giorni</th>
+          <th class="num" data-field="n_dichiarate">N. dichiarate</th>
           <th class="num" data-field="valore_dichiarato">Valore dichiarato</th>
           <th data-field="ultima_nota">Ultima nota</th>
         </tr></thead>
@@ -170,7 +172,7 @@
       <dt>Affidato</dt><dd>Colonna “Affidato pratiche” che inizia con “si”, oppure una nota successiva che dice esplicitamente che il cliente ha affidato. I clienti Radar senza pratiche sono esclusi dal tasso di affido.</dd>
       <dt>Call 15 gg / Review 45 gg</dt><dd>Colonne “Prima call” e “Review 45 gg” con “si”. La copertura si calcola solo sui clienti attivati da più di 15 o 45 giorni.</dd>
       <dt>Valore dichiarato</dt><dd>Importo letto dalla nota della welcome call (es. “1 pratica 16k” → 16.000 €). È quanto il cliente ha detto in call, non quanto è stato caricato: va preso come indicazione.</dd>
-      <dt>Numero di pratiche</dt><dd>Non viene mostrato da nessuna parte. Il numero che compare nel foglio &egrave; quello che il cliente <b>dice di avere</b> in welcome call, non quante ne ha poi affidate, ed &egrave; spesso una stima a voce (&ldquo;una quindicina&rdquo;, &ldquo;forse arrivo intorno a 10&rdquo;). Una media costruita su numeri cos&igrave; sembra una misura e non lo &egrave;: meglio nessun numero che uno che non regge.</dd>
+      <dt>N. dichiarate</dt><dd>Quante pratiche il cliente <b>dice di avere</b>, letto dalla nota della welcome call (&ldquo;2 pratiche&rdquo; &rarr; 2; &ldquo;una pratica da 16k&rdquo; &rarr; 1). Non sono le pratiche affidate: il foglio non le conta, la colonna &ldquo;Affidato pratiche&rdquo; &egrave; un s&igrave;/no. Spesso &egrave; una stima a voce (&ldquo;una quindicina&rdquo;, &ldquo;forse arrivo intorno a 10&rdquo;): quando non c&rsquo;&egrave; un numero preciso la casella resta vuota, cos&igrave; non si confonde &ldquo;non l&rsquo;ha detto&rdquo; con &ldquo;una&rdquo;. Per lo stesso motivo non se ne fa n&eacute; somma n&eacute; media: nella riga del cliente &egrave; una sua frase, accanto alla nota da cui viene; in un totale diventerebbe una misura che nessuno ha misurato.</dd>
       <dt>Agente</dt><dd>“Massimo” è unito a Massimiliano; le righe senza agente sono “Non assegnato”.</dd>
     </dl>
   </details>
