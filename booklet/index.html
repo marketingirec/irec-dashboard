@@ -313,14 +313,39 @@ var LIVE_FF_IREC={
   "Investimento ads":                  function(d){var a=d.adspend||{},m=a.meta||[],g=a.google||[];
                                          return MESI.map(function(_x,i){return (m[i]==null&&g[i]==null)?null:((m[i]||0)+(g[i]||0));});}
 };
+/* Shopify consegna a quest'app solo gli ordini degli ultimi 60 giorni: le manca lo scope
+   read_all_orders, e un mese uscito da quella finestra non torna vuoto con un errore, torna
+   vuoto e basta. Scriverlo sopra il consuntivo ufficiale lo demolisce: al 26/11/2026 la riga
+   RF "> Online" di Settembre diceva 4.798,45 € contro 31.300 di budget, un -84,7% che non e'
+   mai successo - di quel mese arrivavano solo gli ultimi quattro giorni, 23 ordini su 155.
+   La dashboard questa guardia ce l'ha gia' (_cov, in index.html); qui mancava, e l'unico
+   riparo era bloccare le celle una a una con r.fisso.
+   Si tengono percio' nulle le serie che nascono dagli ordini Shopify sui mesi fuori finestra:
+   scriviLive salta i nulli, e quelle celle restano come sono - al valore ufficiale dove il
+   booklet ce l'ha, vuote dove non ce l'ha (e' il caso di Settembre per RF: vuoto e' quello che
+   sappiamo, -84,7% e' un'invenzione). Le serie che vengono da Salesforce o dall'ADV non hanno
+   questo limite e passano intere, Settembre compreso.
+   Il giorno che lo scope arriva, la finestra si allarga e qui non si tocca niente. */
+var SH_FINESTRA_GG=60;
+function shPrimoMeseCoperto(){
+  var oggi=new Date(), taglio=oggi.getTime()-SH_FINESTRA_GG*864e5, a=oggi.getFullYear();
+  // un mese e' coperto se comincia dentro la finestra: a meta' lo sarebbe solo in parte,
+  // e un mese a meta' scritto come se fosse intero e' esattamente l'errore da evitare
+  for(var i=0;i<12;i++)if(new Date(a,i,1).getTime()>=taglio)return i;
+  return 12;
+}
+var SH_DA=shPrimoMeseCoperto();
+
 /* RF: le serie live si ricavano da /api/rf. Qui la mappatura NON e' per etichetta ma per indice
    di riga, scritta nel file dati (campo .live): nella sezione RF "> Online" compare tre volte,
    sotto ordini, AOV e fatturato, e cercare per nome prenderebbe la riga sbagliata. */
 function serieRF(d){
   var sf=d.sf||{}, sh=d.shopify||{}, ad=d.adspend||{};
   var v=function(a){return Array.isArray(a)?a:[];};
-  var on=v(sh.online), off=v(sf.offline), par=v(sf.partner), ge=v(sh.gest);
-  var oOn=v(sh.ordOnline), oOff=v(sf.ordOffline), oPar=v(sf.ordPartner);
+  // le tre serie che nascono dagli ordini Shopify, spente sui mesi fuori finestra
+  var shv=function(a){var x=v(a),o=[];for(var i=0;i<12;i++)o.push(i>=SH_DA?x[i]:null);return o;};
+  var on=shv(sh.online), off=v(sf.offline), par=v(sf.partner), ge=shv(sh.gest);
+  var oOn=shv(sh.ordOnline), oOff=v(sf.ordOffline), oPar=v(sf.ordPartner);
   var me=v(ad.meta), go=v(ad.google);
   var comb=function(f){var o=[];for(var i=0;i<12;i++)o.push(f(i));return o;};
   var nz=function(x){return x==null?null:x;};
@@ -338,10 +363,14 @@ function serieRF(d){
     // Gli ordini offline non comprendono i partner, che si contano a parte nella loro riga:
     // il totale ordini e' quindi online + offline, partner esclusi.
     ordOffline:comb(function(i){return nz(oOff[i]);}),
-    ordTot:  comb(function(i){return (oOn[i]==null&&oOff[i]==null)?null:((oOn[i]||0)+(oOff[i]||0));}),
-    fatOnOff:comb(function(i){return (on[i]==null&&off[i]==null)?null:((on[i]||0)+(off[i]||0));}),
-    fatTot:  comb(function(i){return (on[i]==null&&off[i]==null&&par[i]==null)?null:((on[i]||0)+(off[i]||0)+(par[i]||0));}),
-    vendutoOperatori:comb(function(i){return (ge[i]==null&&off[i]==null&&par[i]==null)?null:((ge[i]||0)+(off[i]||0)+(par[i]||0));})
+    /* Nei totali che mescolano le due fonti la parte Shopify non e' facoltativa: se manca,
+       quello che resta e' il solo offline, e scriverlo nella riga "online + offline" vuol dire
+       dichiarare un totale senza il suo pezzo piu' grosso. Meglio non scrivere niente e tenere
+       il valore ufficiale. */
+    ordTot:  comb(function(i){return (oOn[i]==null)?null:(oOn[i]+(oOff[i]||0));}),
+    fatOnOff:comb(function(i){return (on[i]==null)?null:(on[i]+(off[i]||0));}),
+    fatTot:  comb(function(i){return (on[i]==null)?null:(on[i]+(off[i]||0)+(par[i]||0));}),
+    vendutoOperatori:comb(function(i){return (ge[i]==null)?null:(ge[i]+(off[i]||0)+(par[i]||0));})
   };
 }
 function innestaRF(d){
@@ -995,7 +1024,17 @@ function statoFonte(sez){
   var f=sez.fonte||"manuale";
   if(f==="manuale")return sez.notaFonte || 'dati manuali, nessuna fonte da agganciare';
   var ok=(f==="rf")?LIVE_RF:LIVE_OK;
-  var et='Set&ndash;Dic <span class="tag t-live">LIVE</span>';
+  /* Per RF il live non comincia per forza a Settembre: gli ordini Shopify arrivano solo per gli
+     ultimi 60 giorni, e sui mesi precedenti le righe che nascono da Shopify non vengono scritte.
+     Dirlo qui evita la domanda "perche' Aggiorna non cambia Settembre?". */
+  var da=(f==="rf"&&SH_DA>PRIMO_LIVE)?SH_DA:PRIMO_LIVE;
+  var et=MESI[da]+'&ndash;Dic <span class="tag t-live">LIVE</span>';
+  if(f==="rf"&&da>PRIMO_LIVE){
+    var fuori=(da-1>PRIMO_LIVE)?(MESI[PRIMO_LIVE]+'&ndash;'+MESI[da-1]):MESI[PRIMO_LIVE];
+    // non si dice "dal booklet": per RF il booklet non ha un consuntivo da Settembre, quindi
+    // quelle celle restano come sono, cioe' vuote. Vuote e' il dato che abbiamo.
+    et+=' <span style="color:var(--muted)" title="Shopify consegna a quest\'app solo gli ultimi 60 giorni di ordini: dei mesi precedenti arriverebbe una coda di pochi giorni, che scritta come se fosse il mese intero mente. Le righe che vengono da Shopify (online, guidato, spontaneo e i totali che li contengono) restano percio\' come sono su quei mesi.">&middot; '+fuori+' fuori dalla finestra Shopify</span>';
+  }
   if(ok)return et;
   return et+' <span style="color:var(--warn)">&#9888; '+(LIVE_ERR||"live in caricamento")+'</span>';
 }
