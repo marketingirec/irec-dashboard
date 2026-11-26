@@ -804,7 +804,7 @@
         </div>
         <div class="card-b scroll"><table id="rfWalTable"></table></div>
       </div>
-      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Un cliente per riga. Il credito si compra in due modi: dalla <b>rete vendita</b> (le opportunity che la dashboard conta come <b>Partner</b>) o dall&rsquo;<b>e-commerce</b> con il prodotto <b>Ricarica Wallet</b>; i tagli a catalogo chiuso restano fuori. Si consuma sul sito come <b>Sconto Credito Wallet</b>, che pu&ograve; portare l&rsquo;ordine a zero. <b>Credito</b> e <b>Consumato</b> sono <b>IVA inclusa</b>, come il listino del wallet; il <b>Venduto</b> &egrave; imponibile come il resto della dashboard. Il <b>Residuo</b> &egrave; il saldo vero letto da <b>Credits Yard</b>, non una sottrazione. <b>Ordini</b>, <b>venduto</b>, <b>ticket medio</b> e <b>frequenza</b> contano dalla prima ricarica a oggi. Chi compare senza ricarica sta spendendo credito caricato prima dell&rsquo;anno in corso.</p>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0"><b>Un&rsquo;azienda per riga</b>, non un indirizzo: la stessa azienda compra il credito con una mail e lo spende con un&rsquo;altra (Power Tech ricarica come <i>affarilegali@</i> e ordina come <i>amministratore@</i>), quindi gli indirizzi dello stesso dominio stanno insieme e il <i>+n</i> accanto alla mail li elenca. I domini di posta gratuita no: l&igrave; lo stesso dominio non vuol dire lo stesso cliente. Il credito si compra dalla <b>rete vendita</b> (le opportunity che la dashboard conta come <b>Partner</b>) o dall&rsquo;<b>e-commerce</b> coi prodotti <b>Ricarica Wallet</b>; le ricariche rimborsate e le prove interne restano fuori. Si consuma sul sito come <b>Sconto Credito Wallet</b>, che pu&ograve; portare l&rsquo;ordine a zero. <b>Credito</b> e <b>Consumato</b> sono <b>IVA inclusa</b>, come il listino del wallet; il <b>Venduto</b> &egrave; imponibile come il resto della dashboard. Il <b>Residuo</b> &egrave; il saldo vero letto da <b>Credits Yard</b>, non una sottrazione: compare anche chi ha solo quello, perch&eacute; un wallet con dentro dei soldi &egrave; un wallet anche senza ricariche nostre. <b style="color:var(--warn)">Il consumo si vede solo dalla data scritta sopra la tabella</b>: Shopify consegna a quest&rsquo;app gli ordini degli ultimi 60 giorni, e finch&eacute; non le viene dato il permesso <code>read_all_orders</code> <b>Consumato</b>, <b>Ordini</b>, <b>Venduto</b>, <b>ticket</b> e <b>frequenza</b> guardano solo quella finestra. Le ricariche e il residuo no, quelli sono completi.</p>
     </section>
 
     <section class="rfpanel" id="rfpanel-ordini">
@@ -3560,15 +3560,15 @@ var WAL=null, walLoading=false, walErr="";
 var walQ="", walFiltro="tutti", walSort="ricaricato", walDesc=true;
 var WAL_COLS=[
   {k:"nome",       t:"Cliente",        testo:true},
-  {k:"email",      t:"Email",          testo:true},
+  {k:"email",      t:"Email",          testo:true, tit:"L'indirizzo su cui sta il saldo. Il +n sono gli altri indirizzi della stessa azienda"},
   {k:"ricaricato", t:"Ricaricato",     tip:"eur", tit:"Somma di tutte le ricariche del cliente, dalla prima a oggi"},
   {k:"nRicariche", t:"N ric.",         tip:"num"},
   {k:"ultima",     t:"Ultima ricarica", tip:"data"},
   {k:"ultimaTipo", t:"Tipo",           testo:true},
   {k:"ultimaImporto", t:"Importo ult.", tip:"eur"},
   {k:"credito",    t:"Credito IVA incl.", tip:"eur", tit:"Credito effettivamente caricato: il listino del wallet lo esprime IVA inclusa"},
-  {k:"consumato",  t:"Consumato IVA incl.", tip:"eur", tit:"Credito scalato dagli ordini, riportato a lordo per stare nella stessa valuta del credito"},
-  {k:"residuo",    t:"Residuo",        tip:"eur", tit:"Saldo vero letto da Credits Yard"},
+  {k:"consumato",  t:"Consumato IVA incl.", tip:"eur", tit:"Credito scalato dagli ordini, riportato a lordo per stare nella stessa valuta del credito. Shopify consegna solo gli ultimi 60 giorni di ordini: vale da quella data in poi, scritta sopra la tabella"},
+  {k:"residuo",    t:"Residuo",        tip:"eur", tit:"Saldo vero letto da Credits Yard, sommato su tutti gli indirizzi dell'azienda"},
   {k:"ordini",     t:"Ordini",         tip:"num", tit:"Ordini pagati col credito"},
   {k:"venduto",    t:"Venduto netto",  tip:"eur", tit:"Valore imponibile di quegli ordini, prima dello sconto wallet"},
   {k:"ticket",     t:"Ticket medio",   tip:"eur"},
@@ -3599,7 +3599,7 @@ function walRighe(){
   var f=WAL_FILTRI.filter(function(x){return x.k===walFiltro;})[0];
   if(f)righe=righe.filter(f.f);
   var q=walQ.trim().toLowerCase();
-  if(q)righe=righe.filter(function(r){return ((r.nome||"")+" "+(r.email||"")).toLowerCase().indexOf(q)>=0;});
+  if(q)righe=righe.filter(function(r){return ((r.nome||"")+" "+(r.email||"")+" "+((r.altreEmail||[]).join(" "))).toLowerCase().indexOf(q)>=0;});
   var col=WAL_COLS.filter(function(c){return c.k===walSort;})[0]||{};
   righe.sort(function(a,b){
     var x=a[walSort], y=b[walSort];
@@ -3620,8 +3620,9 @@ function renderWallet(){
   if(walLoading){ if(cap)cap.textContent=""; el.innerHTML='<thead><tr><th class="voce">Cliente</th></tr></thead><tbody><tr><td class="voce muted">Caricamento da Shopify, Credits Yard e Salesforce...</td></tr></tbody>'; return; }
   if(walErr){ if(cap)cap.textContent=""; el.innerHTML='<thead><tr><th class="voce">Cliente</th></tr></thead><tbody><tr><td class="voce muted">'+esc(walErr)+'</td></tr></tbody>'; return; }
   var righe=walRighe(), tutte=((WAL&&WAL.righe)||[]).length;
+  var _cda=(WAL&&WAL.consumoTroncato&&WAL.consumoDa)||"";
   if(cap)cap.innerHTML=righe.length+(righe.length===tutte?"":" di "+tutte)+" clienti &middot; dati al "+((WAL&&WAL.oggi)||"").split("-").reverse().join("/")
-    ;
+    +(_cda?' &middot; <span style="color:var(--warn)">consumo visibile solo dal '+_cda.split("-").reverse().join("/")+'</span>':"");
   var head='<thead><tr>'+WAL_COLS.map(function(c,i){
     var on=(c.k===walSort);
     return '<th'+(i===0?' class="voce"':'')+' data-ws="'+c.k+'" title="'+esc(c.tit||("Ordina per "+c.t))+'" style="cursor:pointer'+(i<2?';text-align:left':'')+'">'
@@ -3636,7 +3637,11 @@ function renderWallet(){
         +(urge?"subito":v.split("-").reverse().join("/"))+'</td>';
     }
     if(v==null||v==="")return '<td class="'+(c.k==="nome"?"voce muted":"tnum muted")+'">&mdash;</td>';
-    if(c.testo)return '<td class="'+(c.k==="nome"?"voce":"")+'" style="text-align:left'+(c.k!=="nome"?";font-size:11.5px;color:var(--muted)":"")+'">'+esc(String(v))+'</td>';
+    if(c.testo){
+      var txt=esc(String(v)), alt=(c.k==="email"&&r.altreEmail&&r.altreEmail.length)?r.altreEmail:null;
+      if(alt)txt+=' <span title="Stessa azienda, altri indirizzi: '+esc(alt.join(", "))+'" style="color:var(--accent);cursor:help">+'+alt.length+'</span>';
+      return '<td class="'+(c.k==="nome"?"voce":"")+'" style="text-align:left'+(c.k!=="nome"?";font-size:11.5px;color:var(--muted)":"")+'">'+txt+'</td>';
+    }
     if(c.tip==="data")return '<td class="tnum">'+String(v).split("-").reverse().join("/")+'</td>';
     if(c.tip==="num")return '<td class="tnum">'+nf(v)+'</td>';
     if(c.tip==="num2")return '<td class="tnum">'+v.toLocaleString("it-IT",{maximumFractionDigits:2})+'</td>';
