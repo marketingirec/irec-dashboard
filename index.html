@@ -679,6 +679,7 @@
       <div class="tabgroup" data-macro="dettaglio">
         <button role="tab" aria-selected="false" data-rftab="ordini">Dettaglio ordini</button>
         <button role="tab" aria-selected="false" data-rftab="wallet">Dettaglio wallet</button>
+        <button role="tab" aria-selected="false" data-rftab="codici">Dettaglio codici sconto</button>
       </div>
     </nav>
     <section class="rfpanel active" id="rfpanel-pv">
@@ -820,6 +821,33 @@
       </div>
       <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Ogni riga &egrave; un ordine del mese selezionato. <b>Online</b> = ordini Shopify (numero <code>#&hellip;</code>); <b>Offline/Partner</b> = Opportunity Salesforce (RecordType Rintraccio Facile). <b>Stato pagamento</b>: <span style="color:var(--good);font-weight:600">Pagato</span> = Shopify pagato / SF Chiuso-Vinto; <span style="color:var(--warn);font-weight:600">In attesa</span> = Shopify pending / SF Chiuso-Pending. Importi al netto IVA. Gli ordini a &euro;&nbsp;0 (uso credito wallet) sono esclusi.</p>
     </section>
+
+    <section class="rfpanel" id="rfpanel-codici">
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-h"><h2>Codici sconto &mdash; mese per mese</h2><span class="hint" id="rfCodCap"></span></div>
+        <div class="card-b scroll"><table id="rfCodMesi"></table></div>
+      </div>
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-h"><h2>Fatturato netto per tipo di codice</h2></div>
+        <div class="card-b scroll"><table id="rfCodTipi"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-h" style="flex-wrap:wrap;gap:10px">
+          <h2>Dettaglio per codice</h2>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="search" id="rfCodQ" placeholder="Cerca codice" style="font:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);min-width:160px">
+            <span id="rfCodFiltri" style="display:inline-flex;gap:4px;flex-wrap:wrap"></span>
+            <button type="button" id="rfCodCsv" title="Scarica la tabella dei codici in CSV" style="font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border:1px solid var(--accent);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer">&#8595; Scarica CSV</button>
+          </div>
+        </div>
+        <div class="card-b scroll"><table id="rfCodTable"></table></div>
+      </div>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:10px 2px 0">Uso dei <b>codici sconto</b> su rintracciofacile.it nell&rsquo;anno. Gli importi sono <b>al netto IVA</b>; il <b>fatturato netto</b> &egrave; quello che resta dopo lo sconto, lo <b>sconto concesso</b> quanto &egrave; stato regalato. &middot;
+      <b>Restano fuori</b>: gli ordini <b>senza codice</b>, il <b>credito wallet</b> (&egrave; credito prepagato applicato come sconto, ha la sua tab e contarlo qui conterebbe due volte lo stesso incasso), i codici <b>BLOY</b> del programma fedelt&agrave; (usa&ndash;e&ndash;getta, uno per premio), i codici <b>RF&nbsp;Club</b> (uno per abbonato) e i codici che in tutto l&rsquo;anno non hanno prodotto un euro, che sono le <b>prove interne</b> e gli ordini annullati. &middot;
+      Il <b>tipo</b> non &egrave; scritto a mano: un codice <i>nome&nbsp;+&nbsp;numero</i> (Massimo10, Lorenzop22) &egrave; un <b>codice venditore</b>, le convenzioni e le automazioni del sito sono due elenchi chiusi, e tutto il resto &egrave; una <b>campagna</b> &mdash; cos&igrave; un codice nuovo si classifica da s&eacute;. &middot;
+      La <b>% incidenza</b> ha per denominatore il fatturato di <b>tutti</b> gli ordini del negozio, ricariche wallet comprese: per questo <b>Gennaio sembra al 12%</b> invece che intorno al 50% come gli altri mesi &mdash; quel mese il negozio ha incassato 63.398&nbsp;&euro; perch&eacute; dentro ci sono le ricariche wallet, non perch&eacute; i codici abbiano contato meno. &middot;
+      Fonte <b>ShopifyQL</b>, non la lista ordini: ShopifyQL legge tutto lo storico del negozio, quindi qui il limite dei <b>60 giorni</b> che tocca il wallet non c&rsquo;&egrave;.</p>
+    </section>
   </div>
 
   <!-- ============ TASSONOMIA RF ============ -->
@@ -847,6 +875,7 @@
           <tr><td class="voce">Venduto Operatori</td><td>&mdash;</td><td>Online gestito + <b>tutto</b> l&rsquo;Offline + <b>tutto</b> il Partner (offline e partner sono sempre gestiti dai venditori).</td></tr>
           <tr><td class="voce">Sconto Credito Wallet</td><td>Shopify</td><td>Ordini in cui il cliente scala il credito wallet. Il credito &egrave; applicato come <b>sconto sul prezzo</b>, non come metodo di pagamento: <code>net_sales</code> &egrave; gi&agrave; al netto e l&rsquo;imponibile residuo viene incassato per intero con carta (es. #16948: 59,00 &minus; 11,51 = 47,49 + IVA, un&rsquo;unica transazione). Contano quindi come qualsiasi altro ordine. Se il credito copre l&rsquo;intero ordine l&rsquo;imponibile &egrave; 0 e non c&rsquo;&egrave; alcuna transazione: quegli ordini restano esclusi da fatturato e conteggio.</td></tr>
           <tr><td class="voce">Dettaglio ordini (tab)</td><td>Shopify + Salesforce</td><td>Ledger per singolo ordine del mese: <b>N ordine</b> (Shopify <code>#&hellip;</code> o nome Opportunity SF), <b>Fatturato netto</b>, <b>Stato pagamento</b> (Pagato = Shopify pagato / SF Chiuso-Vinto; In attesa = Shopify pending / SF Chiuso-Pending), <b>Fonte</b>. Esclude gli ordini a &euro;&nbsp;0 (wallet). Il Totale Pagato coincide col Totale Fatturato del PV.</td></tr>
+          <tr><td class="voce">Dettaglio codici sconto (tab)</td><td>Shopify (ShopifyQL)</td><td>Uso dei codici sconto nell&rsquo;anno, per mese, per tipo e per codice. <b>Fonte ShopifyQL</b>, non la lista ordini: ShopifyQL legge tutto lo storico, la lista ordini solo gli ultimi 60 giorni. <b>Esclusi</b>: ordini senza codice, <i>Sconto Credito Wallet</i> (&egrave; credito prepagato, contarlo qui raddoppierebbe l&rsquo;incasso), codici <code>BLOY&hellip;</code> (fedelt&agrave;, usa-e-getta), <code>RFCLUB-&hellip;</code> (abbonamento) e i codici che sull&rsquo;anno non hanno prodotto un euro (prove interne, annullati). <b>Tipo</b> dedotto: <i>nome&nbsp;+&nbsp;numero</i> = venditore, convenzioni e automazioni sito da elenco, tutto il resto campagna. La <b>% incidenza</b> ha per denominatore il fatturato di tutti gli ordini del negozio, ricariche wallet comprese.</td></tr>
           <tr><td class="voce">Budget</td><td>Forecast / Reforecast RF</td><td><b>Gen&ndash;Giu</b>: Forecast originale (target Online/Offline/Partner per mese, fisso). <b>Lug&ndash;Dic</b>: Reforecast RF, Google Sheet tab <i>RF - ReFORECAST</i>, scenario NORMAL: Fatturato, ADV, ordini, AOV, spontaneo/gestito 60/40, operatori.</td></tr>
         </tbody>
       </table></div>
@@ -3351,6 +3380,7 @@ function renderRFActive(){
   else if(rfTab==="operatori")renderRFOperatori();
   else if(rfTab==="ordini")renderRFOrders();
   else if(rfTab==="wallet")ensureWallet();
+  else if(rfTab==="codici")ensureCodici();
   else if(rfTab==="comportamento"){renderRFComport();ensureRfComport();}
   else if(rfTab==="recensioni")renderRecRf();
 }
@@ -3683,6 +3713,235 @@ function walletCsv(){
   var a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"}));
   a.download="wallet-rf-"+((WAL&&WAL.oggi)||"")+".csv"; a.click();
+}
+/* ================= DETTAGLIO CODICI SCONTO =================
+   Quanto ha mosso ogni codice sconto di rintracciofacile.it nell'anno: per mese, per tipo di
+   codice e per singolo codice. Si carica da /api/codici quando si apre la tab.
+   La fonte e' ShopifyQL, non la lista ordini, e non e' un dettaglio: la lista ordini di
+   quest'app vede solo gli ultimi 60 giorni (manca lo scope read_all_orders) mentre ShopifyQL
+   legge tutto lo storico, e qui serve l'anno intero. Per lo stesso motivo questi numeri NON
+   hanno il buco che ha il wallet.
+   I valori cotti qui sotto sono quelli accertati al 27/11/2026 (foglio "Codici Sconto RF",
+   confrontato riga per riga con ShopifyQL): servono perche' la tab mostri l'anno anche se il
+   live non risponde - per esempio se all'app manca il permesso di leggere i report. */
+var COD_SEED={
+  al:"2026-11-27",
+  mesi:{n:[45,67,79,55,68,56,50,25,30,42,26,null],
+        net:[7692.12,15826.74,16738.48,12178.29,14848.06,11884.11,10154.16,3807.18,7981.78,8737.01,4925.93,null],
+        sconto:[837.88,2000.86,2379.72,1868.01,2699.64,1601.59,1799.14,807.42,1058.62,1501.34,1045.66,null],
+        tutti:[63398.39,26273.42,27735.84,24013.01,28681.72,26673.02,24887.76,6344.48,25227.22,22308.7,17383.39,null]},
+  tipi:[
+    {t:"Venditori",net:[7692.12,10766.07,13226.45,7257.51,8375.48,8361.5,6985.69,924.44,5976.54,4483.03,3008.1,null]},
+    {t:"Promo e campagne",net:[0.0,2821.77,3107.18,3315.68,4432.48,2214.05,2540.16,1835.84,633.6,3591.28,1508.23,null]},
+    {t:"Partner e convenzioni",net:[0.0,2238.9,404.85,1605.1,1510.0,1132.05,473.65,1046.9,1089.49,325.55,409.6,null]},
+    {t:"Automazioni sito",net:[0.0,0.0,0.0,0.0,0.0,176.51,154.66,0.0,282.15,337.15,0.0,null]},
+    {t:"Altri codici",net:[0.0,0.0,0.0,0.0,530.1,0.0,0.0,0.0,0.0,0.0,0.0,null]}
+  ],
+  codici:[
+    {c:"Massimo10",t:"Venditori",n:77,net:20261.21,sc:2287.43,mesi:6},
+    {c:"Rosario10",t:"Venditori",n:100,net:20199.06,sc:2271.84,mesi:4},
+    {c:"Dorella10",t:"Venditori",n:49,net:13098.69,sc:1455.41,mesi:4},
+    {c:"Massimiliano10",t:"Venditori",n:27,net:6883.83,sc:764.87,mesi:6},
+    {c:"cosmos20",t:"Partner e convenzioni",n:29,net:5784.8,sc:1536.0,mesi:10},
+    {c:"PROMO20",t:"Promo e campagne",n:34,net:4832.16,sc:1208.04,mesi:3},
+    {c:"startup15",t:"Partner e convenzioni",n:28,net:4451.29,sc:785.51,mesi:9},
+    {c:"FLASH20",t:"Promo e campagne",n:23,net:4432.48,sc:1108.12,mesi:1},
+    {c:"ROSARIO15",t:"Venditori",n:12,net:4309.25,sc:760.45,mesi:1},
+    {c:"HALLOWEEN20",t:"Promo e campagne",n:15,net:3408.24,sc:852.06,mesi:1},
+    {c:"PROMO15",t:"Promo e campagne",n:19,net:3107.18,sc:548.32,mesi:1},
+    {c:"FLASH15",t:"Promo e campagne",n:17,net:3021.58,sc:533.22,mesi:1},
+    {c:"FEBBRAIO10",t:"Promo e campagne",n:18,net:2821.77,sc:313.53,mesi:1},
+    {c:"Lorenzop10",t:"Venditori",n:16,net:2785.86,sc:309.54,mesi:5},
+    {c:"Massimo20",t:"Venditori",n:10,net:2309.28,sc:577.32,mesi:3},
+    {c:"Massimiliano20",t:"Venditori",n:11,net:2295.6,sc:573.9,mesi:2},
+    {c:"BLACK22",t:"Promo e campagne",n:9,net:1462.21,sc:412.39,mesi:1},
+    {c:"ESTATE15",t:"Promo e campagne",n:8,net:1272.2,sc:224.5,mesi:1},
+    {c:"Massimo5",t:"Venditori",n:6,net:958.55,sc:50.45,mesi:2},
+    {c:"Raffaella10",t:"Venditori",n:2,net:645.3,sc:71.7,mesi:2},
+    {c:"Federica10",t:"Venditori",n:5,net:634.41,sc:70.49,mesi:2},
+    {c:"Massimo22",t:"Venditori",n:2,net:629.46,sc:177.54,mesi:1},
+    {c:"SCONTO10",t:"Altri codici",n:1,net:530.1,sc:58.9,mesi:1},
+    {c:"Massimo15",t:"Venditori",n:2,net:504.9,sc:89.1,mesi:1},
+    {c:"IPPEC20",t:"Promo e campagne",n:1,net:471.2,sc:117.8,mesi:1},
+    {c:"CARRELLO5",t:"Automazioni sito",n:2,net:460.56,sc:24.24,mesi:2},
+    {c:"PRIMO5",t:"Automazioni sito",n:2,net:436.81,sc:22.99,mesi:2},
+    {c:"Dorella5",t:"Venditori",n:1,net:380.0,sc:20.0,mesi:1},
+    {c:"Massimiliano5",t:"Venditori",n:2,net:294.5,sc:15.5,mesi:1},
+    {c:"WEBINAR15",t:"Promo e campagne",n:1,net:294.1,sc:51.9,mesi:1},
+    {c:"IPPC15",t:"Promo e campagne",n:1,net:277.7,sc:49.0,mesi:1},
+    {c:"Elisap10",t:"Venditori",n:1,net:267.3,sc:29.7,mesi:1},
+    {c:"Rosario5",t:"Venditori",n:3,net:261.25,sc:13.75,mesi:1},
+    {c:"Lorenzop22",t:"Venditori",n:1,net:233.22,sc:65.78,mesi:1},
+    {c:"SPOKI15",t:"Promo e campagne",n:2,net:192.95,sc:34.05,mesi:1},
+    {c:"ZUCCA20",t:"Promo e campagne",n:1,net:183.04,sc:45.76,mesi:1},
+    {c:"SMS20",t:"Promo e campagne",n:2,net:177.44,sc:44.36,mesi:2},
+    {c:"Federica5",t:"Venditori",n:1,net:105.26,sc:5.54,mesi:1},
+    {c:"PROFILO10",t:"Automazioni sito",n:1,net:53.1,sc:5.9,mesi:1},
+    {c:"BW22",t:"Promo e campagne",n:1,net:46.02,sc:12.98,mesi:1}
+  ]
+};
+var COD=null, codLoading=false, codErr="";
+var codQ="", codFiltro="tutti", codSort="net", codDesc=true;
+var COD_TIPI=["Venditori","Promo e campagne","Partner e convenzioni","Automazioni sito","Altri codici"];
+var COD_COLS=[
+  {k:"c",    t:"Codice",                      testo:true},
+  {k:"t",    t:"Tipo",                        testo:true, tit:"Venditore = codice nome+numero; convenzioni e automazioni sono elenchi chiusi; tutto il resto e' una campagna"},
+  {k:"n",    t:"Utilizzi",                    tip:"num"},
+  {k:"net",  t:"Fatturato netto",             tip:"eur"},
+  {k:"sc",   t:"Sconto concesso",             tip:"eur", tit:"Quanto e' stato regalato con quel codice"},
+  {k:"aov",  t:"AOV",                         tip:"eur", tit:"Fatturato netto diviso gli utilizzi"},
+  {k:"quota",t:"% sul fatturato con codici",  tip:"pct"},
+  {k:"mesi", t:"Mesi di utilizzo",            tip:"num"}
+];
+function codDati(){ return COD||COD_SEED; }
+async function ensureCodici(){
+  if(COD||codLoading)return renderCodici();
+  codLoading=true; codErr=""; renderCodici();
+  try{
+    var r=await fetch("api/codici?year=2026",{headers:{Accept:"application/json"}});
+    var d=await r.json().catch(function(){return null;});
+    if(!r.ok||!d)throw new Error("HTTP "+r.status);
+    if(d.error)throw new Error(d.error);
+    COD=d;
+  }catch(e){ codErr=(e&&e.message)||String(e); }
+  codLoading=false; renderCodici();
+}
+function codPct(v){return v==null?'<span class="muted">&mdash;</span>':(v).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+"%";}
+function codCel(v,tip){
+  if(v==null)return '<td class="tnum muted">&mdash;</td>';
+  if(tip==="eur")return '<td class="tnum">'+eur2(v)+'</td>';
+  if(tip==="pct")return '<td class="tnum">'+codPct(v)+'</td>';
+  return '<td class="tnum">'+nf(v)+'</td>';
+}
+/* Somma una serie da 12 mesi saltando i vuoti; se sono tutti vuoti torna null, perche' zero e
+   "non e' ancora successo" sono due cose diverse e una vale un trattino. */
+function codSomma(a){ var s=null; (a||[]).forEach(function(v){ if(v!=null)s=(s||0)+v; }); return s; }
+/* Le righe della tabella per codice. AOV e quota si calcolano qui invece di arrivare dall'API,
+   cosi' restano giuste anche sui valori cotti e seguono i filtri. */
+function codRighe(){
+  var d=codDati(), tot=0;
+  (d.codici||[]).forEach(function(c){tot+=(c.net||0);});
+  var righe=(d.codici||[]).map(function(c){
+    return {c:c.c,t:c.t,n:c.n,net:c.net,sc:c.sc,mesi:c.mesi,
+            aov:c.n?c.net/c.n:null, quota:tot?(c.net/tot*100):null};
+  });
+  if(codFiltro!=="tutti")righe=righe.filter(function(r){return r.t===codFiltro;});
+  var q=codQ.trim().toLowerCase();
+  if(q)righe=righe.filter(function(r){return (r.c+" "+r.t).toLowerCase().indexOf(q)>=0;});
+  var col=COD_COLS.filter(function(x){return x.k===codSort;})[0]||{};
+  righe.sort(function(a,b){
+    var x=a[codSort], y=b[codSort];
+    if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
+    var s=col.testo?String(x).localeCompare(String(y),"it"):(x-y);
+    return codDesc?-s:s;
+  });
+  return righe;
+}
+function renderCodici(){
+  var d=codDati(), live=!!COD;
+  var cap=document.getElementById("rfCodCap");
+  if(cap){
+    if(codLoading)cap.textContent="Caricamento da Shopify...";
+    else cap.innerHTML=(live?'<span style="color:var(--good)">&#9679; live da ShopifyQL</span>':"valori accertati")
+      +" &middot; dati al "+String(d.al||"").split("-").reverse().join("/")
+      +(codErr?' &middot; <span style="color:var(--warn)">live non disponibile: '+esc(codErr)+'</span>':"");
+  }
+  renderCodMesi(d); renderCodTipi(d); renderCodTabella(d);
+}
+/* Mese per mese: le tre misure dei codici, il fatturato di tutto il negozio come denominatore
+   e l'incidenza. L'ultima colonna e' il totale dell'anno, non una media. */
+function renderCodMesi(d){
+  var el=document.getElementById("rfCodMesi"); if(!el)return;
+  var m=d.mesi||{}, net=m.net||[], n=m.n||[], sc=m.sconto||[], tutti=m.tutti||[];
+  var head='<thead><tr><th class="voce">RF</th>', i;
+  for(i=0;i<12;i++)head+='<th>'+RF_MONTHS[i].slice(0,3)+'</th>';
+  head+='<th>Totale</th></tr></thead>';
+  var tNet=codSomma(net), tN=codSomma(n), tSc=codSomma(sc), tTutti=codSomma(tutti);
+  function riga(lab,serie,tip,tot,cls,tit){
+    var r='<tr'+(cls?' class="'+cls+'"':'')+'><td class="voce"'+(tit?' title="'+tit+'"':'')+'>'+lab+'</td>', k;
+    for(k=0;k<12;k++)r+=codCel(serie[k],tip);
+    return r+codCel(tot,tip)+'</tr>';
+  }
+  var aov=[], inc=[];
+  for(i=0;i<12;i++){
+    aov.push((n[i]&&net[i]!=null)?net[i]/n[i]:null);
+    inc.push((tutti[i]&&net[i]!=null)?(net[i]/tutti[i]*100):null);
+  }
+  el.innerHTML=head+'<tbody>'
+    +riga("Fatturato netto con codici sconto",net,"eur",tNet)
+    +riga("&ndash; Utilizzi",n,"num",tN)
+    +riga("&ndash; AOV",aov,"eur",(tN?tNet/tN:null),null,"Fatturato netto diviso gli utilizzi")
+    +riga("&ndash; Sconto concesso",sc,"eur",tSc,null,"Quanto e' stato regalato con quei codici")
+    +riga("Fatturato netto mese (tutti gli ordini)",tutti,"eur",tTutti,"sep","Tutti gli ordini del negozio, ricariche wallet comprese: e' il denominatore dell'incidenza")
+    +riga("% incidenza codici sconto su totale",inc,"pct",(tTutti?tNet/tTutti*100:null))
+    +'</tbody>';
+}
+function renderCodTipi(d){
+  var el=document.getElementById("rfCodTipi"); if(!el)return;
+  var head='<thead><tr><th class="voce">Tipo di codice</th>', i;
+  for(i=0;i<12;i++)head+='<th>'+RF_MONTHS[i].slice(0,3)+'</th>';
+  head+='<th>Totale</th><th>% sul totale</th></tr></thead>';
+  var tipi=d.tipi||[], totAnno=0;
+  tipi.forEach(function(x){ totAnno+=(codSomma(x.net)||0); });
+  var body='<tbody>';
+  tipi.forEach(function(x){
+    var t=codSomma(x.net), k;
+    body+='<tr><td class="voce">&ndash; '+esc(x.t)+'</td>';
+    for(k=0;k<12;k++)body+=codCel((x.net||[])[k],"eur");
+    body+=codCel(t,"eur")+codCel((totAnno&&t!=null)?(t/totAnno*100):null,"pct")+'</tr>';
+  });
+  body+='<tr class="sep"><td class="voce" style="font-weight:800">Totale</td>';
+  for(i=0;i<12;i++){
+    var s=null;
+    tipi.forEach(function(x){ var v=(x.net||[])[i]; if(v!=null)s=(s||0)+v; });
+    body+=codCel(s,"eur");
+  }
+  body+=codCel(totAnno||null,"eur")+codCel(totAnno?100:null,"pct")+'</tr></tbody>';
+  el.innerHTML=head+body;
+}
+function renderCodTabella(d){
+  var el=document.getElementById("rfCodTable"); if(!el)return;
+  var box=document.getElementById("rfCodFiltri");
+  if(box)box.innerHTML=[{k:"tutti",t:"Tutti"}].concat(COD_TIPI.map(function(t){return {k:t,t:t};})).map(function(f){
+    var on=(f.k===codFiltro);
+    return '<button type="button" data-cf="'+esc(f.k)+'" style="font:inherit;font-size:11.5px;line-height:1;padding:5px 9px;border:1px solid '+(on?"var(--accent)":"var(--border)")+';border-radius:8px;cursor:pointer;background:'+(on?"var(--accent)":"var(--surface)")+';color:'+(on?"#fff":"var(--ink)")+'">'+esc(f.t)+'</button>';
+  }).join("");
+  var righe=codRighe(), tutte=(d.codici||[]).length;
+  var head='<thead><tr>'+COD_COLS.map(function(c){
+    var on=(c.k===codSort), fr=on?(codDesc?" &#9660;":" &#9650;"):"";
+    return '<th'+(c.k==="c"?' class="voce"':'')+' data-cs="'+c.k+'" title="'+esc(c.tit||"clic per ordinare")+'" style="cursor:pointer">'+c.t+fr+'</th>';
+  }).join("")+'</tr></thead>';
+  var body='<tbody>';
+  if(!righe.length)body+='<tr><td class="voce muted" colspan="'+COD_COLS.length+'">Nessun codice con questi filtri.</td></tr>';
+  else{
+    righe.forEach(function(r){
+      body+='<tr><td class="voce">'+esc(r.c)+'</td><td>'+esc(r.t)+'</td>'
+        +codCel(r.n,"num")+codCel(r.net,"eur")+codCel(r.sc,"eur")+codCel(r.aov,"eur")+codCel(r.quota,"pct")+codCel(r.mesi,"num")+'</tr>';
+    });
+    var sN=0,sNet=0,sSc=0,sQ=0;
+    righe.forEach(function(r){sN+=(r.n||0);sNet+=(r.net||0);sSc+=(r.sc||0);sQ+=(r.quota||0);});
+    body+='<tr class="sep"><td class="voce" style="font-weight:800">Totale</td>'
+      +'<td class="muted" style="font-size:11px">'+righe.length+(righe.length===tutte?"":" di "+tutte)+' codici</td>'
+      +codCel(sN,"num")+codCel(sNet,"eur")+codCel(sSc,"eur")+codCel(sN?sNet/sN:null,"eur")+codCel(sQ,"pct")+'<td></td></tr>';
+  }
+  el.innerHTML=head+body+'</tbody>';
+  el.querySelectorAll("th[data-cs]").forEach(function(th){
+    th.addEventListener("click",function(){
+      var k=th.getAttribute("data-cs");
+      if(k===codSort)codDesc=!codDesc; else{codSort=k;codDesc=true;}
+      renderCodTabella(codDati());
+    });
+  });
+  if(box)box.querySelectorAll("button[data-cf]").forEach(function(b){
+    b.addEventListener("click",function(){codFiltro=b.getAttribute("data-cf");renderCodTabella(codDati());});
+  });
+}
+function codiciCsv(){
+  var righe=codRighe(); if(!righe.length)return;
+  var v=function(x){return x==null?"":String(x).replace(/"/g,'""');};
+  var csv=[COD_COLS.map(function(c){return c.t;}).join(";")]
+    .concat(righe.map(function(r){return COD_COLS.map(function(c){return '"'+v(r[c.k])+'"';}).join(";");})).join("\n");
+  fallbackDL("﻿"+csv,"codici-sconto-rf-"+(codDati().al||"")+".csv",CSVMIME);
 }
 function renderRFOperatori(){
   var el=document.getElementById("rfOpTable"); if(!el)return;
@@ -4149,6 +4408,9 @@ function initControls(){
   var _wcsv=document.getElementById("rfWalCsv"); if(_wcsv)_wcsv.addEventListener("click",walletCsv);
   var _wq=document.getElementById("rfWalQ");
   if(_wq)_wq.addEventListener("input",function(){walQ=_wq.value; renderWallet(); _wq.focus();});
+  var _ccsv=document.getElementById("rfCodCsv"); if(_ccsv)_ccsv.addEventListener("click",codiciCsv);
+  var _cq=document.getElementById("rfCodQ");
+  if(_cq)_cq.addEventListener("input",function(){codQ=_cq.value; renderCodTabella(codDati()); _cq.focus();});
   /* Navigazione a due livelli: prima l'area (General, MKT, Sales...), sotto solo le tab di
      quell'area. Prima stavano tutte su una riga sola, e con undici tab IREC la riga andava a
      capo e il nome del gruppo si perdeva. L'area scelta resta fra una visita e l'altra. */
