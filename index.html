@@ -921,6 +921,9 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
         <span class="hint">Lead per data questionario &middot; MQL e seguenti per CloseDate</span>
       </div>
       <div class="card-b scroll"><table id="incTable"></table></div>
+      <p class="hint" style="color:var(--muted);font-size:12px;margin:0;padding:0 16px 16px">
+        Le due righe <b>di cui</b> sotto i Lead totali dicono in che stato sta il lead <b>adesso</b>: <b>Nuovo</b> &egrave; quello che nessuno ha ancora preso in mano, <b>Attivo&nbsp;&ndash;&nbsp;Working</b> quello che un operatore sta lavorando. Insieme sono la <b>coda ancora aperta</b> su quel mese, e <b>non fanno il totale</b>: gli altri lead sono gi&agrave; a un esito (Convertito, Chiuso&nbsp;&ndash;&nbsp;Scartato, Scartato, Non Risponde) e non si contano qui. Essendo lo stato di oggi, questi due numeri <b>calano da soli</b> col passare dei giorni: un lead di ottobre lavorato stasera domani non &egrave; pi&ugrave; Nuovo. Il mese resta quello della <b>compilazione del questionario</b>, come per i Lead totali.
+      </p>
     </div>
 
     <div class="card" style="margin-bottom:18px">
@@ -956,6 +959,7 @@ WHERE CloseDate &gt;= [data inizio] AND CloseDate &lt;= [data fine]
         <thead><tr><th>Voce</th><th>Oggetto e data</th><th>Come &egrave; calcolata</th></tr></thead>
         <tbody>
           <tr><td class="voce">Lead totali</td><td>Lead &middot; <code>Data_Compilazione_Questionario__c</code></td><td>Tutti i lead dell&rsquo;anno che passano il filtro Incassi Intelligenti. Nessuna esclusione: si contano anche quelli <b>senza</b> <code>utm_source</code>, cio&egrave; chi non arriva da un link tracciato. &Egrave; il denominatore della colonna <b>% sui lead</b>.</td></tr>
+          <tr><td class="voce">di cui Nuovo<br><span class="muted" style="font-weight:400">di cui Attivo &ndash; Working</span></td><td>Lead &middot; <code>Status</code> di oggi</td><td>I Lead totali spaccati per <b>stato attuale del lead</b>: <b>Nuovo</b> = nessuno l&rsquo;ha ancora preso in mano, <b>Attivo - Working</b> = un operatore lo sta lavorando. Insieme sono la <b>coda ancora aperta</b> su quel mese. <b>Non fanno il totale</b>, ed &egrave; voluto: gli altri stati del picklist (<i>Convertito</i>, <i>Chiuso - Scartato</i>, <i>Scartato</i>, <i>Non Risponde</i>) sono esiti, non coda, e non si mostrano. Attenzione: lo stato &egrave; quello di <b>adesso</b>, non una fotografia del mese, quindi questi due numeri <b>calano da soli</b> man mano che i lead vengono lavorati; il mese di appartenenza resta per&ograve; quello della compilazione del questionario. Se la query sugli stati non risponde le celle restano a <b>trattino</b>, non a zero.</td></tr>
           <tr><td class="voce">MQL</td><td>Opportunity &middot; <code>CloseDate</code></td><td>Opportunity nate dal lead, con <code>LeadSource != 'Reopen'</code> (le riaperture non sono contatti nuovi).</td></tr>
           <tr><td class="voce">SQL</td><td>Opportunity &middot; <code>CloseDate</code></td><td>MQL che hanno <b>un importo valorizzato</b> (anche 0,00), oppure sono in <code>StageName='Trattativa'</code>, oppure sono Chiuso-Perso con un motivo di perdita commerciale. &Egrave; il momento in cui la rete vendita ha preso in mano il contatto.</td></tr>
           <tr><td class="voce">Trattative</td><td>Opportunity &middot; <code>CloseDate</code></td><td>MQL con <b>importo valorizzato</b> (0,00 oppure maggiore di zero): c&rsquo;&egrave; una proposta sul tavolo.</td></tr>
@@ -4082,7 +4086,9 @@ function renderIncassi(){
   for(var m=0;m<12;m++)h+='<th class="'+(m===CUR_MONTH-1?"colhdr-now":"")+'">'+MESI[m]+'</th>';
   h+='</tr></thead><tbody>';
   voci.forEach(function(r){
-    h+='<tr><td class="voce">'+r.v+'</td>';
+    /* Le righe "di cui" sono un dettaglio della riga sopra, non una voce del funnel: rientrate
+       e smorzate si legge subito a chi appartengono. */
+    h+='<tr><td class="voce"'+(r.sub?' style="padding-left:26px;font-weight:500;color:var(--muted)"':'')+'>'+esc(r.v)+'</td>';
     for(var m=0;m<12;m++){
       var v=r.data?r.data[m]:null;
       h+='<td class="'+(m===CUR_MONTH-1?"now":"")+'">'
@@ -4120,8 +4126,11 @@ function renderIncassi(){
     var dN=(v!=null&&b!=null)?v-b:null;
     var dP=(v!=null&&b!=null&&b!==0)?(v-b)/b*100:null;
     var cls=dN==null?"":(dN>=0?"cell g":"cell b");
-    p+='<tr><td class="voce">'+r.v+'</td>'
-      +'<td><input class="bud tnum" type="number" inputmode="numeric" placeholder="&mdash;" data-voce="'+r.v.replace(/"/g,"")+'" value="'+(b==null?"":b)+'"></td>'
+    p+='<tr><td class="voce"'+(r.sub?' style="padding-left:26px;font-weight:500;color:var(--muted)"':'')+'>'+esc(r.v)+'</td>'
+      /* Sulle righe "di cui" il budget non si mette: non si fa un forecast di quanti lead
+         resteranno da lavorare, e una casella vuota li' inviterebbe solo a riempirla. */
+      +'<td>'+(r.sub?'<span class="muted">&mdash;</span>'
+                   :'<input class="bud tnum" type="number" inputmode="numeric" placeholder="&mdash;" data-voce="'+r.v.replace(/"/g,"")+'" value="'+(b==null?"":b)+'">')+'</td>'
       +'<td class="tnum">'+(v==null?'<span class="muted">&mdash;</span>':nf(v))+'</td>'
       +'<td class="tnum" style="color:var(--accent)">'+(pr==null?'<span class="muted">&mdash;</span>':pr.toLocaleString("it-IT",{maximumFractionDigits:1})+"%")+'</td>'
       +'<td class="tnum">'+(dN==null?'<span class="muted">&mdash;</span>':'<span class="'+cls+'">'+(dN>0?"+":"")+nf(dN)+'</span>')+'</td>'

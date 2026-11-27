@@ -92,6 +92,18 @@ const iiGrp = (i)=>{
   return `SELECT ${g} m,COUNT(Id) t FROM ${from} WHERE ${anno}${VW[i].extra} AND ${II_W} GROUP BY ${g}`;
 };
 const iiFonti = ()=> `SELECT LeadSource s,COUNT(Id) t FROM Lead WHERE CALENDAR_YEAR(Data_Compilazione_Questionario__c)=${YEAR} AND ${II_W} GROUP BY LeadSource ORDER BY COUNT(Id) DESC LIMIT 50`;
+/* Di cui, sui Lead totali: in che stato sta il lead adesso. "Nuovo" e' quello che nessuno ha
+   ancora preso in mano, "Attivo - Working" quello che un operatore sta lavorando: insieme
+   dicono quanta coda c'e' ancora aperta su quel mese. Gli altri stati del picklist
+   (Chiuso - Scartato, Convertito, Scartato, Non Risponde) sono esiti, non coda, e non si
+   mostrano - per questo i due "di cui" non arrivano al totale, ed e' voluto.
+   Lo stato e' quello di oggi, non una fotografia del mese: un lead di ottobre che viene
+   lavorato stasera domani non e' piu' Nuovo. Il mese a cui appartiene resta pero' quello
+   della compilazione del questionario, come per i Lead totali sopra.
+   Una query sola, raggruppata per mese e stato: gli stati sono sei in tutto, non vale la
+   pena di una query per ognuno. */
+const II_STATI = ['Nuovo', 'Attivo - Working'];
+const iiStati = ()=> `SELECT ${CM} m,Status s,COUNT(Id) t FROM Lead WHERE CALENDAR_YEAR(Data_Compilazione_Questionario__c)=${YEAR} AND ${II_W} GROUP BY ${CM},Status`;
 
 /* Albero UTM: una riga per combinazione dei quattro parametri. Le voci Lead sono ancorate alla
    data di compilazione, quelle Opportunity alla CloseDate, come in tutte le altre viste. */
@@ -298,6 +310,19 @@ export default async function handler(req, res){
       for(const v of II_VOCI){
         const recs = await soql(ctx, iiGrp(v.i));
         voci.push({ v:v.v, data: buildMonthly(recs,'t',curM) });
+        /* Subito sotto i Lead totali, il loro di cui per stato. Sta qui e non in fondo
+           perche' una riga "di cui" lontana dalla riga di cui parla non si legge. */
+        if(v.i===0){
+          let perStato=null;
+          try{ perStato = await soql(ctx, iiStati()); }catch(_e){ perStato=null; }
+          for(const st of II_STATI){
+            /* Se la query sugli stati non e' andata, le celle restano vuote: buildMonthly
+               riempirebbe di zeri i mesi passati, e uno zero qui si legge "nessun lead in
+               quello stato" invece di "non lo sappiamo". */
+            voci.push({ v:'di cui '+st, sub:true,
+              data: perStato ? buildMonthly(perStato.filter(r=>r.s===st),'t',curM) : new Array(12).fill(null) });
+          }
+        }
       }
       // a che sorgenti corrisponde il filtro: serve a vedere se prende le cose giuste
       let fonti=[];
